@@ -1,6 +1,6 @@
 # Reflection Debug Console
 
-Repository for maintaining the debug console plugin that I use in client projects. This plugin is continuously under development and is not optimized for production. Include at your own risk.
+Repository for maintaining the debug console plugin that I use in client projects. This plugin is continuously under development and is not optimized for production. Use at your own risk.
 
 ![alt text](https://github.com/AggroBird/ReflectionDebugConsole/blob/main/example.png?raw=true "Debug Console")
 
