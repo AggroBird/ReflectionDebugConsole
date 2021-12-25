@@ -1,0 +1,16 @@
+{
+    "name": "AggroBird.DebugConsole.Editor",
+    "references": [
+        "AggroBird.DebugConsole"
+    ],
+    "optionalUnityReferences": [],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": []
+}
