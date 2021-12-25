@@ -1,0 +1,34 @@
+# Files
+*.d
+*.slo
+*.lo
+*.o
+*.obj
+*.gch
+*.pch
+*.so
+*.dylib
+*.dll
+*.mod
+*.smod
+*.lai
+*.la
+*.a
+*.lib
+*.exe
+*.out
+*.app
+
+# Subversion
+.svn
+
+# Visual studio
+.vs
+*.sln
+*.vcxproj
+*.vcxproj.*
+intermediate
+bin
+
+# Unity
+*.meta
