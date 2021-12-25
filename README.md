@@ -72,11 +72,11 @@ UnityEngine.Object.FindObjectOfType(typeof(UnityEngine.Camera));
 
 The environment exposes a method called "cast" for type casting. This is useful for methods that return a base type, like FindObjectOfType.
 ```
-cast(UnityEngine.Object.FindObjectOfType(UnityEngine.Camera), UnityEngine.Camera);
+cast(UnityEngine.Object.FindObjectOfType(UnityEngine.Camera), UnityEngine.Camera).enabled = false;
 ```
-For this case in particular, the environment contains a "find" method which calls FindObjectOfType, but casts the return value to the specified type:
+To simplify this, the environment contains a "find" method which calls FindObjectOfType, but casts the return value to the specified type:
 ```
-find(Camera);
+find(Camera).enabled = false;
 ```
 
 The console allows you to store runtime variables, which can be shared between commands within the same execution. These variables are cleared after the execution.
