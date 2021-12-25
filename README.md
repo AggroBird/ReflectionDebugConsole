@@ -90,6 +90,8 @@ The console comes with an interface to store frequently called commands as macro
 
 These macros are stored in an asset file and can be checked into source control. Besides project-wide macros, you can also define local macros, which get stored in your local player prefs.
 
+![alt text](https://github.com/AggroBird/ReflectionDebugConsole/blob/main/macro.png?raw=true "Macro")
+
 ## Environment and Utility
 
 The console comes with a small set of helper functions to make debugging easier. This is located in one single script file and can be extended for your particular project (see Environment.cs).
