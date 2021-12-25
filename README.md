@@ -116,4 +116,4 @@ The console can be excluded by either disabling the specific platform in the con
 
 - **Not a scripting environment**: The debug console is not meant to be a scripting environment. It can only invoke existing methods and fields, and it has no control flow. Advanced debugging code should still be implemented in your project.
 - **No generics**: The debug console currently does not support C# generics. Generic classes will show up in the assembly search, and fields using generic types can be interacted with, but it is not possible to construct new classes that use generic parameters.
-- **Limited support in IL2CPP**: The debug console is not intended for IL2CPP builds due to reflection limitations. The console in IL2CPP builds may have its search scope limited due to assembly stripping, or may not work at all.
+- **Limited support in IL2CPP**: The debug console is not intended for IL2CPP builds due to reflection limitations. The console may have its search scope limited in IL2CPP builds due to assembly stripping, or may not work at all.
