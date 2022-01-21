@@ -47,7 +47,7 @@ This can only be done with top level commands. Assignment cannot be nested as it
 
 Getting elements of an array:
 ```
-UnityEngine.Object.FindObjectsOfType(Camera)[0].enabled;
+UnityEngine.Object.FindObjectsOfType(Camera)[0].ToString();
 ```
 
 Constructing new objects:
