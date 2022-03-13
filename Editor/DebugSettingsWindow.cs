@@ -61,7 +61,7 @@ namespace AggroBird.DebugConsole.Editor
                 return AssetDatabase.GUIDToAssetPath(assets[0]);
             }
 
-            string resourceFolder = $"Assets/Resources/{DebugConsole.Namespace}";
+            string resourceFolder = $"Assets/Resources";
             if (!Directory.Exists(resourceFolder)) Directory.CreateDirectory(resourceFolder);
             string resourcePath = $"{resourceFolder}/{DebugConsole.SettingsFileName}.asset";
             AssetDatabase.CreateAsset(CreateInstance<DebugSettings>(), resourcePath);
