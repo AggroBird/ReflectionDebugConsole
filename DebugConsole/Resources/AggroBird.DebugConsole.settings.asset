@@ -1,0 +1,50 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 71ddafb35e4ac94459e470f69a510364, type: 3}
+  m_Name: AggroBird.DebugConsole.settings
+  m_EditorClassIdentifier: 
+  openConsoleKeys:
+  - mod: 0
+    code: 96
+  - mod: 0
+    code: 126
+  submitInputKeys:
+  - mod: 0
+    code: 13
+  - mod: 0
+    code: 271
+  closeConsoleKey:
+    mod: 0
+    code: 27
+  autoCompleteKey:
+    mod: 0
+    code: 9
+  prevHistoryKey:
+    mod: 0
+    code: 280
+  nextHistoryKey:
+    mod: 0
+    code: 281
+  prevSuggestionKey:
+    mod: 0
+    code: 273
+  nextSuggestionKey:
+    mod: 0
+    code: 274
+  fontSize: 13
+  invertScale: 1
+  maxHistoryCount: 100
+  safeMode: 1
+  sharedMacros: []
+  namespaces: []
+  loadAllAssemblies: 1
+  assemblies: []

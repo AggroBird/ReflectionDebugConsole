@@ -29,6 +29,3 @@
 *.vcxproj.*
 intermediate
 bin
-
-# Unity
-*.meta
