@@ -61,32 +61,12 @@ namespace AggroBird.DebugConsole.Editor
                 return AssetDatabase.GUIDToAssetPath(assets[0]);
             }
 
-            assets = AssetDatabase.FindAssets(DebugConsole.UniqueKey);
-            if (assets != null && assets.Length > 0)
-            {
-                string assetPath = null;
-                foreach (var guid in assets)
-                {
-                    string asset = AssetDatabase.GUIDToAssetPath(guid);
-                    if (Path.GetFileNameWithoutExtension(asset).EndsWith(DebugConsole.UniqueKey))
-                    {
-                        assetPath = asset;
-                        break;
-                    }
-                }
-                if (!string.IsNullOrEmpty(assetPath))
-                {
-                    string resourcePath = Path.GetDirectoryName(assetPath);
-                    resourcePath = Path.Combine(resourcePath, "Resources");
-                    if (!Directory.Exists(resourcePath)) Directory.CreateDirectory(resourcePath);
-                    resourcePath = Path.Combine(resourcePath, DebugConsole.SettingsFileName + ".asset");
-                    AssetDatabase.CreateAsset(CreateInstance<DebugSettings>(), resourcePath);
-                    AssetDatabase.ImportAsset(resourcePath);
-                    return resourcePath;
-                }
-            }
-
-            throw new UnityException("Failed to locate debug console settings file");
+            string resourceFolder = $"Assets/Resources/{DebugConsole.Namespace}";
+            if (!Directory.Exists(resourceFolder)) Directory.CreateDirectory(resourceFolder);
+            string resourcePath = $"{resourceFolder}/{DebugConsole.SettingsFileName}.asset";
+            AssetDatabase.CreateAsset(CreateInstance<DebugSettings>(), resourcePath);
+            AssetDatabase.ImportAsset(resourcePath);
+            return resourcePath;
         }
 
         private void OnGUI()

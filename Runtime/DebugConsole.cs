@@ -18,7 +18,7 @@ namespace AggroBird.DebugConsole
         internal const string SettingsKey = "settings";
         internal const string MacrosKey = "macros";
         internal const string InstanceKey = "instance";
-        internal static readonly string UniqueKey = $"{Namespace}.DebugConsole";
+        internal static readonly string UniqueKey = $"{Namespace}.ReflectionDebugConsole";
         internal static readonly string SettingsFileName = $"{UniqueKey}.{SettingsKey}";
 
         public delegate void OnConsoleFocusChange(bool isFocused);
