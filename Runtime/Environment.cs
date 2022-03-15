@@ -1,6 +1,6 @@
 // Copyright, 2021, AggrobirdGK
 
-#if !NO_DEBUG_CONSOLE
+#if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
 using System;
 using System.Reflection;
 using System.Text;

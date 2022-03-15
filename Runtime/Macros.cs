@@ -101,7 +101,7 @@ namespace AggroBird.DebugConsole
 
     public static class Macros
     {
-#if !NO_DEBUG_CONSOLE
+#if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
         internal static List<Macro> localMacros = DebugConsole.LoadPrefs<ListObject<Macro>>(DebugConsole.MacrosKey);
 
         public static void Add(Macro macro)

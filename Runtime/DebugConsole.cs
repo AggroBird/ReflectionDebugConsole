@@ -24,7 +24,7 @@ namespace AggroBird.DebugConsole
         public delegate void OnConsoleFocusChange(bool isFocused);
         public static OnConsoleFocusChange onConsoleFocusChange = default;
 
-#if !NO_DEBUG_CONSOLE
+#if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
         public static void Open() => GetInstance().OpenConsole();
         public static void Close() => GetInstance().CloseConsole();
 

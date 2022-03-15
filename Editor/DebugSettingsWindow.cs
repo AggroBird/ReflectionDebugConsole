@@ -312,7 +312,7 @@ namespace AggroBird.DebugConsole.Editor
         }
         private void OnMacrosChanged()
         {
-#if !NO_DEBUG_CONSOLE
+#if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
             Macros.localMacros = localMacros;
 
             DebugConsole.ReloadMacroTable();
@@ -320,13 +320,13 @@ namespace AggroBird.DebugConsole.Editor
         }
         private void OnNamespacesChanged()
         {
-#if !NO_DEBUG_CONSOLE
+#if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
             DebugConsole.ReloadNamespaces();
 #endif
         }
         private void OnAssembliesChanged()
         {
-#if !NO_DEBUG_CONSOLE
+#if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
             DebugConsole.ReloadAssemblies();
 #endif
         }

@@ -16,7 +16,7 @@ namespace AggroBird.DebugConsole.Editor
             window.Show();
         }
 
-#if !NO_DEBUG_CONSOLE
+#if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
         private ConsoleGUI gui = new ConsoleGUI(true);
 #endif
 
@@ -32,10 +32,10 @@ namespace AggroBird.DebugConsole.Editor
 
         private void OnGUI()
         {
-#if !NO_DEBUG_CONSOLE
+#if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
             gui.UpdateGUI(position.size, DebugSettings.DefaultFontSize);
 #else
-            GUI.Label(new Rect(0, 0, position.width, position.height), "Debug Console is disabled");
+            GUI.Label(new Rect(0, 0, position.width, 20), "Debug Console is disabled");
 #endif
         }
     }

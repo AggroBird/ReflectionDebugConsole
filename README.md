@@ -110,7 +110,7 @@ The DebugConsole class exposes a public property (see DebugConsole.scale) which 
 
 ## Excluding the Console from Builds
 
-The console can be excluded by either disabling the specific platform in the console's assembly definition, or by defining "NO_DEBUG_CONSOLE" in your project's scripting define symbols. Using the latter will switch the console's public methods to empty implementations which do nothing when invoked, removing the need to wrap these calls with defines in your own code.
+The console can be excluded by either disabling the specific platform in the console's assembly definition, or by defining "EXCLUDE_DEBUG_CONSOLE" in your project's scripting define symbols. Using the latter will switch the console's public methods to empty implementations which do nothing when invoked, removing the need to wrap these calls with defines in your own code. To build the console along with standalone builds, use the "INCLUDE_DEBUG_CONSOLE" define. "EXCLUDE_DEBUG_CONSOLE" will always have precedence over "INCLUDE_DEBUG_CONSOLE".
 
 ## Limitations
 
