@@ -23,6 +23,7 @@ namespace AggroBird.DebugConsole
 
         public bool isConsoleOpen { get; private set; }
         public bool hasConsoleFocus { get; private set; }
+        private int consoleFocusFrameCount = 0;
 
         private int captureConsole = 0;
         private int capturePos = -1;
@@ -101,7 +102,13 @@ namespace AggroBird.DebugConsole
 
             UpdateKeyboardEvents();
 
-            hasConsoleFocus = false;
+            // Keep console focus for some extra frames to catch any return
+            // input presses going directly to the original application
+            if (isLayout && consoleFocusFrameCount > 0)
+            {
+                consoleFocusFrameCount--;
+            }
+            hasConsoleFocus = consoleFocusFrameCount > 0;
 
             if (isConsoleOpen)
             {
@@ -151,6 +158,8 @@ namespace AggroBird.DebugConsole
                 TextEditor editor = null;
                 if (hasConsoleFocus)
                 {
+                    consoleFocusFrameCount = 2;
+
                     editor = (TextEditor)GUIUtility.GetStateObject(typeof(TextEditor), GUIUtility.keyboardControl);
                     selectionPos = (capturePos == -1) ? editor.cursorIndex : capturePos;
                 }
@@ -391,7 +400,7 @@ namespace AggroBird.DebugConsole
                                 if (!suggestion.offsetText.StartsWith(main, true, null))
                                     goto SkipSuggestion;
                             }
-                            
+
                             // Apply suggestion
                             InsertSuggestion(shortest);
                             inputChanged = true;
