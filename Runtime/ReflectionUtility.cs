@@ -1,4 +1,4 @@
-﻿// Copyright, 2021, AggrobirdGK
+﻿// Copyright, 2022, AggrobirdGK
 
 #if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
 using System;

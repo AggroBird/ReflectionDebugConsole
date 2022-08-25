@@ -1,4 +1,4 @@
-﻿// Copyright, 2021, AggrobirdGK
+﻿// Copyright, 2022, AggrobirdGK
 
 #if UNITY_EDITOR
 using UnityEngine;
