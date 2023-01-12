@@ -47,7 +47,7 @@ This can only be done with top level commands. Assignment cannot be nested as it
 
 Getting elements of an array:
 ```
-UnityEngine.Object.FindObjectsOfType(Camera)[0].ToString();
+UnityEngine.Object.FindObjectsOfType(typeof(Camera))[0].ToString();
 ```
 
 Constructing new objects:
@@ -60,29 +60,9 @@ Multiple commands can be chained together within one execution by separating the
 EditorApplication.isPlaying = true; EditorApplication.isPaused = true;
 ```
 
-The debug console will pick method overloads very liberally, stopping the search at the first method which will take the supplied parameters (either directly or through conversion). Make sure that you avoid ambiguity in your debug method parameter types.
+The debug console try to pick the best matching overload when multiple are available, but not as strict as the C# language, so make sure to avoid ambiguity in debug commands.
 
-By default, number literals will be parsed as integers. If the literal value does not fit within integer range or contains floating point notation, C#'s Decimal class will be used. Strings can be declared using double quotes and characters using single quotes. Conversion between value types is always implicit, and C#'s type casting rules are not enforced.
-
-The environment contains a "typeof" method to get the type of the specified object, but this is optional for method parameters. The following two calls produce the same result:
-```
-UnityEngine.Object.FindObjectOfType(UnityEngine.Camera);
-UnityEngine.Object.FindObjectOfType(typeof(UnityEngine.Camera));
-```
-
-The environment exposes a method called "cast" for type casting. This is useful for methods that return a base type, like FindObjectOfType.
-```
-cast(UnityEngine.Object.FindObjectOfType(UnityEngine.Camera), UnityEngine.Camera).enabled = false;
-```
-To simplify this, the environment contains a "find" method which calls FindObjectOfType, but casts the return value to the specified type:
-```
-find(Camera).enabled = false;
-```
-
-The console allows you to store runtime variables, which can be shared between commands within the same execution. These variables are cleared after the execution.
-```
-$foo = 5; UnityEngine.Debug.Log($foo);
-```
+The environment supports all C# basetypes and build-in operators between them.
 
 ## Macros and Keybinds
 
@@ -93,10 +73,6 @@ These macros are stored in an asset file and can be checked into source control.
 ![alt text](https://github.com/AggroBird/ReflectionDebugConsole/blob/main/macro.png?raw=true "Macro")
 
 ## Environment and Utility
-
-The console comes with a small set of helper functions to make debugging easier. This is located in one single script file and can be extended for your particular project (see Environment.cs).
-
-Static properties defined in this class will be interpreted as custom keywords, and static methods will be defined as helper functions. These functions will show up outside of any namespaces for quick access.
 
 The console can also be invoked via script (see DebugConsole.Execute). By default, the console will not disable game input when focused. This has to be implemented by the game (see DebugConsole.hasFocus and DebugConsole.onConsoleFocusChange).
 
@@ -114,6 +90,5 @@ The console can be excluded by either disabling the specific platform in the con
 
 ## Limitations
 
-- **Not a scripting environment**: The debug console is not meant to be a scripting environment. It can only invoke existing methods and fields, and it has no control flow. Advanced debugging code should still be implemented in your project.
 - **No generics**: The debug console currently does not support C# generics. Generic classes will show up in the assembly search, and fields using generic types can be interacted with, but it is not possible to construct new classes that use generic parameters.
 - **Limited support in IL2CPP**: The debug console is not intended for IL2CPP builds due to reflection limitations. The console may have its search scope limited in IL2CPP builds due to assembly stripping, or may not work at all.
