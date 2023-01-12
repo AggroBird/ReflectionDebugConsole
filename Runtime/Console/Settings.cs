@@ -1,0 +1,128 @@
+// Copyright, AggrobirdGK
+
+using System;
+using System.Collections.Generic;
+using System.Reflection;
+using UnityEngine;
+
+namespace AggroBird.DebugConsole
+{
+    [Serializable]
+    internal sealed class AssemblyTable
+    {
+        [SerializeField] private bool loadAllAssemblies = true;
+        [SerializeField] private string[] assemblies = Array.Empty<string>();
+
+        public Assembly[] GetEnabledAssemblies()
+        {
+            List<Assembly> result = new List<Assembly>();
+
+            HashSet<string> filter = new HashSet<string>();
+            foreach (var loadAssembly in assemblies)
+            {
+                filter.Add(loadAssembly);
+            }
+
+            if (loadAllAssemblies)
+            {
+                foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    // Excluded
+                    if (!filter.Contains(assembly.GetName().Name))
+                    {
+                        result.Add(assembly);
+                    }
+                }
+            }
+            else
+            {
+                foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
+                {
+                    // Included
+                    if (filter.Contains(assembly.GetName().Name))
+                    {
+                        result.Add(assembly);
+                    }
+                }
+            }
+
+            return result.ToArray();
+        }
+    }
+
+    internal sealed class Settings : ScriptableObject
+    {
+        internal const int DefaultFontSize = 13;
+
+        [Header("Keybinds")]
+        [Tooltip("Keybinds for opening the console")]
+        public KeyBind[] openConsoleKeys = new KeyBind[]
+        {
+            new KeyBind(KeyMod.None, KeyCode.BackQuote),
+            new KeyBind(KeyMod.None, KeyCode.Tilde),
+        };
+        [Tooltip("Keybinds for submitting the input")]
+        public KeyBind[] submitInputKeys = new KeyBind[]
+        {
+            new KeyBind(KeyMod.None, KeyCode.Return),
+            new KeyBind(KeyMod.None, KeyCode.KeypadEnter),
+        };
+
+        [Tooltip("Keybind for closing the console")]
+        public KeyBind closeConsoleKey = new KeyBind(KeyMod.None, KeyCode.Escape);
+        [Tooltip("Keybind for autocompleting the most relevant suggestion")]
+        public KeyBind autoCompleteKey = new KeyBind(KeyMod.None, KeyCode.Tab);
+
+        [Tooltip("Keybind for previous command in history")]
+        public KeyBind prevHistoryKey = new KeyBind(KeyMod.None, KeyCode.PageUp);
+        [Tooltip("Keybind for next command in history")]
+        public KeyBind nextHistoryKey = new KeyBind(KeyMod.None, KeyCode.PageDown);
+
+        [Tooltip("Keybind for previous suggestion in suggestion list")]
+        public KeyBind prevSuggestionKey = new KeyBind(KeyMod.None, KeyCode.UpArrow);
+        [Tooltip("Keybind for next suggestion in suggestion list")]
+        public KeyBind nextSuggestionKey = new KeyBind(KeyMod.None, KeyCode.DownArrow);
+
+        [Header("Console Settings")]
+        [Tooltip("Max entry count in command history"), Min(0)]
+        public int maxHistoryCount = 100;
+        [Tooltip("Max iteration count in loops"), Min(0)]
+        public int maxIterationCount = 100000;
+        [Tooltip("Prevent access to private members in safe mode")]
+        public bool safeMode = true;
+
+        [Header("Game View")]
+        [Tooltip("Constant pixel size of the console font")]
+        public int fontSize = DefaultFontSize;
+        [Tooltip("Increase the console scale when rendering the game at a greater resolution (editor only)")]
+        public bool invertScale = true;
+
+        [Header("Debug Server")]
+        [Tooltip("Automatically start a debug server on application startup")]
+        public bool startDebugServer = true;
+        [Tooltip("Port that the debug server listens on"), Min(0)]
+        public int serverPort = 2302;
+        [Tooltip("Unique key to prevent random clients from connecting")]
+        public string authenticationKey = string.Empty;
+
+        [Header("Macros")]
+        [Tooltip("Shared macros (saved to settings)")]
+        public List<Macro> sharedMacros = new List<Macro>();
+
+        [Header("Using Namespaces")]
+        [Tooltip("Autocomplete namespaces")]
+        public List<string> namespaces = new List<string>();
+
+        [Header("Assemblies")]
+        [Tooltip("Assemblies to include/exclude from the scan")]
+        public AssemblyTable assemblies = new AssemblyTable();
+
+
+#if UNITY_EDITOR && !EXCLUDE_DEBUG_CONSOLE
+        private void OnValidate()
+        {
+            DebugConsole.Reload();
+        }
+#endif
+    }
+}

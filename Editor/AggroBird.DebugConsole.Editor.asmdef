@@ -1,7 +1,8 @@
 {
     "name": "AggroBird.DebugConsole.Editor",
+    "rootNamespace": "AggroBird.DebugConsole.Editor",
     "references": [
-        "AggroBird.DebugConsole"
+        "GUID:91bad8fd29d8943418494004d9789b84"
     ],
     "includePlatforms": [
         "Editor"
@@ -10,7 +11,7 @@
     "allowUnsafeCode": false,
     "overrideReferences": false,
     "precompiledReferences": [],
-    "autoReferenced": false,
+    "autoReferenced": true,
     "defineConstraints": [],
     "versionDefines": [],
     "noEngineReferences": false
