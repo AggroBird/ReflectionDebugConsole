@@ -584,34 +584,66 @@ namespace AggroBird.DebugConsole
 
 #if UNITY_EDITOR
             // Handle console commands
-            if (cmd[0] == '/')
+            if (cmd.Length > 1 && cmd[0] == '/' && cmd[1] != ' ')
             {
-                if (cmd.StartsWith("/open"))
+                string[] args = cmd.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                switch (args[0])
                 {
-                    cmd = cmd.Substring(5).Trim();
-                    int portIdx = cmd.IndexOf(':');
-                    if (portIdx == -1)
+                    case "/open":
                     {
-                        OpenConnection(cmd, Settings.serverPort);
-                    }
-                    else
-                    {
-                        if (portIdx == 0 || !int.TryParse(cmd.Substring(portIdx + 1), out int port))
+                        if (args.Length != 2)
                         {
-                            throw new DebugConsoleException($"Invalid network address format: '{cmd}'");
+                            LogError($"Invalid amount of arguments provided for command '{args[0]}'");
+                            return false;
                         }
-                        cmd = cmd.Substring(0, portIdx);
-                        OpenConnection(cmd, port);
+
+                        int portIdx = args[1].LastIndexOf(':');
+                        if (portIdx == -1)
+                        {
+                            OpenConnection(args[1], Settings.serverPort);
+                        }
+                        else
+                        {
+                            if (portIdx == 0 || !int.TryParse(cmd.Substring(portIdx + 1), out int port))
+                            {
+                                LogError($"Invalid ip address format: '{args[1]}'");
+                                return false;
+                            }
+
+                            OpenConnection(cmd, port);
+                        }
                     }
+                    break;
+
+                    case "/close":
+                    {
+                        if (args.Length > 1)
+                        {
+                            LogError($"Invalid amount of arguments provided for command '{args[0]}'");
+                            return false;
+                        }
+
+                        CloseConnection();
+                    }
+                    break;
+
+                    case "/reload":
+                    {
+                        if (args.Length > 1)
+                        {
+                            LogError($"Invalid amount of arguments provided for command '{args[0]}'");
+                            return false;
+                        }
+
+                        Reload();
+                    }
+                    break;
+
+                    default:
+                        LogError($"Unknown console command: '{args[0]}'");
+                        break;
                 }
-                else if (cmd.StartsWith("/close"))
-                {
-                    CloseConnection();
-                }
-                else
-                {
-                    LogError($"Unknown console command: '{cmd}'");
-                }
+
                 return true;
             }
 
