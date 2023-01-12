@@ -24,8 +24,7 @@ Modifying script in Unity Editor while the game is running can be perilous, as i
 
 The Reflection Debug Console uses C#'s reflection facilities to expose methods and fields to you at runtime. Anything can be invoked, including .Net classes, methods from Unity (both editor and runtime) and methods in your own script, no boilerplate required.
 
-By default, the console will only scan exposed public classes and members. Searching can be expanded into unexposed private members by turning off "Safe Mode" in the console's editor settings window. 
-WARNING: Accessing unexposed private code can cause damage to your editor environment. Make sure to only disable this setting when you are aware of the consequences.
+By default, the console will only scan exposed public classes and members. Searching can be expanded into unexposed private members by turning off "Safe Mode" in the console's editor settings window. Accessing unexposed private code can cause damage to your editor environment. Make sure to only disable this setting when you are aware of the consequences.
 
 The settings can be accessed in the editor through Window > Analysis > Debug Console Settings.
 
@@ -77,6 +76,8 @@ These macros are stored in an asset file and can be checked into source control.
 The console can also be invoked via script (see DebugConsole.Execute). By default, the console will not disable game input when focused. This has to be implemented by the game (see DebugConsole.hasFocus and DebugConsole.onConsoleFocusChange).
 
 You can have specific namespaces be skipped in the search by adding them to the "Using Namespaces" list in the console settings window. Commonly excluded namespaces include "UnityEngine", "System" and namespaces from your own project.
+
+The console ships with a debug server that can accept commands remotely. To enable this in your build, add the INCLUDE_DEBUG_SERVER define. Connections can be established from the editor using the ```/open <ip address>``` command.
 
 ## Console Scaling
 
