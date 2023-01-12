@@ -7,7 +7,7 @@ namespace AggroBird.DebugConsole.Editor
 {
     internal sealed class EditorInstance : EditorWindow
     {
-        [MenuItem("Window/Analysis/Debug Console Instance", priority = 51)]
+        [MenuItem("Window/Analysis/Debug Console Instance", priority = 50)]
         public static void ShowWindow()
         {
             EditorInstance window = CreateInstance<EditorInstance>();

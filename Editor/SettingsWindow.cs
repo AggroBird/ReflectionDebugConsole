@@ -10,7 +10,15 @@ namespace AggroBird.DebugConsole.Editor
 {
     internal sealed class SettingsWindow : EditorWindow
     {
-        [MenuItem("Window/Analysis/Debug Console Settings", priority = 50)]
+        private static bool isEditorWindow;
+        private static Rect editorWindowPosition;
+
+        public static bool IsVisible(Rect position)
+        {
+            return !isEditorWindow || editorWindowPosition.Overlaps(position);
+        }
+
+        [MenuItem("Window/Analysis/Debug Console Settings", priority = 51)]
         public static void ShowWindow()
         {
             GetWindow<SettingsWindow>("Debug Console Settings");
@@ -131,6 +139,13 @@ namespace AggroBird.DebugConsole.Editor
             windowObject.Update();
 
             scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
+            isEditorWindow = true;
+            Rect newPosition = new Rect(scrollPos, position.size);
+            if (newPosition != editorWindowPosition)
+            {
+                editorWindowPosition = newPosition;
+                EditorGUI.FocusTextInControl(null);
+            }
             SerializedProperty iterator = settingsObject.GetIterator();
             bool enterChildren = true;
             while (iterator.NextVisible(enterChildren))
@@ -148,6 +163,7 @@ namespace AggroBird.DebugConsole.Editor
 
                 enterChildren = false;
             }
+            isEditorWindow = false;
             EditorGUILayout.EndScrollView();
 
             settingsObject.ApplyModifiedProperties();

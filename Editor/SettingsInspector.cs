@@ -37,37 +37,40 @@ namespace AggroBird.DebugConsole.Editor
     {
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
         {
-            EditorGUI.BeginProperty(position, label, property);
+            if (SettingsWindow.IsVisible(position))
+            {
+                EditorGUI.BeginProperty(position, label, property);
 
-            EditorGUI.PrefixLabel(position, label);
-            position.x += 90;
-            position.width -= 90;
+                EditorGUI.PrefixLabel(position, label);
+                position.x += 90;
+                position.width -= 90;
 
-            float textFieldPosition = position.width;
+                float textFieldPosition = position.width;
 
-            SerializedProperty bind = property.FindPropertyRelative("bind");
+                SerializedProperty bind = property.FindPropertyRelative("bind");
 
-            position.width = Mathf.Min(90, position.width / 4);
-            float horizontalStep = position.width + 2;
-            EditorGUI.PropertyField(position, bind.FindPropertyRelative("mod"), GUIContent.none);
-            position.x += horizontalStep;
-            textFieldPosition -= horizontalStep;
+                position.width = Mathf.Min(90, position.width / 4);
+                float horizontalStep = position.width + 2;
+                EditorGUI.PropertyField(position, bind.FindPropertyRelative("mod"), GUIContent.none);
+                position.x += horizontalStep;
+                textFieldPosition -= horizontalStep;
 
-            EditorGUI.PropertyField(position, bind.FindPropertyRelative("code"), GUIContent.none);
-            position.x += horizontalStep;
-            textFieldPosition -= horizontalStep;
+                EditorGUI.PropertyField(position, bind.FindPropertyRelative("code"), GUIContent.none);
+                position.x += horizontalStep;
+                textFieldPosition -= horizontalStep;
 
-            EditorGUI.PropertyField(position, property.FindPropertyRelative("state"), GUIContent.none);
-            position.x += horizontalStep;
-            textFieldPosition -= horizontalStep;
+                EditorGUI.PropertyField(position, property.FindPropertyRelative("state"), GUIContent.none);
+                position.x += horizontalStep;
+                textFieldPosition -= horizontalStep;
 
-            position.y -= 1;
-            position.height -= 1;
+                position.y -= 1;
+                position.height -= 1;
 
-            position.width = textFieldPosition;
-            EditorGUI.PropertyField(position, property.FindPropertyRelative("command"), GUIContent.none);
+                position.width = textFieldPosition;
+                EditorGUI.PropertyField(position, property.FindPropertyRelative("command"), GUIContent.none);
 
-            EditorGUI.EndProperty();
+                EditorGUI.EndProperty();
+            }
         }
     }
 
@@ -95,11 +98,14 @@ namespace AggroBird.DebugConsole.Editor
             float verticalStep = base.GetPropertyHeight(property, label);
 
             position.height = verticalStep;
-
             if (EditorGUI.PropertyField(position, property, label, false))
             {
                 using (new EditorGUI.DisabledGroupScope(EditorApplication.isCompiling || EditorApplication.isUpdating))
                 {
+                    EditorGUI.indentLevel++;
+                    position = EditorGUI.IndentedRect(position);
+                    EditorGUI.indentLevel--;
+
                     position.y += verticalStep;
 
                     SerializedProperty loadAllAssemblies = property.FindPropertyRelative("loadAllAssemblies");
@@ -214,21 +220,24 @@ namespace AggroBird.DebugConsole.Editor
                             }
                         }
 
-                        horizontal = position;
-                        EditorGUI.BeginChangeCheck();
-                        EditorGUI.Toggle(horizontal, GUIContent.none, item.isSelected);
-                        if (EditorGUI.EndChangeCheck())
+                        if (SettingsWindow.IsVisible(position))
                         {
-                            if (item.isSelected)
-                                currentSelection.Remove(assemblyName);
-                            else
-                                currentSelection.Add(assemblyName);
+                            horizontal = position;
+                            EditorGUI.BeginChangeCheck();
+                            EditorGUI.Toggle(horizontal, GUIContent.none, item.isSelected);
+                            if (EditorGUI.EndChangeCheck())
+                            {
+                                if (item.isSelected)
+                                    currentSelection.Remove(assemblyName);
+                                else
+                                    currentSelection.Add(assemblyName);
 
-                            saveRequired = true;
-                            item.isSelected = !item.isSelected;
+                                saveRequired = true;
+                                item.isSelected = !item.isSelected;
+                            }
+                            horizontal.x += 20;
+                            GUI.Label(horizontal, assemblyName);
                         }
-                        horizontal.x += 20;
-                        GUI.Label(horizontal, assemblyName);
                         position.y += verticalStep;
                     }
 
@@ -253,7 +262,7 @@ namespace AggroBird.DebugConsole.Editor
             float height = base.GetPropertyHeight(property, label);
             if (property.isExpanded)
             {
-                return height * (AppDomain.CurrentDomain.GetAssemblies().Length + 6);
+                return height * (AppDomain.CurrentDomain.GetAssemblies().Length + 4.5f);
             }
             return height;
         }
