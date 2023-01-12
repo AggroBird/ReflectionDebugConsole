@@ -62,6 +62,21 @@ EditorApplication.isPlaying = true; EditorApplication.isPaused = true;
 The debug console try to pick the best matching overload when multiple are available, but not as strict as the C# language, so make sure to avoid ambiguity in debug commands.
 
 The environment supports all C# basetypes and build-in operators between them.
+```
+UnityEngine.Debug.Log(5 + 5);
+```
+
+Additionally, variables may be declared within the commands and referenced in subsequent commands.
+```
+int val = 5; UnityEngine.Debug.Log(val);
+```
+
+The environment supports very basic control-flow, including for-loops and if-statements.
+```
+if(UnityEngine.Application.platform == UnityEngine.RuntimePlatform.WindowsEditor) { UnityEngine.Debug.Log("Running on editor"); }
+
+for(int i = 0; i < 5; i++) { UnityEngine.Debug.Log(i); }
+```
 
 ## Macros and Keybinds
 
