@@ -16,19 +16,30 @@ namespace AggroBird.DebugConsole.Editor
             GetWindow<SettingsWindow>("Debug Console Settings");
         }
 
-        private bool attemptedLoad = false;
-        private Settings settings = null;
         private Vector2 scrollPos = Vector2.zero;
 
         [SerializeField, Tooltip("Local macros (saved to player prefs)")]
         private List<Macro> localMacros = default;
 
 
+        private Settings settings = null;
+        private SerializedObject settingsObject = null;
+        private SerializedObject windowObject = null;
+
         private void OnEnable()
         {
             minSize = new Vector2(400, minSize.y);
 
             Undo.undoRedoPerformed += OnUndo;
+
+            windowObject = new SerializedObject(this);
+
+            localMacros = DebugConsole.LoadPrefs<ListObject<Macro>>(DebugConsole.MacrosKey);
+
+            settings = null;
+            settingsObject = null;
+
+            ValidateSettings();
         }
         private void OnDisable()
         {
@@ -38,6 +49,7 @@ namespace AggroBird.DebugConsole.Editor
 
             Undo.undoRedoPerformed -= OnUndo;
         }
+
 
         private string LocateSettingsFile()
         {
@@ -85,33 +97,41 @@ namespace AggroBird.DebugConsole.Editor
             return result.ToString();
         }
 
-
-        private void OnGUI()
+        private bool ValidateSettings()
         {
             if (!settings)
             {
-                if (!attemptedLoad)
-                {
-                    attemptedLoad = true;
-                    localMacros = DebugConsole.LoadPrefs<ListObject<Macro>>(DebugConsole.MacrosKey);
-                    settings = AssetDatabase.LoadAssetAtPath<Settings>(LocateSettingsFile());
-                }
-
+                settingsObject = null;
+                settings = AssetDatabase.LoadAssetAtPath<Settings>(LocateSettingsFile());
                 if (!settings)
                 {
-                    EditorGUILayout.LabelField("Failed to load debug console settings");
-                    return;
+                    return false;
                 }
             }
 
-            SerializedObject settingsObj = new SerializedObject(settings);
-            SerializedObject thisObj = new SerializedObject(this);
+            if (settingsObject == null)
+            {
+                settingsObject = new SerializedObject(settings);
+            }
 
-            settingsObj.UpdateIfRequiredOrScript();
-            thisObj.UpdateIfRequiredOrScript();
+            return true;
+        }
+
+
+
+        private void OnGUI()
+        {
+            if (!ValidateSettings())
+            {
+                EditorGUILayout.HelpBox("Failed to open console settings asset", MessageType.Warning);
+                return;
+            }
+
+            settingsObject.Update();
+            windowObject.Update();
 
             scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
-            SerializedProperty iterator = settingsObj.GetIterator();
+            SerializedProperty iterator = settingsObject.GetIterator();
             bool enterChildren = true;
             while (iterator.NextVisible(enterChildren))
             {
@@ -123,15 +143,15 @@ namespace AggroBird.DebugConsole.Editor
                 // Show local macros after shared macros
                 if (iterator.name == "sharedMacros")
                 {
-                    EditorGUILayout.PropertyField(thisObj.FindProperty("localMacros"));
+                    EditorGUILayout.PropertyField(windowObject.FindProperty("localMacros"));
                 }
 
                 enterChildren = false;
             }
             EditorGUILayout.EndScrollView();
 
-            settingsObj.ApplyModifiedProperties();
-            thisObj.ApplyModifiedProperties();
+            settingsObject.ApplyModifiedProperties();
+            windowObject.ApplyModifiedProperties();
         }
 
         private void OnValidate()
