@@ -10,7 +10,7 @@ namespace AggroBird.DebugConsole.Editor
 {
     internal sealed class SettingsWindow : EditorWindow
     {
-        [MenuItem("Window/Analysis/Debug Console Settings", priority = 999)]
+        [MenuItem("Window/Analysis/Debug Console Settings", priority = 50)]
         public static void ShowWindow()
         {
             GetWindow<SettingsWindow>("Debug Console Settings");
