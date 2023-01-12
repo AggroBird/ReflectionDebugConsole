@@ -2,7 +2,7 @@
 
 Repository for maintaining the debug console plugin that I use in client projects. This plugin is continuously under development and is not optimized for production. Use at your own risk.
 
-![alt text](https://github.com/AggroBird/ReflectionDebugConsole/blob/main/example.png?raw=true "Debug Console")
+![alt text](https://github.com/AggroBird/ReflectionDebugConsole/blob/main/Documentation~/example.png?raw=true "Debug Console")
 
 ## Feature Overview
 
@@ -84,7 +84,7 @@ The console comes with an interface to store frequently called commands as macro
 
 These macros are stored in an asset file and can be checked into source control. Besides project-wide macros, you can also define local macros, which get stored in your local player prefs.
 
-![alt text](https://github.com/AggroBird/ReflectionDebugConsole/blob/main/macro.png?raw=true "Macro")
+![alt text](https://github.com/AggroBird/ReflectionDebugConsole/blob/main/Documentation~/macro.png?raw=true "Macro")
 
 ## Environment and Utility
 
