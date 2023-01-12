@@ -88,7 +88,7 @@ namespace AggroBird.DebugConsole
         {
             if (assemblies == null)
             {
-                assemblies = settings.assemblies.GetEnabledAssemblies();
+                assemblies = Settings.assemblies.GetEnabledAssemblies();
             }
             return assemblies;
         }
@@ -338,7 +338,7 @@ namespace AggroBird.DebugConsole
             {
                 StopDebugServer();
 
-                server = new DebugServer(settings.serverPort, settings.authenticationKey);
+                server = new DebugServer(Settings.serverPort, Settings.authenticationKey);
             }
             public void StopDebugServer()
             {
@@ -369,7 +369,7 @@ namespace AggroBird.DebugConsole
                 UpdateIdentifierTableTask();
 
 #if INCLUDE_DEBUG_SERVER
-                if (settings.startDebugServer && !Application.isEditor && server == null)
+                if (Settings.startDebugServer && !Application.isEditor && server == null)
                 {
                     StartDebugServer();
                 }
