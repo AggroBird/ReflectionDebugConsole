@@ -608,7 +608,7 @@ namespace AggroBird.DebugConsole
         {
             if (lhs is MethodOverload methodOverload)
             {
-                Expression[] args = ParseArguments(TokenType.RParen, methodOverload.methods.ToArray());
+                Expression[] args = ParseArguments(TokenType.RParen, methodOverload.methods);
 
                 MethodInfo[] optimal = Expression.GetOptimalOverloads(methodOverload.methods, args);
 
@@ -634,6 +634,18 @@ namespace AggroBird.DebugConsole
                 if (optimal.Length != 1) throw new DebugConsoleException($"Ambiguous constructors for type '{typename.type}'");
 
                 return new Constructor(typename.type, optimal[0], args);
+            }
+            else if (lhs.ResultType.IsSubclassOf(typeof(Delegate)))
+            {
+                MethodInfo[] overloads = new MethodInfo[] { lhs.ResultType.GetMethod("Invoke") };
+
+                Expression[] args = ParseArguments(TokenType.RParen, overloads, lhs.ResultType);
+
+                MethodInfo[] optimal = Expression.GetOptimalOverloads(overloads, args);
+
+                if (optimal.Length == 0) throw new DebugConsoleException($"Arguments are not compatible with delegate '{lhs.ResultType}'");
+
+                return new DelegateInvoke(lhs, overloads[0], args);
             }
             throw new UnexpectedTokenException(token);
         }
@@ -1034,11 +1046,11 @@ namespace AggroBird.DebugConsole
             return result;
         }
 
-        private Expression[] ParseArguments(TokenType closingToken, IReadOnlyList<MethodBase> overloads)
+        private Expression[] ParseArguments(TokenType closingToken, IReadOnlyList<MethodBase> overloads, Type delegateType = null)
         {
             if (GenerateSuggestionInfoAtEol && overloads != null)
             {
-                SuggestionInfo = new OverloadList(overloads, Array.Empty<Expression>());
+                SuggestionInfo = new OverloadList(overloads, Array.Empty<Expression>(), delegateType);
             }
 
             if (!Match(closingToken))
@@ -1055,7 +1067,7 @@ namespace AggroBird.DebugConsole
 
                     if (GenerateSuggestionInfoAtEol && overloads != null)
                     {
-                        SuggestionInfo = new OverloadList(overloads, args);
+                        SuggestionInfo = new OverloadList(overloads, args, delegateType);
                     }
                 }
                 return args.ToArray();

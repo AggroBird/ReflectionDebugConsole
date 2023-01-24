@@ -1859,6 +1859,28 @@ namespace AggroBird.DebugConsole
         public override Type ResultType => lhs.ResultType;
     }
 
+    internal class DelegateInvoke : Expression
+    {
+        public DelegateInvoke(Expression lhs, MethodInfo invoke, Expression[] args)
+        {
+            this.lhs = lhs;
+            this.invoke = invoke;
+            this.args = args;
+        }
+
+        public readonly Expression lhs;
+        public readonly MethodInfo invoke;
+        public readonly Expression[] args;
+
+        public override object Execute(ExecutionContext context)
+        {
+            object result = InvokeMethod(context, invoke, lhs.SafeExecute(context), args);
+            if (invoke.ReturnType == typeof(void)) return VoidResult.Empty;
+            return result;
+        }
+        public override Type ResultType => invoke.ReturnType;
+    }
+
     internal class EventAdd : Expression
     {
         public EventAdd(EventMember lhs, Expression rhs)

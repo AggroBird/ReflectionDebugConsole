@@ -264,14 +264,16 @@ namespace AggroBird.DebugConsole
 
     internal class OverloadSuggestion : Suggestion
     {
-        public OverloadSuggestion(MethodBase overload, int currentParameterIndex, IReadOnlyList<string> usingNamespaces) : base(usingNamespaces)
+        public OverloadSuggestion(MethodBase overload, int currentParameterIndex, IReadOnlyList<string> usingNamespaces, Type delegateType = null) : base(usingNamespaces)
         {
             this.overload = overload;
             this.currentParameterIndex = currentParameterIndex;
+            this.delegateType = delegateType;
         }
 
         private readonly MethodBase overload;
         private readonly int currentParameterIndex;
+        private readonly Type delegateType;
 
 
         public override string Text => overload.Name;
@@ -284,7 +286,16 @@ namespace AggroBird.DebugConsole
             else if (overload is MethodInfo method)
             {
                 FormatTypeName(method.ReturnType, output);
-                output.Append($" {Colors.Open(Color.Method)}{method.Name}{Colors.Close}(");
+                if (delegateType == null)
+                {
+                    output.Append($" {Colors.Open(Color.Method)}{method.Name}{Colors.Close}(");
+                }
+                else
+                {
+                    output.Append(' ');
+                    FormatTypeName(delegateType, output);
+                    output.Append('(');
+                }
             }
 
             ParameterInfo[] parameters = overload.GetParameters();
@@ -533,14 +544,16 @@ namespace AggroBird.DebugConsole
 
     internal sealed class OverloadList : SuggestionInfo
     {
-        public OverloadList(IReadOnlyList<MethodBase> overloads, IReadOnlyList<Expression> args) : base(StringView.Empty, 0, 0)
+        public OverloadList(IReadOnlyList<MethodBase> overloads, IReadOnlyList<Expression> args, Type delegateType = null) : base(StringView.Empty, 0, 0)
         {
             this.overloads = overloads;
             this.args = args;
+            this.delegateType = delegateType;
         }
 
         private readonly IReadOnlyList<MethodBase> overloads;
         private readonly IReadOnlyList<Expression> args;
+        private readonly Type delegateType;
         public int CurrentArgumentIndex => args.Count;
 
 
@@ -555,7 +568,7 @@ namespace AggroBird.DebugConsole
                 {
                     if (Expression.HasVariableParameterCount(overloads[i]) || currentArgumentIndex < overloads[i].GetParameters().Length)
                     {
-                        result.Add(new OverloadSuggestion(overloads[i], currentArgumentIndex, usingNamespaces));
+                        result.Add(new OverloadSuggestion(overloads[i], currentArgumentIndex, usingNamespaces, delegateType));
                     }
                 }
             }
