@@ -356,6 +356,16 @@ namespace AggroBird.DebugConsole
                 score++;
         }
 
+        public static bool IncludeType(Type type)
+        {
+            // Skip generic types with invalid names
+            if (type.IsGenericTypeDefinition)
+            {
+                if (type.Name.IndexOf('`') == -1) return false;
+            }
+
+            return true;
+        }
         public static bool IncludeMember<T>(T member, bool includeSpecial = false) where T : MemberInfo
         {
             if (member is MethodBase methodBase)
@@ -379,16 +389,9 @@ namespace AggroBird.DebugConsole
                 }
             }
 
-            // Skip generated types
-            if (member.Name[0] == '<') return false;
-
-            if (member is Type type)
+            if (member is Type type && !IncludeType(type))
             {
-                // Skip generic types with invalid names
-                if (type.IsGenericTypeDefinition)
-                {
-                    if (type.Name.IndexOf('`') == -1) return false;
-                }
+                return false;
             }
 
             return true;
@@ -464,6 +467,26 @@ namespace AggroBird.DebugConsole
             }
         }
 
+        public static Type[] FilterMembers(Type[] types)
+        {
+            List<Type> result = new List<Type>();
+            for (int i = 0; i < types.Length; i++)
+            {
+                if (IncludeType(types[i]))
+                {
+                    result.Add(types[i]);
+                }
+            }
+            return result.ToArray();
+        }
+        public static Type FilterMembers(Type nestedType)
+        {
+            if (IncludeType(nestedType))
+            {
+                return nestedType;
+            }
+            return null;
+        }
         public static T[] FilterMembers<T>(T[] members, bool includeSpecial = false) where T : MemberInfo
         {
             // Filter hidden members
@@ -923,13 +946,18 @@ namespace AggroBird.DebugConsole
         public static string GetPrefix(Type type)
         {
             if (type.IsEnum)
-                return $"enum ";
+                return "enum ";
             else if (type.IsInterface)
-                return $"interface ";
+                return "interface ";
             else if (type.IsClass)
-                return $"class ";
+            {
+                if (type.IsSubclassOf(typeof(Delegate)))
+                    return "delegate ";
+                else
+                    return "class ";
+            }
             else if (type.IsValueType)
-                return $"struct ";
+                return "struct ";
             else
                 return string.Empty;
         }

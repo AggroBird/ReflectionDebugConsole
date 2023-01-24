@@ -29,6 +29,9 @@ namespace AggroBird.DebugConsole
                     ArrayView<StringView> name = SplitName(type.FullName, buffer);
                     if (name.Length == 0) return;
 
+                    // Skip nested (member scanner will pick it up)
+                    if (type.IsNested) continue;
+
                     // Skip hidden
                     if (safeMode && !type.IsPublic) continue;
 

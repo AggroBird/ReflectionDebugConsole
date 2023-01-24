@@ -128,6 +128,7 @@ namespace AggroBird.DebugConsole
                 return;
             }
 
+            // Format array
             if (type.IsArray)
             {
                 FormatTypeName(type.GetElementType(), output, highlight);
@@ -141,6 +142,7 @@ namespace AggroBird.DebugConsole
                 return;
             }
 
+            // Strip generic arguments
             string fullName = type.FullName;
             if (type.IsGenericType)
             {
@@ -171,12 +173,20 @@ namespace AggroBird.DebugConsole
                 string typeNamespace = fullName.Substring(0, last + 1);
                 string typeName = fullName.Substring(last + 1);
                 output.Append(typeNamespace);
-                output.Append(Highlight(typeName, highlight, GetTypeColor(type)));
+                fullName = typeName;
             }
-            else
+
+            // Split nested types
+            if (type.IsNested)
             {
-                output.Append(Highlight(fullName, highlight, GetTypeColor(type)));
+                int nestedSplit = fullName.LastIndexOf('+');
+                if (nestedSplit != -1)
+                {
+                    fullName = fullName.Substring(nestedSplit + 1);
+                }
             }
+
+            output.Append(Highlight(fullName, highlight, GetTypeColor(type)));
 
             if (type.IsGenericType)
             {
@@ -460,6 +470,20 @@ namespace AggroBird.DebugConsole
                     if (member is Type && !isStatic) continue;
 
                     result.Add(new MemberSuggestion(member, queryLength, usingNamespaces));
+                }
+                if (isStatic)
+                {
+                    // Get nested types
+                    Type[] nestedTypes = Expression.FilterMembers(type.GetNestedTypes(bindingFlags));
+                    for (int i = 0; i < nestedTypes.Length; i++)
+                    {
+                        Type nestedType = nestedTypes[i];
+
+                        // Skip any members that dont start with the query
+                        if (queryString.Length > 0 && !nestedType.Name.StartsWith(queryString, true, null)) continue;
+
+                        result.Add(new TypeSuggestion(nestedType, queryLength, usingNamespaces));
+                    }
                 }
                 if (result.Count > 0)
                 {

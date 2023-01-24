@@ -428,6 +428,13 @@ namespace AggroBird.DebugConsole
                         MemberInfo[] members = Expression.FilterMembers(typename.type.GetMember(query, MakeStaticBindingFlags()));
                         if (members == null || members.Length == 0)
                         {
+                            Type nestedType = Expression.FilterMembers(typename.type.GetNestedType(query, MakeStaticBindingFlags()));
+                            if (nestedType != null)
+                            {
+                                // Nested type
+                                return new Typename(nestedType);
+                            }
+
                             // No member found
                             throw new UnknownIdentifierException(next.str);
                         }
@@ -446,12 +453,9 @@ namespace AggroBird.DebugConsole
                             // Property
                             return new PropertyMember(propertyInfo);
                         }
-                        else if (members[0] is Type nestedType)
-                        {
-                            return new Typename(nestedType);
-                        }
                         else if (members[0] is EventInfo eventInfo)
                         {
+                            // Event
                             return new EventMember(eventInfo);
                         }
                     }
@@ -491,6 +495,7 @@ namespace AggroBird.DebugConsole
                         }
                         else if (members[0] is EventInfo eventInfo)
                         {
+                            // Event
                             return new EventMember(lhs, eventInfo);
                         }
                     }
