@@ -434,7 +434,8 @@ namespace AggroBird.DebugConsole
                 int queryLength = queryString.Length;
                 List<Suggestion> result = new List<Suggestion>();
 
-                MemberInfo[] members = type.GetMembers(isStatic ? CommandParser.MakeStaticBindingFlags(safeMode) : CommandParser.MakeInstanceBindingFlags(safeMode));
+                BindingFlags bindingFlags = isStatic ? CommandParser.MakeStaticBindingFlags(safeMode) : CommandParser.MakeInstanceBindingFlags(safeMode);
+                MemberInfo[] members = Expression.FilterMembers(type.GetMembers(bindingFlags));
                 for (int i = 0; i < members.Length; i++)
                 {
                     MemberInfo member = members[i];
@@ -444,8 +445,6 @@ namespace AggroBird.DebugConsole
 
                     // Skip types (only available in static context)
                     if (member is Type && !isStatic) continue;
-
-                    if (!Expression.IncludeMember(member)) continue;
 
                     result.Add(new MemberSuggestion(member, queryLength, usingNamespaces));
                 }

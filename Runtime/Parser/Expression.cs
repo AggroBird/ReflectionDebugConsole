@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 
 namespace AggroBird.DebugConsole
@@ -383,7 +384,7 @@ namespace AggroBird.DebugConsole
 
             if (member is Type type)
             {
-                // Skip generic types
+                // Skip generic types with invalid names
                 if (type.IsGenericTypeDefinition)
                 {
                     if (type.Name.IndexOf('`') == -1) return false;
@@ -392,17 +393,128 @@ namespace AggroBird.DebugConsole
 
             return true;
         }
+
+
+        private abstract class MemberKey
+        {
+
+        }
+
+        private sealed class FieldKey : MemberKey
+        {
+            public FieldKey(FieldInfo fieldInfo)
+            {
+                fieldType = fieldInfo.FieldType;
+                fieldName = fieldInfo.Name;
+            }
+            public FieldKey(PropertyInfo fieldInfo)
+            {
+                fieldType = fieldInfo.PropertyType;
+                fieldName = fieldInfo.Name;
+            }
+
+            private readonly Type fieldType;
+            private readonly string fieldName;
+
+            public override bool Equals(object obj)
+            {
+                return obj is FieldKey other && fieldType.Equals(other.fieldType) && fieldName.Equals(other.fieldName);
+            }
+            public override int GetHashCode()
+            {
+                return fieldType.GetHashCode() ^ fieldName.GetHashCode();
+            }
+        }
+
+        private sealed class MethodKey : MemberKey
+        {
+            public MethodKey(MethodInfo methodInfo)
+            {
+                returnType = methodInfo.ReturnType;
+                methodName = methodInfo.Name;
+                parameters = methodInfo.GetParameters();
+            }
+            public MethodKey(ConstructorInfo methodInfo)
+            {
+                returnType = methodInfo.DeclaringType;
+                methodName = methodInfo.Name;
+                parameters = methodInfo.GetParameters();
+            }
+
+            private readonly Type returnType;
+            private readonly string methodName;
+            private readonly ParameterInfo[] parameters;
+
+            public override bool Equals(object obj)
+            {
+                if (obj is MethodKey other && returnType.Equals(other.returnType) && methodName.Equals(other.methodName))
+                {
+                    if (parameters.Length == other.parameters.Length)
+                    {
+                        for (int i = 0; i < parameters.Length; i++)
+                        {
+                            if (!parameters[i].ParameterType.Equals(other.parameters[i].ParameterType))
+                            {
+                                return false;
+                            }
+                        }
+                        return true;
+                    }
+                }
+                return false;
+            }
+            public override int GetHashCode()
+            {
+                int result = returnType.GetHashCode() ^ methodName.GetHashCode();
+                for (int i = 0; i < parameters.Length; i++)
+                {
+                    result ^= parameters[i].ParameterType.GetHashCode();
+                }
+                return result;
+            }
+        }
+
         public static T[] FilterMembers<T>(T[] members, bool includeSpecial = false) where T : MemberInfo
         {
-            List<T> result = new List<T>();
+            // Filter hidden members
+            Dictionary<MemberKey, T> result = new Dictionary<MemberKey, T>();
             for (int i = 0; i < members.Length; i++)
             {
-                if (IncludeMember(members[i], includeSpecial))
+                T member = members[i];
+                if (IncludeMember(member, includeSpecial))
                 {
-                    result.Add(members[i]);
+                    MemberKey key = null;
+                    switch (member)
+                    {
+                        case FieldInfo fieldInfo:
+                            key = new FieldKey(fieldInfo);
+                            break;
+                        case PropertyInfo propertyInfo:
+                            key = new FieldKey(propertyInfo);
+                            break;
+                        case MethodInfo methodInfo:
+                            key = new MethodKey(methodInfo);
+                            break;
+                        case ConstructorInfo constructorInfo:
+                            key = new MethodKey(constructorInfo);
+                            break;
+                        default:
+                            throw new NotImplementedException(member.MemberType.ToString());
+                    }
+                    if (result.TryGetValue(key, out T value))
+                    {
+                        if (member.DeclaringType.IsSubclassOf(value.DeclaringType))
+                        {
+                            result[key] = member;
+                        }
+                    }
+                    else
+                    {
+                        result.Add(key, member);
+                    }
                 }
             }
-            return result.ToArray();
+            return result.Values.ToArray();
         }
 
 
