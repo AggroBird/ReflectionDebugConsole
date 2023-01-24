@@ -2,6 +2,7 @@
 
 #if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
 
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -402,27 +403,20 @@ namespace AggroBird.DebugConsole
 
         private sealed class FieldKey : MemberKey
         {
-            public FieldKey(FieldInfo fieldInfo)
+            public FieldKey(MemberInfo memberInfo)
             {
-                fieldType = fieldInfo.FieldType;
-                fieldName = fieldInfo.Name;
-            }
-            public FieldKey(PropertyInfo fieldInfo)
-            {
-                fieldType = fieldInfo.PropertyType;
-                fieldName = fieldInfo.Name;
+                fieldName = memberInfo.Name;
             }
 
-            private readonly Type fieldType;
             private readonly string fieldName;
 
             public override bool Equals(object obj)
             {
-                return obj is FieldKey other && fieldType.Equals(other.fieldType) && fieldName.Equals(other.fieldName);
+                return obj is FieldKey other && fieldName.Equals(other.fieldName);
             }
             public override int GetHashCode()
             {
-                return fieldType.GetHashCode() ^ fieldName.GetHashCode();
+                return fieldName.GetHashCode();
             }
         }
 
@@ -430,24 +424,21 @@ namespace AggroBird.DebugConsole
         {
             public MethodKey(MethodInfo methodInfo)
             {
-                returnType = methodInfo.ReturnType;
                 methodName = methodInfo.Name;
                 parameters = methodInfo.GetParameters();
             }
             public MethodKey(ConstructorInfo methodInfo)
             {
-                returnType = methodInfo.DeclaringType;
                 methodName = methodInfo.Name;
                 parameters = methodInfo.GetParameters();
             }
 
-            private readonly Type returnType;
             private readonly string methodName;
             private readonly ParameterInfo[] parameters;
 
             public override bool Equals(object obj)
             {
-                if (obj is MethodKey other && returnType.Equals(other.returnType) && methodName.Equals(other.methodName))
+                if (obj is MethodKey other && methodName.Equals(other.methodName))
                 {
                     if (parameters.Length == other.parameters.Length)
                     {
@@ -465,7 +456,7 @@ namespace AggroBird.DebugConsole
             }
             public override int GetHashCode()
             {
-                int result = returnType.GetHashCode() ^ methodName.GetHashCode();
+                int result = methodName.GetHashCode();
                 for (int i = 0; i < parameters.Length; i++)
                 {
                     result ^= parameters[i].ParameterType.GetHashCode();
@@ -483,7 +474,7 @@ namespace AggroBird.DebugConsole
                 T member = members[i];
                 if (IncludeMember(member, includeSpecial))
                 {
-                    MemberKey key = null;
+                    MemberKey key;
                     switch (member)
                     {
                         case FieldInfo fieldInfo:
@@ -492,6 +483,9 @@ namespace AggroBird.DebugConsole
                         case PropertyInfo propertyInfo:
                             key = new FieldKey(propertyInfo);
                             break;
+                        case EventInfo eventInfo:
+                            key = new FieldKey(eventInfo);
+                            break;
                         case MethodInfo methodInfo:
                             key = new MethodKey(methodInfo);
                             break;
@@ -499,8 +493,9 @@ namespace AggroBird.DebugConsole
                             key = new MethodKey(constructorInfo);
                             break;
                         default:
-                            throw new NotImplementedException(member.MemberType.ToString());
+                            continue;
                     }
+                    // Hide if type derives from member declaring type
                     if (result.TryGetValue(key, out T value))
                     {
                         if (member.DeclaringType.IsSubclassOf(value.DeclaringType))
@@ -709,7 +704,7 @@ namespace AggroBird.DebugConsole
 
             if (IsImplicitConvertableBaseType(expr, dstType, out MethodInfo castMethod))
             {
-                castExpr = new Method(castMethod, new Expression[] { expr });
+                castExpr = new MethodMember(castMethod, new Expression[] { expr });
                 return true;
             }
 
@@ -787,7 +782,7 @@ namespace AggroBird.DebugConsole
 
             if (IsExplicitConvertableBaseType(expr, dstType, out MethodInfo castMethod))
             {
-                castExpr = new Method(castMethod, new Expression[] { expr });
+                castExpr = new MethodMember(castMethod, new Expression[] { expr });
                 return true;
             }
 
@@ -1266,16 +1261,16 @@ namespace AggroBird.DebugConsole
     }
 
     // Fields
-    internal class Field : Expression
+    internal class FieldMember : Expression
     {
-        public Field(Expression lhs, FieldInfo field)
+        public FieldMember(Expression lhs, FieldInfo fieldInfo)
         {
             this.lhs = lhs;
-            fields.Add(field);
+            fields.Add(fieldInfo);
         }
-        public Field(FieldInfo field)
+        public FieldMember(FieldInfo fieldInfo)
         {
-            fields.Add(field);
+            fields.Add(fieldInfo);
         }
 
         public readonly Expression lhs;
@@ -1342,45 +1337,86 @@ namespace AggroBird.DebugConsole
     }
 
     // Properties
-    internal class Property : Expression
+    internal class PropertyMember : Expression
     {
-        public Property(Expression lhs, PropertyInfo property)
+        public PropertyMember(Expression lhs, PropertyInfo propertyInfo)
         {
             this.lhs = lhs;
-            this.property = property;
+            this.propertyInfo = propertyInfo;
         }
-        public Property(PropertyInfo property)
+        public PropertyMember(PropertyInfo propertyInfo)
         {
-            this.property = property;
+            this.propertyInfo = propertyInfo;
         }
 
         public readonly Expression lhs;
-        public readonly PropertyInfo property;
+        public readonly PropertyInfo propertyInfo;
 
 
         public override object Execute(ExecutionContext context)
         {
-            if (!property.CanRead) throw new DebugConsoleException($"Property '{property}' is not readable");
-            return property.GetValue(lhs.SafeExecute(context));
+            if (!propertyInfo.CanRead) throw new DebugConsoleException($"Property '{propertyInfo}' is not readable");
+            return propertyInfo.GetValue(lhs.SafeExecute(context));
         }
-        public override Type ResultType => property.PropertyType;
+        public override Type ResultType => propertyInfo.PropertyType;
 
-        public override bool Assignable => property.CanWrite;
+        public override bool Assignable => propertyInfo.CanWrite;
         public override object SetValue(ExecutionContext context, object val, bool returnInitialValue)
         {
             object obj = lhs.SafeExecute(context);
             if (returnInitialValue)
             {
-                object result = property.GetValue(obj);
-                property.SetValue(obj, val);
+                object result = propertyInfo.GetValue(obj);
+                propertyInfo.SetValue(obj, val);
                 return result;
             }
             else
             {
-                property.SetValue(obj, val);
-                return property.GetValue(obj);
+                propertyInfo.SetValue(obj, val);
+                return propertyInfo.GetValue(obj);
             }
         }
+    }
+
+    // Events
+    internal class EventMember : Expression
+    {
+        private class EventReferenceException : DebugConsoleException
+        {
+            public EventReferenceException() : base("Event can only appear on the left hand side of += or -=")
+            {
+
+            }
+        }
+
+        public EventMember(Expression lhs, EventInfo eventInfo)
+        {
+            this.lhs = lhs;
+            this.eventInfo = eventInfo;
+        }
+        public EventMember(EventInfo eventInfo)
+        {
+            this.eventInfo = eventInfo;
+        }
+
+
+        public readonly Expression lhs;
+        public readonly EventInfo eventInfo;
+
+        public void AddEventHandler(ExecutionContext context, Delegate handler)
+        {
+            eventInfo.AddEventHandler(lhs.SafeExecute(context), handler);
+        }
+        public void RemoveEventHandler(ExecutionContext context, Delegate handler)
+        {
+            eventInfo.RemoveEventHandler(lhs.SafeExecute(context), handler);
+        }
+
+        public override object Execute(ExecutionContext context)
+        {
+            throw new EventReferenceException();
+        }
+        public override Type ResultType => throw new EventReferenceException();
     }
 
     // Methods
@@ -1411,15 +1447,15 @@ namespace AggroBird.DebugConsole
         public override Type ResultType => typeof(void);
     }
 
-    internal class Method : Expression
+    internal class MethodMember : Expression
     {
-        public Method(Expression lhs, MethodInfo method, Expression[] args)
+        public MethodMember(Expression lhs, MethodInfo method, Expression[] args)
         {
             this.lhs = lhs;
             this.method = method;
             this.args = args;
         }
-        public Method(MethodInfo method, Expression[] args)
+        public MethodMember(MethodInfo method, Expression[] args)
         {
             this.method = method;
             this.args = args;
@@ -1786,6 +1822,44 @@ namespace AggroBird.DebugConsole
             return lhs.SetValue(context, rhs.Execute(context), returnInitialValue);
         }
         public override Type ResultType => lhs.ResultType;
+    }
+
+    internal class EventAdd : Expression
+    {
+        public EventAdd(EventMember lhs, Expression rhs)
+        {
+            this.lhs = lhs;
+            this.rhs = rhs;
+        }
+
+        public readonly EventMember lhs;
+        public readonly Expression rhs;
+
+        public override object Execute(ExecutionContext context)
+        {
+            lhs.AddEventHandler(context, rhs.Execute(context) as Delegate);
+            return VoidResult.Empty;
+        }
+        public override Type ResultType => typeof(void);
+    }
+
+    internal class EventRemove : Expression
+    {
+        public EventRemove(EventMember lhs, Expression rhs)
+        {
+            this.lhs = lhs;
+            this.rhs = rhs;
+        }
+
+        public readonly EventMember lhs;
+        public readonly Expression rhs;
+
+        public override object Execute(ExecutionContext context)
+        {
+            lhs.RemoveEventHandler(context, rhs.Execute(context) as Delegate);
+            return VoidResult.Empty;
+        }
+        public override Type ResultType => typeof(void);
     }
 
     internal class Cast<T> : Expression

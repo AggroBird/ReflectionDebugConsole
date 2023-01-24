@@ -382,17 +382,20 @@ namespace AggroBird.DebugConsole
                 {
                     if (generateSuggestionInfo)
                     {
-                        if (lhs is Namespace ns)
+                        switch (lhs)
                         {
-                            SuggestionInfo = new IdentifierList(StringView.Empty, token.str.End, 0, ns.identifier, Array.Empty<VariableDeclaration>(), false);
-                        }
-                        else if (lhs is Typename typename)
-                        {
-                            SuggestionInfo = new MemberList(StringView.Empty, token.str.End, 0, typename.type, true);
-                        }
-                        else if (lhs.ResultType != typeof(void))
-                        {
-                            SuggestionInfo = new MemberList(StringView.Empty, token.str.End, 0, lhs.ResultType, false);
+                            case Namespace ns:
+                                SuggestionInfo = new IdentifierList(StringView.Empty, token.str.End, 0, ns.identifier, Array.Empty<VariableDeclaration>(), false);
+                                break;
+                            case Typename typename:
+                                SuggestionInfo = new MemberList(StringView.Empty, token.str.End, 0, typename.type, true);
+                                break;
+                            default:
+                                if (lhs.ResultType != typeof(void))
+                                {
+                                    SuggestionInfo = new MemberList(StringView.Empty, token.str.End, 0, lhs.ResultType, false);
+                                }
+                                break;
                         }
                     }
 
@@ -433,19 +436,23 @@ namespace AggroBird.DebugConsole
                             // Multiple methods overload
                             return new MethodOverload(query, MakeMethodOverloadList(members, next.str));
                         }
-                        else if (members[0] is FieldInfo field)
+                        else if (members[0] is FieldInfo fieldInfo)
                         {
                             // Field
-                            return new Field(field);
+                            return new FieldMember(fieldInfo);
                         }
-                        else if (members[0] is PropertyInfo property)
+                        else if (members[0] is PropertyInfo propertyInfo)
                         {
                             // Property
-                            return new Property(property);
+                            return new PropertyMember(propertyInfo);
                         }
                         else if (members[0] is Type nestedType)
                         {
                             return new Typename(nestedType);
+                        }
+                        else if (members[0] is EventInfo eventInfo)
+                        {
+                            return new EventMember(eventInfo);
                         }
                     }
                     else
@@ -467,20 +474,24 @@ namespace AggroBird.DebugConsole
                             // Multiple methods overload
                             return new MethodOverload(query, lhs, MakeMethodOverloadList(members, next.str));
                         }
-                        else if (members[0] is FieldInfo field)
+                        else if (members[0] is FieldInfo fieldInfo)
                         {
                             // Field
-                            if (lhs is Field append)
+                            if (lhs is FieldMember append)
                             {
-                                append.fields.Add(field);
+                                append.fields.Add(fieldInfo);
                                 return append;
                             }
-                            return new Field(lhs, field);
+                            return new FieldMember(lhs, fieldInfo);
                         }
-                        else if (members[0] is PropertyInfo property)
+                        else if (members[0] is PropertyInfo propertyInfo)
                         {
                             // Property
-                            return new Property(lhs, property);
+                            return new PropertyMember(lhs, propertyInfo);
+                        }
+                        else if (members[0] is EventInfo eventInfo)
+                        {
+                            return new EventMember(lhs, eventInfo);
                         }
                     }
                     throw new UnknownIdentifierException(next.str);
@@ -516,6 +527,23 @@ namespace AggroBird.DebugConsole
                             TokenType op = token.type;
                             if (info.IsCompound)
                             {
+                                if (lhs is EventMember eventMember)
+                                {
+                                    if (Expression.IsImplicitConvertable(rhs, eventMember.eventInfo.EventHandlerType, out rhs))
+                                    {
+                                        switch (op)
+                                        {
+                                            case TokenType.CompoundAdd: return new EventAdd(eventMember, rhs);
+                                            case TokenType.CompoundSub: return new EventRemove(eventMember, rhs);
+                                            default: throw new UnexpectedTokenException(token);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        throw new InvalidCastException(rhs.ResultType, eventMember.eventInfo.EventHandlerType);
+                                    }
+                                }
+
                                 if (!lhs.Assignable)
                                 {
                                     throw new DebugConsoleException("The left-hand side of an assignment must be an assignable variable");
@@ -570,7 +598,7 @@ namespace AggroBird.DebugConsole
                 if (optimal.Length == 0) throw new DebugConsoleException($"No compatible overload found for method '{methodOverload.methodName}'");
                 if (optimal.Length != 1) throw new DebugConsoleException($"Ambiguous overloads for method '{methodOverload.methodName}'");
 
-                return new Method(methodOverload.lhs, optimal[0], args);
+                return new MethodMember(methodOverload.lhs, optimal[0], args);
             }
             else if (lhs is Typename typename)
             {

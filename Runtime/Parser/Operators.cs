@@ -511,7 +511,7 @@ namespace AggroBird.DebugConsole
                 if (optimal.Length > 0)
                 {
                     if (optimal.Length > 1) throw new DebugConsoleException($"Operator '{info.str}' is ambiguous on operand of type '{arg.ResultType}'");
-                    expr = new Method(optimal[0], args);
+                    expr = new MethodMember(optimal[0], args);
                     return true;
                 }
             }
@@ -552,7 +552,7 @@ namespace AggroBird.DebugConsole
                 if (optimal.Length > 0)
                 {
                     if (optimal.Length > 1) throw new DebugConsoleException($"Operator '{info.str}' is ambiguous on operands of type '{lhs.ResultType}' and '{rhs.ResultType}'");
-                    expr = new Method(optimal[0], args);
+                    expr = new MethodMember(optimal[0], args);
                     return true;
                 }
             }

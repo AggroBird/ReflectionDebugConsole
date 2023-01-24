@@ -215,47 +215,49 @@ namespace AggroBird.DebugConsole
         public override void BuildSuggestionString(StringBuilder output, bool isHighlighted)
         {
             int len = isHighlighted ? int.MaxValue : highlightLength;
-            if (memberInfo is FieldInfo field)
+            switch (memberInfo)
             {
-                FormatTypeName(field.FieldType, output);
-                output.Append($" {Highlight(field.Name, len)}");
-            }
-            else if (memberInfo is PropertyInfo property)
-            {
-                FormatTypeName(property.PropertyType, output);
-                output.Append($" {Highlight(property.Name, len)}");
-                if (property.CanWrite && property.CanRead) output.Append(GetSetStr);
-                else if (property.CanWrite) output.Append(SetStr);
-                else if (property.CanRead) output.Append(GetStr);
-            }
-            else if (memberInfo is MethodInfo method)
-            {
-                FormatTypeName(method.ReturnType, output);
-                output.Append($" {Highlight(method.Name, len, Color.Method)}(");
-                ParameterInfo[] parameters = method.GetParameters();
-                int varArgParam = Expression.HasVariableParameterCount(method) ? parameters.Length - 1 : -1;
-                for (int i = 0; i < parameters.Length; i++)
-                {
-                    if (i > 0) output.Append(", ");
-                    if (i == varArgParam) output.Append($"{Colors.Open(Color.Keyword)}params{Colors.Close} ");
-                    FormatTypeName(parameters[i].ParameterType, output);
-                    output.Append($" {Colors.Open(Color.Variable)}{parameters[i].Name}{Colors.Close}");
-                    if (parameters[i].HasDefaultValue)
+                case FieldInfo fieldInfo:
+                    FormatTypeName(fieldInfo.FieldType, output);
+                    output.Append($" {Highlight(fieldInfo.Name, len)}");
+                    break;
+                case PropertyInfo propertyInfo:
+                    FormatTypeName(propertyInfo.PropertyType, output);
+                    output.Append($" {Highlight(propertyInfo.Name, len)}");
+                    if (propertyInfo.CanWrite && propertyInfo.CanRead) output.Append(GetSetStr);
+                    else if (propertyInfo.CanWrite) output.Append(SetStr);
+                    else if (propertyInfo.CanRead) output.Append(GetStr);
+                    break;
+                case EventInfo eventInfo:
+                    FormatTypeName(eventInfo.EventHandlerType, output);
+                    output.Append($" {Highlight(eventInfo.Name, len)}");
+                    break;
+                case MethodInfo methodInfo:
+                    FormatTypeName(methodInfo.ReturnType, output);
+                    output.Append($" {Highlight(methodInfo.Name, len, Color.Method)}(");
+                    ParameterInfo[] parameters = methodInfo.GetParameters();
+                    int varArgParam = Expression.HasVariableParameterCount(methodInfo) ? parameters.Length - 1 : -1;
+                    for (int i = 0; i < parameters.Length; i++)
                     {
-                        output.Append(" = ");
-                        Stringify(parameters[i].ParameterType, parameters[i].DefaultValue, output);
+                        if (i > 0) output.Append(", ");
+                        if (i == varArgParam) output.Append($"{Colors.Open(Color.Keyword)}params{Colors.Close} ");
+                        FormatTypeName(parameters[i].ParameterType, output);
+                        output.Append($" {Colors.Open(Color.Variable)}{parameters[i].Name}{Colors.Close}");
+                        if (parameters[i].HasDefaultValue)
+                        {
+                            output.Append(" = ");
+                            Stringify(parameters[i].ParameterType, parameters[i].DefaultValue, output);
+                        }
                     }
-                }
-                output.Append(')');
-            }
-            else if (memberInfo is Type type)
-            {
-                output.Append(GetPrefix(type));
-                FormatTypeName(type, output, len);
-            }
-            else
-            {
-                output.Append(Highlight(memberInfo.Name, len));
+                    output.Append(')');
+                    break;
+                case Type typeInfo:
+                    output.Append(GetPrefix(typeInfo));
+                    FormatTypeName(typeInfo, output, len);
+                    break;
+                default:
+                    output.Append(Highlight(memberInfo.Name, len));
+                    break;
             }
         }
     }
