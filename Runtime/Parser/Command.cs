@@ -549,6 +549,23 @@ namespace AggroBird.DebugConsole
                                     throw new DebugConsoleException("The left-hand side of an assignment must be an assignable variable");
                                 }
 
+                                if (lhs.ResultType.IsSubclassOf(typeof(Delegate)))
+                                {
+                                    if (Expression.IsImplicitConvertable(rhs, lhs.ResultType, out rhs))
+                                    {
+                                        switch (op)
+                                        {
+                                            case TokenType.CompoundAdd: return new DelegateAdd(lhs, rhs);
+                                            case TokenType.CompoundSub: return new DelegateRemove(lhs, rhs);
+                                            default: throw new UnexpectedTokenException(token);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        throw new InvalidCastException(rhs.ResultType, lhs.ResultType);
+                                    }
+                                }
+
                                 // Replace compound with regular operator
                                 switch (op)
                                 {

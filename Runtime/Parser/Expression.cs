@@ -1823,6 +1823,42 @@ namespace AggroBird.DebugConsole
         public override Type ResultType => lhs.ResultType;
     }
 
+    internal class DelegateAdd : Expression
+    {
+        public DelegateAdd(Expression lhs, Expression rhs)
+        {
+            this.lhs = lhs;
+            this.rhs = rhs;
+        }
+
+        public readonly Expression lhs;
+        public readonly Expression rhs;
+
+        public override object Execute(ExecutionContext context)
+        {
+            return lhs.SetValue(context, Delegate.Combine(lhs.Execute(context) as Delegate, rhs.Execute(context) as Delegate), false);
+        }
+        public override Type ResultType => lhs.ResultType;
+    }
+
+    internal class DelegateRemove : Expression
+    {
+        public DelegateRemove(Expression lhs, Expression rhs)
+        {
+            this.lhs = lhs;
+            this.rhs = rhs;
+        }
+
+        public readonly Expression lhs;
+        public readonly Expression rhs;
+
+        public override object Execute(ExecutionContext context)
+        {
+            return lhs.SetValue(context, Delegate.Remove(lhs.Execute(context) as Delegate, rhs.Execute(context) as Delegate), false);
+        }
+        public override Type ResultType => lhs.ResultType;
+    }
+
     internal class EventAdd : Expression
     {
         public EventAdd(EventMember lhs, Expression rhs)
