@@ -46,7 +46,6 @@ namespace AggroBird.DebugConsole
 #if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
         private static Instance instance;
         private static ConsoleGUI gui = new ConsoleGUI(false);
-        private static bool isQuitting = false;
         private static Settings settings = null;
         internal static Settings Settings
         {
@@ -428,24 +427,11 @@ namespace AggroBird.DebugConsole
                 }
             }
 
-            private void OnDisable()
-            {
-                if (isQuitting) return;
-
-                // Force reenable if disabled
-                enabled = true;
-            }
             private void OnDestroy()
             {
 #if INCLUDE_DEBUG_SERVER
                 StopDebugServer();
 #endif
-
-                // Clear instance reference
-                if (instance == this) instance = null;
-
-                // Create a new instance if destroyed
-                if (!isQuitting) Initialize();
             }
         }
 
@@ -544,15 +530,6 @@ namespace AggroBird.DebugConsole
 
             if (!instance)
             {
-                // Make sure quitting is bind
-                Application.quitting -= Quitting;
-                Application.quitting += Quitting;
-
-#if UNITY_EDITOR
-                UnityEditor.EditorApplication.quitting -= Quitting;
-                UnityEditor.EditorApplication.quitting += Quitting;
-#endif
-
                 instance = UnityObject.FindObjectOfType<Instance>();
                 if (!instance)
                 {
@@ -560,7 +537,7 @@ namespace AggroBird.DebugConsole
                     GameObject gameObject = GameObject.Find(GameObjectName);
                     if (!gameObject) gameObject = new GameObject(GameObjectName);
                     instance = gameObject.AddComponent<Instance>();
-                    gameObject.hideFlags |= HideFlags.HideInHierarchy;
+                    gameObject.hideFlags |= HideFlags.NotEditable | HideFlags.HideInHierarchy | HideFlags.HideInInspector;
                     UnityObject.DontDestroyOnLoad(gameObject);
                 }
                 else
@@ -569,11 +546,6 @@ namespace AggroBird.DebugConsole
                     instance.enabled = true;
                 }
             }
-        }
-
-        private static void Quitting()
-        {
-            isQuitting = true;
         }
 
 
