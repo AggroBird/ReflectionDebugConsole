@@ -357,6 +357,21 @@ namespace AggroBird.Reflection
                 score++;
         }
 
+        private static bool IsSupportedReflectionType(Type type)
+        {
+            if (type.IsByRef) return false;
+            if (type.IsPointer) return false;
+            if (type.IsSubclassOf(typeof(Delegate)))
+            {
+                // Unsupported delegate type
+                MethodInfo invokeMethod = type.GetMethod("Invoke");
+                if (invokeMethod != null)
+                {
+                    if (!IncludeMember(invokeMethod)) return false;
+                }
+            }
+            return true;
+        }
         public static bool IncludeMember<T>(T member, bool includeSpecial = false) where T : MemberInfo
         {
             if (member is MethodBase methodBase)
@@ -375,9 +390,45 @@ namespace AggroBird.Reflection
                 // Skip methods with references or pointers as parameter
                 foreach (var parameter in methodBase.GetParameters())
                 {
-                    if (parameter.ParameterType.IsByRef) return false;
-                    if (parameter.ParameterType.IsPointer) return false;
+                    if (!IsSupportedReflectionType(parameter.ParameterType)) return false;
+                    // Skip methods with empty parameter names
+                    if (string.IsNullOrEmpty(parameter.Name)) return false;
                 }
+                if (methodBase is MethodInfo methodInfo)
+                {
+                    if (!IsSupportedReflectionType(methodInfo.ReturnType)) return false;
+                }
+            }
+            else if (member is PropertyInfo propertyInfo)
+            {
+                if (!IsSupportedReflectionType(propertyInfo.PropertyType)) return false;
+
+                MethodInfo getMethod = propertyInfo.GetMethod;
+                if (getMethod != null)
+                {
+                    // Skip subscript properties
+                    if (getMethod.GetParameters().Length > 0) return false;
+                    if (!IncludeMember(getMethod)) return false;
+                }
+                MethodInfo setMethod = propertyInfo.SetMethod;
+                if (setMethod != null)
+                {
+                    // Skip subscript properties
+                    if (setMethod.GetParameters().Length > 1) return false;
+                    if (!IncludeMember(setMethod)) return false;
+                }
+            }
+            else if (member is FieldInfo fieldInfo)
+            {
+                if (!IsSupportedReflectionType(fieldInfo.FieldType)) return false;
+            }
+            else if (member is EventInfo eventInfo)
+            {
+                if (!IsSupportedReflectionType(eventInfo.EventHandlerType)) return false;
+            }
+            else if (member is Type type)
+            {
+                if (!IsSupportedReflectionType(type)) return false;
             }
 
             // Skip compiler generated members

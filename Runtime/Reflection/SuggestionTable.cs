@@ -278,21 +278,28 @@ namespace AggroBird.Reflection
             switch (memberInfo)
             {
                 case FieldInfo fieldInfo:
+                {
                     FormatTypeName(fieldInfo.FieldType, output);
                     output.Append($" {Highlight(fieldInfo.Name, len)}");
-                    break;
+                }
+                break;
                 case PropertyInfo propertyInfo:
+                {
                     FormatTypeName(propertyInfo.PropertyType, output);
                     output.Append($" {Highlight(propertyInfo.Name, len)}");
                     if (propertyInfo.CanWrite && propertyInfo.CanRead) output.Append(GetSetStr);
                     else if (propertyInfo.CanWrite) output.Append(SetStr);
                     else if (propertyInfo.CanRead) output.Append(GetStr);
-                    break;
+                }
+                break;
                 case EventInfo eventInfo:
+                {
                     FormatTypeName(eventInfo.EventHandlerType, output);
                     output.Append($" {Highlight(eventInfo.Name, len)}");
-                    break;
+                }
+                break;
                 case MethodInfo methodInfo:
+                {
                     FormatTypeName(methodInfo.ReturnType, output);
                     output.Append($" {Highlight(methodInfo.Name, len, Style.Method)}(");
                     ParameterInfo[] parameters = methodInfo.GetParameters();
@@ -310,14 +317,19 @@ namespace AggroBird.Reflection
                         }
                     }
                     output.Append(')');
-                    break;
+                }
+                break;
                 case Type typeInfo:
+                {
                     output.Append(GetPrefix(typeInfo));
                     FormatTypeName(typeInfo, output, len);
-                    break;
+                }
+                break;
                 default:
+                {
                     output.Append(Highlight(memberInfo.Name, len));
-                    break;
+                }
+                break;
             }
         }
     }
