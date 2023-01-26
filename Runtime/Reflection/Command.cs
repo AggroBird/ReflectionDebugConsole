@@ -680,7 +680,7 @@ namespace AggroBird.Reflection
         {
             if (lhs is MethodOverload methodOverload)
             {
-                Expression[] args = ParseArguments(token, methodOverload.methods);
+                Expression[] args = ParseMethodArguments(token, methodOverload.methods);
 
                 MethodInfo[] optimal = Expression.GetOptimalOverloads(methodOverload.methods, args);
 
@@ -693,7 +693,7 @@ namespace AggroBird.Reflection
             {
                 ConstructorInfo[] constructors = Expression.FilterMembers(typename.type.GetConstructors(MakeInstanceBindingFlags()), true);
 
-                Expression[] args = ParseArguments(token, constructors);
+                Expression[] args = ParseMethodArguments(token, constructors);
 
                 if (typename.type.IsValueType && args.Length == 0)
                 {
@@ -711,7 +711,7 @@ namespace AggroBird.Reflection
             {
                 MethodInfo[] overloads = new MethodInfo[] { lhs.ResultType.GetMethod("Invoke") };
 
-                Expression[] args = ParseArguments(token, overloads, lhs.ResultType);
+                Expression[] args = ParseMethodArguments(token, overloads, lhs.ResultType);
 
                 MethodInfo[] optimal = Expression.GetOptimalOverloads(overloads, args);
 
@@ -723,7 +723,7 @@ namespace AggroBird.Reflection
         }
         protected override Expression SubscriptCallback(Expression lhs, Token token)
         {
-            Expression[] args = ParseArguments(token, null);
+            Expression[] args = ParseSubscriptArguments(token);
 
             if (lhs is Typename typename)
             {
@@ -1144,7 +1144,7 @@ namespace AggroBird.Reflection
             else
             {
                 if (str.Length > 1) throw new DebugConsoleException("Too many characters in character literal");
-                return str[1];
+                return str[0];
             }
         }
         private char ParseCharacterEscape(StringView str, ref int idx)
@@ -1153,6 +1153,7 @@ namespace AggroBird.Reflection
             char c = str[++idx];
             switch (c)
             {
+                case '0': return '\0';
                 case '\'': return '\'';
                 case '\"': return '\"';
                 case '\\': return '\\';
@@ -1193,21 +1194,14 @@ namespace AggroBird.Reflection
             return result;
         }
 
-        private Expression[] ParseArguments(Token token, IReadOnlyList<MethodBase> overloads, Type delegateType = null)
+        private Expression[] ParseMethodArguments(Token token, IReadOnlyList<MethodBase> overloads, Type delegateType = null)
         {
-            if (GenerateSuggestionInfoAtToken(token) && overloads != null)
+            if (GenerateSuggestionInfoAtToken(token))
             {
                 SuggestionInfo = new OverloadList(overloads, Array.Empty<Expression>(), delegateType);
             }
 
-            TokenType closingToken = TokenType.Eol;
-            switch (token.type)
-            {
-                case TokenType.LParen: closingToken = TokenType.RParen; break;
-                case TokenType.LBracket: closingToken = TokenType.RBracket; break;
-                case TokenType.LBrace: closingToken = TokenType.RBrace; break;
-            }
-
+            TokenType closingToken = TokenType.RParen;
             if (!Match(closingToken))
             {
                 List<Expression> args = new List<Expression>();
@@ -1220,10 +1214,29 @@ namespace AggroBird.Reflection
                     else if (next.type != TokenType.Comma)
                         throw new UnexpectedTokenException(next);
 
-                    if (GenerateSuggestionInfoAtToken(next) && overloads != null)
+                    if (GenerateSuggestionInfoAtToken(next))
                     {
                         SuggestionInfo = new OverloadList(overloads, args, delegateType);
                     }
+                }
+                return args.ToArray();
+            }
+            return Array.Empty<Expression>();
+        }
+        private Expression[] ParseSubscriptArguments(Token token)
+        {
+            TokenType closingToken = TokenType.RBracket;
+            if (!Match(closingToken))
+            {
+                List<Expression> args = new List<Expression>();
+                while (true)
+                {
+                    args.Add(ParseNext());
+                    Token next = Consume();
+                    if (next.type == closingToken)
+                        break;
+                    else if (next.type != TokenType.Comma)
+                        throw new UnexpectedTokenException(next);
                 }
                 return args.ToArray();
             }

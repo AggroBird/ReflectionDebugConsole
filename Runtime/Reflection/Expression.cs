@@ -367,7 +367,7 @@ namespace AggroBird.Reflection
                 MethodInfo invokeMethod = type.GetMethod("Invoke");
                 if (invokeMethod != null)
                 {
-                    if (!IncludeMember(invokeMethod)) return false;
+                    if (!IncludeMember(invokeMethod, true)) return false;
                 }
             }
             return true;
@@ -408,14 +408,14 @@ namespace AggroBird.Reflection
                 {
                     // Skip subscript properties
                     if (getMethod.GetParameters().Length > 0) return false;
-                    if (!IncludeMember(getMethod)) return false;
+                    if (!IncludeMember(getMethod, true)) return false;
                 }
                 MethodInfo setMethod = propertyInfo.SetMethod;
                 if (setMethod != null)
                 {
                     // Skip subscript properties
                     if (setMethod.GetParameters().Length > 1) return false;
-                    if (!IncludeMember(setMethod)) return false;
+                    if (!IncludeMember(setMethod, true)) return false;
                 }
             }
             else if (member is FieldInfo fieldInfo)
