@@ -7,8 +7,54 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
 
-namespace AggroBird.DebugConsole
+namespace AggroBird.Reflection
 {
+    internal enum Style : uint
+    {
+        White,
+        Class,
+        Struct,
+        Enum,
+        Keyword,
+        Number,
+        String,
+        Method,
+        Variable,
+    }
+
+    internal static class Styles
+    {
+        private static readonly uint[] HexCodes =
+        {
+            0xFFFFFF,
+            0x4EC9B0,
+            0x86C691,
+            0xB8D7A3,
+            0x569CD6,
+            0xFF64F3,
+            0xD69D85,
+            0xDCDCAA,
+            0x9CDCFE,
+        };
+
+        private static string[] MakeColorCodes()
+        {
+            string[] result = new string[HexCodes.Length];
+            for (int i = 0; i < HexCodes.Length; i++)
+            {
+                result[i] = $"<color=#{HexCodes[i]:X}>";
+            }
+            return result;
+        }
+        private static readonly string[] ColorCodes = MakeColorCodes();
+
+        public static string Open(Style style)
+        {
+            return ColorCodes[(int)style];
+        }
+        public const string Close = "</color>";
+    }
+
     internal abstract class Suggestion
     {
         public Suggestion(IReadOnlyList<string> usingNamespaces)
@@ -22,9 +68,9 @@ namespace AggroBird.DebugConsole
         protected readonly IReadOnlyList<string> usingNamespaces;
 
 
-        private static readonly string Null = $"{Colors.Open(Color.Keyword)}null{Colors.Close}";
-        private static readonly string True = $"{Colors.Open(Color.Keyword)}true{Colors.Close}";
-        private static readonly string False = $"{Colors.Open(Color.Keyword)}false{Colors.Close}";
+        private static readonly string Null = $"{Styles.Open(Style.Keyword)}null{Styles.Close}";
+        private static readonly string True = $"{Styles.Open(Style.Keyword)}true{Styles.Close}";
+        private static readonly string False = $"{Styles.Open(Style.Keyword)}false{Styles.Close}";
 
         protected void Stringify(Type type, object value, StringBuilder output)
         {
@@ -51,10 +97,10 @@ namespace AggroBird.DebugConsole
             switch (Type.GetTypeCode(type))
             {
                 case TypeCode.Char:
-                    output.Append($"{Colors.Open(Color.String)}'{value}'{Colors.Close}");
+                    output.Append($"{Styles.Open(Style.String)}'{value}'{Styles.Close}");
                     return;
                 case TypeCode.String:
-                    output.Append($"{Colors.Open(Color.String)}\"{value}\"{Colors.Close}");
+                    output.Append($"{Styles.Open(Style.String)}\"{value}\"{Styles.Close}");
                     return;
 
                 case TypeCode.SByte:
@@ -68,7 +114,7 @@ namespace AggroBird.DebugConsole
                 case TypeCode.Single:
                 case TypeCode.Double:
                 case TypeCode.Decimal:
-                    output.Append($"{Colors.Open(Color.Number)}{value}{Colors.Close}");
+                    output.Append($"{Styles.Open(Style.Number)}{value}{Styles.Close}");
                     return;
 
                 case TypeCode.Boolean:
@@ -79,30 +125,30 @@ namespace AggroBird.DebugConsole
             output.Append(value.ToString());
         }
 
-        protected static Color GetTypeColor(Type type)
+        protected static Style GetTypeColor(Type type)
         {
             if (type.IsEnum || type.IsInterface || type.IsGenericParameter)
-                return Color.Enum;
+                return Style.Enum;
             else if (type.IsClass)
-                return Color.Class;
+                return Style.Class;
             else if (type.IsValueType)
-                return Color.Struct;
+                return Style.Struct;
             else
-                return Color.White;
+                return Style.White;
         }
-        protected static string Highlight(string str, int len, Color color = Color.White)
+        protected static string Highlight(string str, int len, Style color = Style.White)
         {
             if (len >= str.Length)
             {
-                return $"{Colors.Open(color)}<b>{str}</b>{Colors.Close}";
+                return $"{Styles.Open(color)}<b>{str}</b>{Styles.Close}";
             }
             else if (len > 0)
             {
-                return $"{Colors.Open(color)}<b>{str.Substring(0, len)}</b>{str.Substring(len)}{Colors.Close}";
+                return $"{Styles.Open(color)}<b>{str.Substring(0, len)}</b>{str.Substring(len)}{Styles.Close}";
             }
             else
             {
-                return $"{Colors.Open(color)}{str}{Colors.Close}";
+                return $"{Styles.Open(color)}{str}{Styles.Close}";
             }
         }
 
@@ -110,7 +156,7 @@ namespace AggroBird.DebugConsole
         {
             string result = Expression.GetPrefix(type);
             if (string.IsNullOrEmpty(result)) return result;
-            return $"{Colors.Open(Color.Keyword)}{result}{Colors.Close}";
+            return $"{Styles.Open(Style.Keyword)}{result}{Styles.Close}";
         }
 
 
@@ -124,7 +170,7 @@ namespace AggroBird.DebugConsole
 
             if (TokenUtility.TryGetBaseTypeName(type, out string baseTypeName))
             {
-                output.Append(Highlight(baseTypeName, highlight, Color.Keyword));
+                output.Append(Highlight(baseTypeName, highlight, Style.Keyword));
                 return;
             }
 
@@ -216,9 +262,9 @@ namespace AggroBird.DebugConsole
         private readonly MemberInfo memberInfo;
         private readonly int highlightLength;
 
-        private static readonly string GetStr = $" {{ {Colors.Open(Color.Keyword)}get{Colors.Close}; }}";
-        private static readonly string SetStr = $" {{ {Colors.Open(Color.Keyword)}set{Colors.Close}; }}";
-        private static readonly string GetSetStr = $" {{ {Colors.Open(Color.Keyword)}get{Colors.Close}; {Colors.Open(Color.Keyword)}set{Colors.Close}; }}";
+        private static readonly string GetStr = $" {{ {Styles.Open(Style.Keyword)}get{Styles.Close}; }}";
+        private static readonly string SetStr = $" {{ {Styles.Open(Style.Keyword)}set{Styles.Close}; }}";
+        private static readonly string GetSetStr = $" {{ {Styles.Open(Style.Keyword)}get{Styles.Close}; {Styles.Open(Style.Keyword)}set{Styles.Close}; }}";
 
 
         public override string Text => memberInfo.Name;
@@ -244,15 +290,15 @@ namespace AggroBird.DebugConsole
                     break;
                 case MethodInfo methodInfo:
                     FormatTypeName(methodInfo.ReturnType, output);
-                    output.Append($" {Highlight(methodInfo.Name, len, Color.Method)}(");
+                    output.Append($" {Highlight(methodInfo.Name, len, Style.Method)}(");
                     ParameterInfo[] parameters = methodInfo.GetParameters();
                     int varArgParam = Expression.HasVariableParameterCount(methodInfo) ? parameters.Length - 1 : -1;
                     for (int i = 0; i < parameters.Length; i++)
                     {
                         if (i > 0) output.Append(", ");
-                        if (i == varArgParam) output.Append($"{Colors.Open(Color.Keyword)}params{Colors.Close} ");
+                        if (i == varArgParam) output.Append($"{Styles.Open(Style.Keyword)}params{Styles.Close} ");
                         FormatTypeName(parameters[i].ParameterType, output);
-                        output.Append($" {Colors.Open(Color.Variable)}{parameters[i].Name}{Colors.Close}");
+                        output.Append($" {Styles.Open(Style.Variable)}{parameters[i].Name}{Styles.Close}");
                         if (parameters[i].HasDefaultValue)
                         {
                             output.Append(" = ");
@@ -291,14 +337,14 @@ namespace AggroBird.DebugConsole
         {
             if (overload is ConstructorInfo constructor)
             {
-                output.Append($"{Colors.Open(GetTypeColor(constructor.DeclaringType))}{constructor.DeclaringType.Name}{Colors.Close}(");
+                output.Append($"{Styles.Open(GetTypeColor(constructor.DeclaringType))}{constructor.DeclaringType.Name}{Styles.Close}(");
             }
             else if (overload is MethodInfo method)
             {
                 FormatTypeName(method.ReturnType, output);
                 if (delegateType == null)
                 {
-                    output.Append($" {Colors.Open(Color.Method)}{method.Name}{Colors.Close}(");
+                    output.Append($" {Styles.Open(Style.Method)}{method.Name}{Styles.Close}(");
                 }
                 else
                 {
@@ -316,9 +362,9 @@ namespace AggroBird.DebugConsole
             {
                 if (i > 0) output.Append(", ");
                 if (i == currentParamIdx) output.Append("<b>");
-                if (i == varArgParam) output.Append($"{Colors.Open(Color.Keyword)}params{Colors.Close} ");
+                if (i == varArgParam) output.Append($"{Styles.Open(Style.Keyword)}params{Styles.Close} ");
                 FormatTypeName(parameters[i].ParameterType, output);
-                output.Append($" {Colors.Open(Color.Variable)}{parameters[i].Name}{Colors.Close}");
+                output.Append($" {Styles.Open(Style.Variable)}{parameters[i].Name}{Styles.Close}");
                 if (parameters[i].HasDefaultValue)
                 {
                     output.Append($" = ");
@@ -345,7 +391,7 @@ namespace AggroBird.DebugConsole
         public override void BuildSuggestionString(StringBuilder output, bool isHighlighted)
         {
             int len = isHighlighted ? int.MaxValue : highlightLength;
-            output.Append($"{Colors.Open(Color.Keyword)}namespace {Colors.Close}{Highlight(identifier.Name, len)}");
+            output.Append($"{Styles.Open(Style.Keyword)}namespace {Styles.Close}{Highlight(identifier.Name, len)}");
         }
     }
 
@@ -397,7 +443,7 @@ namespace AggroBird.DebugConsole
         {
             int len = isHighlighted ? int.MaxValue : highlightLength;
             FormatTypeName(type, output);
-            output.Append($" {Highlight(name, len, Color.Variable)}");
+            output.Append($" {Highlight(name, len, Style.Variable)}");
         }
     }
 
@@ -417,7 +463,7 @@ namespace AggroBird.DebugConsole
         public override void BuildSuggestionString(StringBuilder output, bool isHighlighted)
         {
             int len = isHighlighted ? int.MaxValue : highlightLength;
-            output.Append($"{Highlight(name, len, Color.Keyword)}");
+            output.Append($"{Highlight(name, len, Style.Keyword)}");
         }
     }
 
@@ -631,7 +677,7 @@ namespace AggroBird.DebugConsole
                 // Strip input behind the cursor, it cannot affect the suggestions
                 input = input.Substring(0, cursorPosition);
             }
-
+            
             CommandParser commandParser = null;
             try
             {
@@ -827,7 +873,7 @@ namespace AggroBird.DebugConsole
                 output.Append($"\n< {highlightOffset} more results >");
             }
 
-            output.Append(Colors.Open(Color.White));
+            output.Append(Styles.Open(Style.White));
             for (int i = 0; i < visibleCount; i++)
             {
                 var suggestion = suggestions[highlightOffset + i];
@@ -837,7 +883,7 @@ namespace AggroBird.DebugConsole
                 if (output.Length > 0) output.Append('\n');
                 suggestion.BuildSuggestionString(output, i == highlightIndex);
             }
-            output.Append(Colors.Close);
+            output.Append(Styles.Close);
 
             // Overflow
             if (overflow > 0)

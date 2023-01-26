@@ -5,7 +5,7 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace AggroBird.DebugConsole
+namespace AggroBird.Reflection
 {
     internal sealed unsafe class Lexer : List<Token>
     {

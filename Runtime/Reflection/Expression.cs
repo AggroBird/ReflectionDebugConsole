@@ -8,7 +8,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 
-namespace AggroBird.DebugConsole
+namespace AggroBird.Reflection
 {
     internal class ExecutionContext
     {
@@ -2105,7 +2105,7 @@ namespace AggroBird.DebugConsole
                     result = expressions[i].Execute(context);
                 }
 
-                if (++iterCount >= maxIterations) throw new DebugConsoleException("Loop iteration counts exceeds maximum");
+                if (++iterCount >= maxIterations) throw new DebugConsoleException($"Maximum loop iteration reached ({maxIterations})");
 
                 context.variables.RemoveRange(innerStackOffset, context.variables.Count - innerStackOffset);
             }
@@ -2136,7 +2136,7 @@ namespace AggroBird.DebugConsole
             {
                 result = base.Execute(context);
 
-                if (++iterCount >= maxIterations) throw new DebugConsoleException("Loop iteration counts exceeds maximum");
+                if (++iterCount >= maxIterations) throw new DebugConsoleException($"Maximum loop iteration reached ({maxIterations})");
 
                 context.variables.RemoveRange(outerStackOffset, context.variables.Count - outerStackOffset);
             }

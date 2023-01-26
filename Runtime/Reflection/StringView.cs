@@ -6,7 +6,7 @@ using System;
 using System.Globalization;
 using System.Text;
 
-namespace AggroBird.DebugConsole
+namespace AggroBird.Reflection
 {
     internal static class StringViewUtility
     {

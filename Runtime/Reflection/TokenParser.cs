@@ -2,7 +2,7 @@
 
 #if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
 
-namespace AggroBird.DebugConsole
+namespace AggroBird.Reflection
 {
     internal class TokenParser
     {

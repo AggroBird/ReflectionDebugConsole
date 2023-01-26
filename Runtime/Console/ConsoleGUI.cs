@@ -2,6 +2,7 @@
 
 #if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
 
+using AggroBird.Reflection;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -10,57 +11,13 @@ using UnityEngine;
 
 namespace AggroBird.DebugConsole
 {
-    internal enum Color : uint
-    {
-        White,
-        Class,
-        Struct,
-        Enum,
-        Keyword,
-        Number,
-        String,
-        Method,
-        Variable,
-    }
-
-    internal static class Colors
-    {
-        private static readonly uint[] HexCodes =
-        {
-            0xFFFFFF,
-            0x4EC9B0,
-            0x86C691,
-            0xB8D7A3,
-            0x569CD6,
-            0xFF64F3,
-            0xD69D85,
-            0xDCDCAA,
-            0x9CDCFE,
-        };
-
-        private static string[] MakeColorCodes()
-        {
-            string[] result = new string[HexCodes.Length];
-            for (int i = 0; i < HexCodes.Length; i++)
-            {
-                result[i] = $"<color=#{HexCodes[i]:X}>";
-            }
-            return result;
-        }
-
-        private static readonly string[] ColorCodes = MakeColorCodes();
-
-        public static string Open(Color color)
-        {
-            return ColorCodes[(int)color];
-        }
-        public const string Close = "</color>";
-    }
-
     internal sealed class ConsoleGUI
     {
         private const int CaptureFrameCount = 2;
         private const string ScanningAssembliesText = "Scanning assemblies...";
+
+        private static readonly Color32 foregroundColor = new Color32(255, 255, 255, 255);
+        private static readonly Color32 backgroundColor = new Color32(30, 30, 30, 255);
 
 
         public ConsoleGUI(bool isDocked)
@@ -164,11 +121,15 @@ namespace AggroBird.DebugConsole
                 cursorPosition = consoleInput.Length;
             }
 
+            OnInputChanged();
             capturePosition = -1;
-            inputChanged = true;
             consoleCaptureFrameCount = CaptureFrameCount;
             highlightIndex = -1;
             highlightOffset = -1;
+        }
+        private void OnInputChanged()
+        {
+            inputChanged = true;
         }
 
 
@@ -210,6 +171,7 @@ namespace AggroBird.DebugConsole
             if (IsOpen)
             {
                 GUI.depth = int.MinValue;
+                GUI.color = Color.white;
 
                 // Initialize guistyles if null
                 if (boxStyle == null || !whiteTexture)
@@ -239,11 +201,15 @@ namespace AggroBird.DebugConsole
                 bool guiEnabledState = GUI.enabled;
                 GUI.enabled = isReady;
                 {
-                    string showInput = isReady ? consoleInput : ScanningAssembliesText;
-                    string newInput = GUI.TextField(DrawBackground(new Rect(0, y, width + scaleModifier, boxHeight), borderThickness), showInput, boxStyle);
+                    Rect inputArea = new Rect(0, y, width + scaleModifier, boxHeight);
+                    boxStyle.normal.textColor = backgroundColor;
+                    string newInput = GUI.TextField(DrawBackground(inputArea, borderThickness), consoleInput, boxStyle);
+                    boxStyle.normal.textColor = foregroundColor;
+                    string showText = isReady ? consoleInput : ScanningAssembliesText;
+                    GUI.Label(inputArea, showText, boxStyle);
                     if (isReady && (newInput != consoleInput || dimensions.y != previousWindowHeight))
                     {
-                        inputChanged = true;
+                        OnInputChanged();
                         consoleInput = newInput;
                         previousWindowHeight = dimensions.y;
                         highlightIndex = -1;
@@ -456,7 +422,7 @@ namespace AggroBird.DebugConsole
 
                             // Apply suggestion
                             InsertSuggestion(shortestIndex);
-                            inputChanged = true;
+                            OnInputChanged();
                         }
                         else
                         {
@@ -593,13 +559,13 @@ namespace AggroBird.DebugConsole
         {
             boxStyle = new GUIStyle();
             boxStyle.richText = true;
-            boxStyle.normal.textColor = UnityEngine.Color.white;
+            boxStyle.normal.textColor = foregroundColor;
             boxStyle.border = new RectOffset(4, 4, 4, 4);
             boxStyle.clipping = TextClipping.Clip;
             boxStyle.alignment = TextAnchor.LowerLeft;
 
-            whiteTexture = MakeTexture(8, 8, new Color32(255, 255, 255, 255));
-            blackTexture = MakeTexture(8, 8, new Color32(30, 30, 30, 255));
+            whiteTexture = MakeTexture(8, 8, foregroundColor);
+            blackTexture = MakeTexture(8, 8, backgroundColor);
 
             buttonStyle = new GUIStyle(boxStyle);
             buttonStyle.alignment = TextAnchor.MiddleCenter;

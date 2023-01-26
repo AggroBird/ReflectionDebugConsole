@@ -6,7 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 
-namespace AggroBird.DebugConsole
+namespace AggroBird.Reflection
 {
     internal enum Precedence
     {

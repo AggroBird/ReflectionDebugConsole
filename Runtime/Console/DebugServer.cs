@@ -2,6 +2,7 @@
 
 #if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
 
+using AggroBird.Reflection;
 using System;
 using System.Collections.Generic;
 using System.Linq;

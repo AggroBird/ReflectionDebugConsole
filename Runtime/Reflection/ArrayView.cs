@@ -5,7 +5,7 @@
 using System;
 using System.Diagnostics;
 
-namespace AggroBird.DebugConsole
+namespace AggroBird.Reflection
 {
     internal static class ArrayViewUtility
     {

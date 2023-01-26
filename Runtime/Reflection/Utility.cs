@@ -4,7 +4,7 @@
 
 using System.Collections.Generic;
 
-namespace AggroBird.DebugConsole
+namespace AggroBird.Reflection
 {
     internal static class Utility
     {

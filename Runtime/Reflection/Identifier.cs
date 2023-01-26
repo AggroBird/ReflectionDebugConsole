@@ -7,7 +7,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.Threading;
 
-namespace AggroBird.DebugConsole
+namespace AggroBird.Reflection
 {
     internal class Identifier
     {

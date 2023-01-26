@@ -4,7 +4,7 @@
 
 using System;
 
-namespace AggroBird.DebugConsole
+namespace AggroBird.Reflection
 {
     internal class ExpressionParser : TokenParser
     {
