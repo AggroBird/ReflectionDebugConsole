@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace AggroBird.DebugConsole
 {
@@ -356,16 +357,6 @@ namespace AggroBird.DebugConsole
                 score++;
         }
 
-        public static bool IncludeType(Type type)
-        {
-            // Skip generic types with invalid names
-            if (type.IsGenericTypeDefinition)
-            {
-                if (type.Name.IndexOf('`') == -1) return false;
-            }
-
-            return true;
-        }
         public static bool IncludeMember<T>(T member, bool includeSpecial = false) where T : MemberInfo
         {
             if (member is MethodBase methodBase)
@@ -377,7 +368,7 @@ namespace AggroBird.DebugConsole
                 {
                     // Skip property methods
                     if (methodBase.IsSpecialName) return false;
-                    // Skip interface methods
+                    // Skip explicit interface methods
                     if (methodBase.Name.IndexOf('.') != -1) return false;
                 }
 
@@ -389,7 +380,8 @@ namespace AggroBird.DebugConsole
                 }
             }
 
-            if (member is Type type && !IncludeType(type))
+            // Skip compiler generated members
+            if (member.GetCustomAttribute<CompilerGeneratedAttribute>() != null)
             {
                 return false;
             }
@@ -472,7 +464,7 @@ namespace AggroBird.DebugConsole
             List<Type> result = new List<Type>();
             for (int i = 0; i < types.Length; i++)
             {
-                if (IncludeType(types[i]))
+                if (IncludeMember(types[i]))
                 {
                     result.Add(types[i]);
                 }
@@ -481,7 +473,7 @@ namespace AggroBird.DebugConsole
         }
         public static Type FilterMembers(Type nestedType)
         {
-            if (IncludeType(nestedType))
+            if (IncludeMember(nestedType))
             {
                 return nestedType;
             }
