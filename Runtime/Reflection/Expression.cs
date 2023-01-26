@@ -1247,7 +1247,7 @@ namespace AggroBird.Reflection
         {
             return $"{GetPrefix(type)}{type.FullName}";
         }
-        public override Type ResultType => typeof(void);
+        public override Type ResultType => throw new DebugConsoleException("Typename cannot be used as variable");
     }
 
     internal class BoxedObject : Expression
