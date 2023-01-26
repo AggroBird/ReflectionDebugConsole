@@ -108,11 +108,6 @@ namespace AggroBird.DebugConsole
             }
         }
 
-        private void MarkInputDirty()
-        {
-            inputChanged = true;
-            styledInput = null;
-        }
         private void ResetState(bool clearInput = true)
         {
             if (clearInput)
@@ -133,7 +128,8 @@ namespace AggroBird.DebugConsole
             highlightIndex = -1;
             highlightOffset = -1;
 
-            MarkInputDirty();
+            inputChanged = true;
+            styledInput = null;
         }
 
 
@@ -216,7 +212,8 @@ namespace AggroBird.DebugConsole
                         previousWindowHeight = dimensions.y;
                         highlightIndex = -1;
                         highlightOffset = -1;
-                        MarkInputDirty();
+                        inputChanged = true;
+                        styledInput = null;
                     }
 
                     // Get selection position and update focus
@@ -539,6 +536,8 @@ namespace AggroBird.DebugConsole
 
                 // Apply suggestion
                 InsertSuggestion(shortestIndex);
+                inputChanged = true;
+                styledInput = null;
             }
             else
             {
@@ -573,8 +572,8 @@ namespace AggroBird.DebugConsole
 
             // Update text
             consoleInput = stringBuilder.ToString();
-            MarkInputDirty();
             consoleCaptureFrameCount = CaptureFrameCount;
+            styledInput = null;
         }
 
 
