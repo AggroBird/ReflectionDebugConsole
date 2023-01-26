@@ -42,42 +42,32 @@ namespace AggroBird.Reflection
 
         private void Parse()
         {
-            CommentState commentState = CommentState.None;
             TokenType stringState = TokenType.Invalid;
             char* stringStart = ptr;
             bool escape = false;
             while (ptr < end)
             {
                 char c = Consume();
-                if (commentState != CommentState.None)
-                {
-                    if (commentState == CommentState.SingleLine && c == '\n')
-                    {
-                        commentState = CommentState.None;
-                    }
-                    if (commentState == CommentState.MultiLine && c == '*')
-                    {
-                        if (Peek() == '/')
-                        {
-                            commentState = CommentState.None;
-                            ptr++;
-                        }
-                    }
-                    continue;
-                }
                 if (stringState != TokenType.Invalid)
                 {
                     if (!escape)
                     {
-                        if (stringState == TokenType.StringLiteral && c == '"')
+                        switch (c)
                         {
-                            MakeStringLiteral(stringState, (int)(stringStart - beg), (int)(ptr - stringStart) - 1);
-                            stringState = TokenType.Invalid;
-                        }
-                        else if (stringState == TokenType.CharLiteral && c == '\'')
-                        {
-                            MakeStringLiteral(stringState, (int)(stringStart - beg), (int)(ptr - stringStart) - 1);
-                            stringState = TokenType.Invalid;
+                            case '"':
+                                if (stringState == TokenType.StringLiteral)
+                                {
+                                    Add(new Token(stringState, source.SubView((int)(stringStart - beg), (int)(ptr - stringStart)), lineNumber));
+                                    stringState = TokenType.Invalid;
+                                }
+                                break;
+                            case '\'':
+                                if (stringState == TokenType.CharLiteral)
+                                {
+                                    Add(new Token(stringState, source.SubView((int)(stringStart - beg), (int)(ptr - stringStart)), lineNumber));
+                                    stringState = TokenType.Invalid;
+                                }
+                                break;
                         }
                     }
                     escape = !escape && c == '\\';
@@ -88,11 +78,11 @@ namespace AggroBird.Reflection
                 {
                     case '"':
                         stringState = TokenType.StringLiteral;
-                        stringStart = ptr;
+                        stringStart = ptr - 1;
                         break;
                     case '\'':
                         stringState = TokenType.CharLiteral;
-                        stringStart = ptr;
+                        stringStart = ptr - 1;
                         break;
 
                     case '(': MakeToken(c, TokenType.LParen); break;
@@ -136,8 +126,6 @@ namespace AggroBird.Reflection
                         char n = Peek();
                         switch (n)
                         {
-                            case '/': commentState = CommentState.SingleLine; ptr++; break;
-                            case '*': commentState = CommentState.MultiLine; ptr++; break;
                             default: CheckCompound(c, TokenType.Div, TokenType.CompoundDiv); break;
                         }
                         break;
@@ -247,12 +235,16 @@ namespace AggroBird.Reflection
                 }
             }
 
-            if (commentState != CommentState.None || stringState != TokenType.Invalid)
+            if (stringState == TokenType.StringLiteral)
             {
-                throw new UnexpectedEndOfExpressionException();
+                Add(new Token(stringState, source.SubView((int)(stringStart - beg), (int)(ptr - stringStart)), lineNumber));
+            }
+            else if (stringState == TokenType.CharLiteral)
+            {
+                Add(new Token(stringState, source.SubView((int)(stringStart - beg), (int)(ptr - stringStart)), lineNumber));
             }
 
-            Add(new Token(TokenType.Eol, StringView.Empty, lineNumber));
+            Add(new Token(TokenType.Eol, source.SubView(source.Length, 0), lineNumber));
         }
 
         private static bool IsAscii(char c)
@@ -376,73 +368,6 @@ namespace AggroBird.Reflection
         {
             Add(new Token(tokenType, source.SubView((int)(ptr - beg - 1), 3), lineNumber));
             ptr += 2;
-        }
-        private void MakeStringLiteral(TokenType tokenType, int start, int len)
-        {
-            if (len > 0)
-            {
-                bool anyEscaped = false;
-                int last = len - 1;
-                char* substr = beg + start;
-                for (int i = 0; i < len; i++)
-                {
-                    char c = substr[i];
-                    if (c == '\\')
-                    {
-                        if (i == last) throw new UnexpectedTokenException(c);
-                        if (!anyEscaped)
-                        {
-                            stringBuilder.Append(substr, i);
-                            anyEscaped = true;
-                        }
-                        c = substr[++i];
-                        switch (c)
-                        {
-                            case '\'': stringBuilder.Append('\''); break;
-                            case '\"': stringBuilder.Append('\"'); break;
-                            case '\\': stringBuilder.Append('\\'); break;
-                            case 'a': stringBuilder.Append('\a'); break;
-                            case 'b': stringBuilder.Append('\b'); break;
-                            case 'f': stringBuilder.Append('\f'); break;
-                            case 'n': stringBuilder.Append('\n'); break;
-                            case 'r': stringBuilder.Append('\r'); break;
-                            case 't': stringBuilder.Append('\t'); break;
-                            case 'v': stringBuilder.Append('\v'); break;
-                            case 'u':
-                            {
-                                int remaining = len - i;
-                                if (remaining >= 5 && uint.TryParse(new string(substr, i + 1, 4), System.Globalization.NumberStyles.AllowHexSpecifier, null, out uint charCode))
-                                {
-                                    stringBuilder.Append((char)charCode);
-
-                                    // Skip escaped character + char code
-                                    i += 4;
-                                }
-                            }
-                            break;
-                            default: throw new DebugConsoleException($"Unsupported character escape: {c}");
-                        }
-                    }
-                    else if (anyEscaped)
-                    {
-                        stringBuilder.Append(c);
-                    }
-                }
-
-                if (anyEscaped)
-                {
-                    Add(new Token(tokenType, stringBuilder.ToString(), lineNumber));
-                    stringBuilder.Clear();
-                }
-                else
-                {
-                    Add(new Token(tokenType, source.SubView(start, len), lineNumber));
-                }
-            }
-            else
-            {
-                Add(new Token(tokenType, StringView.Empty, lineNumber));
-            }
         }
 
 

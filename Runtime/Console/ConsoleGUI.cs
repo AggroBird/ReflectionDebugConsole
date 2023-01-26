@@ -40,6 +40,7 @@ namespace AggroBird.DebugConsole
         // Console state
         private bool inputChanged = false;
         private string consoleInput = string.Empty;
+        private string styledInput = null;
         private int cursorPosition = -1;
         private bool clearConsole = false;
         private float previousWindowHeight = 0;
@@ -52,6 +53,7 @@ namespace AggroBird.DebugConsole
         private SuggestionTable suggestionResult = SuggestionTable.Empty;
         private readonly StringBuilder stringBuilder = new StringBuilder(1024);
         private int maxSuggestionCount = 0;
+        private bool IsBuildingSuggestions => updateSuggestionsTask != null;
 
         private class SuggestionTableBuilder
         {
@@ -106,6 +108,11 @@ namespace AggroBird.DebugConsole
             }
         }
 
+        private void MarkInputDirty()
+        {
+            inputChanged = true;
+            styledInput = null;
+        }
         private void ResetState(bool clearInput = true)
         {
             if (clearInput)
@@ -115,21 +122,18 @@ namespace AggroBird.DebugConsole
                 clearConsole = true;
                 historyIndex = -1;
                 suggestionResult = SuggestionTable.Empty;
+                capturePosition = -1;
             }
             else
             {
-                cursorPosition = consoleInput.Length;
+                capturePosition = cursorPosition = consoleInput.Length;
             }
 
-            OnInputChanged();
-            capturePosition = -1;
             consoleCaptureFrameCount = CaptureFrameCount;
             highlightIndex = -1;
             highlightOffset = -1;
-        }
-        private void OnInputChanged()
-        {
-            inputChanged = true;
+
+            MarkInputDirty();
         }
 
 
@@ -149,7 +153,7 @@ namespace AggroBird.DebugConsole
             }
             HasFocus = consoleFocusFrameCount > 0;
 
-            if (isLayout && updateSuggestionsTask != null)
+            if (isLayout && IsBuildingSuggestions)
             {
                 // Update the task status and retrieve the result upon completion
                 TaskStatus taskStatus = updateSuggestionsTask.Status;
@@ -195,26 +199,44 @@ namespace AggroBird.DebugConsole
                 float y = dimensions.y - boxHeight;
                 float width = dimensions.x - buttonWidth;
 
-                GUI.SetNextControlName(DebugConsole.UniqueKey);
-
                 // Update the input text
                 bool guiEnabledState = GUI.enabled;
                 GUI.enabled = isReady;
+                TextEditor editor = null;
                 {
                     Rect inputArea = new Rect(0, y, width + scaleModifier, boxHeight);
+
                     boxStyle.normal.textColor = backgroundColor;
+                    GUI.SetNextControlName(DebugConsole.UniqueKey);
                     string newInput = GUI.TextField(DrawBackground(inputArea, borderThickness), consoleInput, boxStyle);
-                    boxStyle.normal.textColor = foregroundColor;
-                    string showText = isReady ? consoleInput : ScanningAssembliesText;
-                    GUI.Label(inputArea, showText, boxStyle);
+
                     if (isReady && (newInput != consoleInput || dimensions.y != previousWindowHeight))
                     {
-                        OnInputChanged();
                         consoleInput = newInput;
                         previousWindowHeight = dimensions.y;
                         highlightIndex = -1;
                         highlightOffset = -1;
+                        MarkInputDirty();
                     }
+
+                    // Get selection position and update focus
+                    HasFocus = GUI.GetNameOfFocusedControl() == DebugConsole.UniqueKey;
+                    if (HasFocus)
+                    {
+                        consoleFocusFrameCount = CaptureFrameCount;
+
+                        editor = (TextEditor)GUIUtility.GetStateObject(typeof(TextEditor), GUIUtility.keyboardControl);
+                        cursorPosition = (capturePosition == -1) ? editor.cursorIndex : capturePosition;
+                    }
+
+                    if (styledInput == null)
+                    {
+                        RebuildStyledInput();
+                    }
+
+                    boxStyle.normal.textColor = foregroundColor;
+                    GUI.Label(inputArea, isReady ? styledInput : ScanningAssembliesText, boxStyle);
+
                     if (GUI.Button(DrawBackground(new Rect(width, dimensions.y - boxHeight, buttonWidth, boxHeight), borderThickness), ">", buttonStyle))
                     {
                         ExecuteInput();
@@ -222,17 +244,6 @@ namespace AggroBird.DebugConsole
                     }
                 }
                 GUI.enabled = guiEnabledState;
-
-                // Get selection position and update focus
-                HasFocus = GUI.GetNameOfFocusedControl() == DebugConsole.UniqueKey;
-                TextEditor editor = null;
-                if (HasFocus)
-                {
-                    consoleFocusFrameCount = CaptureFrameCount;
-
-                    editor = (TextEditor)GUIUtility.GetStateObject(typeof(TextEditor), GUIUtility.keyboardControl);
-                    cursorPosition = (capturePosition == -1) ? editor.cursorIndex : capturePosition;
-                }
 
                 float suggestionSpace = dimensions.y - boxHeight;
                 maxSuggestionCount = Mathf.FloorToInt((suggestionSpace - verticalPadding) / boxStyle.lineHeight);
@@ -258,7 +269,7 @@ namespace AggroBird.DebugConsole
                 }
 
                 // Start a new task if the input has changed and no other tasks are running
-                if (isLayout && isReady && inputChanged && updateSuggestionsTask == null)
+                if (isLayout && isReady && inputChanged && !IsBuildingSuggestions)
                 {
                     inputChanged = false;
 
@@ -284,7 +295,11 @@ namespace AggroBird.DebugConsole
                 // Capture console
                 if (isLayout && consoleCaptureFrameCount > 0)
                 {
-                    if (clearConsole) consoleInput = string.Empty;
+                    if (clearConsole)
+                    {
+                        consoleInput = string.Empty;
+                        styledInput = null;
+                    }
 
                     GUI.FocusControl(DebugConsole.UniqueKey);
                     if (HasFocus)
@@ -326,6 +341,8 @@ namespace AggroBird.DebugConsole
 
             suggestionResult = table;
             suggestionResult.Update(ref highlightOffset, ref highlightIndex, 0, maxSuggestionCount, stringBuilder);
+
+            RebuildStyledInput();
         }
 
         private void UpdateKeyboardEvents()
@@ -404,32 +421,7 @@ namespace AggroBird.DebugConsole
                     }
                     else if (settings.autoCompleteKey.IsPressed(current))
                     {
-                        if (suggestionResult && !suggestionResult.isOverloadList && suggestionResult.insertLength > 0)
-                        {
-                            // Find shortest matching suggestion
-                            int shortestLength = suggestionResult.visible[0].Text.Length;
-                            int shortestIndex = 0;
-                            for (int i = 1; i < suggestionResult.visible.Count; i++)
-                            {
-                                var suggestion = suggestionResult.visible[i];
-                                int len = suggestion.Text.Length;
-                                if (len < shortestLength)
-                                {
-                                    shortestLength = len;
-                                    shortestIndex = i;
-                                }
-                            }
-
-                            // Apply suggestion
-                            InsertSuggestion(shortestIndex);
-                            OnInputChanged();
-                        }
-                        else
-                        {
-                            capturePosition = cursorPosition;
-                            consoleCaptureFrameCount = CaptureFrameCount;
-                        }
-
+                        InsertSuggestion();
                         current.Use();
                         return;
                     }
@@ -516,12 +508,42 @@ namespace AggroBird.DebugConsole
 
         private void ApplySuggestion(int direction)
         {
-            if (suggestionResult && suggestionResult.Update(ref highlightOffset, ref highlightIndex, direction, maxSuggestionCount, stringBuilder))
+            if (suggestionResult.SuggestionCount > 0 && !IsBuildingSuggestions)
             {
-                if (!suggestionResult.isOverloadList)
+                if (suggestionResult.Update(ref highlightOffset, ref highlightIndex, direction, maxSuggestionCount, stringBuilder))
                 {
-                    InsertSuggestion(highlightIndex + highlightOffset);
+                    if (!suggestionResult.isOverloadList)
+                    {
+                        InsertSuggestion(highlightIndex + highlightOffset);
+                    }
                 }
+            }
+        }
+        private void InsertSuggestion()
+        {
+            if (suggestionResult.SuggestionCount > 0 && !IsBuildingSuggestions && !suggestionResult.isOverloadList && suggestionResult.insertLength > 0)
+            {
+                // Find shortest matching suggestion
+                int shortestLength = suggestionResult.visible[0].Text.Length;
+                int shortestIndex = 0;
+                for (int i = 1; i < suggestionResult.visible.Count; i++)
+                {
+                    var suggestion = suggestionResult.visible[i];
+                    int len = suggestion.Text.Length;
+                    if (len < shortestLength)
+                    {
+                        shortestLength = len;
+                        shortestIndex = i;
+                    }
+                }
+
+                // Apply suggestion
+                InsertSuggestion(shortestIndex);
+            }
+            else
+            {
+                capturePosition = cursorPosition;
+                consoleCaptureFrameCount = CaptureFrameCount;
             }
         }
         private void InsertSuggestion(int index)
@@ -533,7 +555,7 @@ namespace AggroBird.DebugConsole
             // Insert prefix (namespace, etc.)
             if (suggestionResult.insertOffset > 0)
             {
-                stringBuilder.Append(suggestionResult.input.Substring(0, suggestionResult.insertOffset));
+                stringBuilder.Append(suggestionResult.styledOutput.command.Substring(0, suggestionResult.insertOffset));
             }
 
             // Insert suggestion
@@ -544,13 +566,14 @@ namespace AggroBird.DebugConsole
 
             // Insert remainder after suggestion (if any)
             int end = suggestionResult.insertOffset + suggestionResult.insertLength;
-            if (end < suggestionResult.input.Length)
+            if (end < suggestionResult.styledOutput.command.Length)
             {
-                stringBuilder.Append(suggestionResult.input.Substring(end));
+                stringBuilder.Append(suggestionResult.styledOutput.command.Substring(end));
             }
 
             // Update text
             consoleInput = stringBuilder.ToString();
+            MarkInputDirty();
             consoleCaptureFrameCount = CaptureFrameCount;
         }
 
@@ -586,6 +609,61 @@ namespace AggroBird.DebugConsole
             texture.SetPixels32(pixels);
             texture.Apply();
             return texture;
+        }
+
+        private void RebuildStyledInput()
+        {
+            if (suggestionResult.styledOutput)
+            {
+                stringBuilder.Clear();
+                StyledCommand styledOutput = suggestionResult.styledOutput;
+                int outputLength = 0;
+                int maxLength = 0;
+                int shortest = Mathf.Min(styledOutput.command.Length, consoleInput.Length);
+                for (; maxLength < shortest; maxLength++)
+                {
+                    if (styledOutput.command[maxLength] != consoleInput[maxLength])
+                    {
+                        break;
+                    }
+                }
+                foreach (StyledToken token in styledOutput.styledTokens)
+                {
+                    if (token.str.Offset >= maxLength)
+                    {
+                        break;
+                    }
+                    if (token.str.Offset > outputLength)
+                    {
+                        int appendLen = token.str.Offset - outputLength;
+                        stringBuilder.Append(styledOutput.command, outputLength, appendLen);
+                        outputLength += appendLen;
+                    }
+                    stringBuilder.Append(Styles.Open(token.style));
+                    int newLength = token.str.Offset + token.str.Length;
+                    if (newLength > maxLength)
+                    {
+                        int subLength = token.str.Length - (newLength - maxLength);
+                        stringBuilder.AppendStringView(token.str.SubView(0, subLength));
+                        outputLength += subLength;
+                    }
+                    else
+                    {
+                        stringBuilder.AppendStringView(token.str);
+                        outputLength += token.str.Length;
+                    }
+                    stringBuilder.Append(Styles.Close);
+                }
+                if (consoleInput.Length > outputLength)
+                {
+                    stringBuilder.Append(consoleInput, outputLength, consoleInput.Length - outputLength);
+                }
+                styledInput = stringBuilder.ToString();
+            }
+            else
+            {
+                styledInput = consoleInput;
+            }
         }
     }
 }

@@ -105,7 +105,14 @@ namespace AggroBird.Reflection
 
         public int CompareTo(StringView other)
         {
-            return CultureInfo.CurrentCulture.CompareInfo.Compare(str, off, len, other.str, other.off, other.len, CompareOptions.None);
+            if (ReferenceEquals(str, other.str) && len == other.len && off == other.off)
+            {
+                return 0;
+            }
+            else
+            {
+                return CultureInfo.CurrentCulture.CompareInfo.Compare(str, off, len, other.str, other.off, other.len, CompareOptions.None);
+            }
         }
 
         public override bool Equals(object obj)

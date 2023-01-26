@@ -534,6 +534,14 @@ namespace AggroBird.DebugConsole
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         internal static void Initialize()
         {
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                LogWarning("Debug console cannot be accessed when editor is not running");
+                return;
+            }
+#endif
+
             if (!instance)
             {
                 // Make sure quitting is bind
@@ -575,7 +583,6 @@ namespace AggroBird.DebugConsole
 
             if (cmd != null)
             {
-                cmd = cmd.Trim();
                 if (string.IsNullOrEmpty(cmd)) return false;
             }
             else
@@ -699,8 +706,8 @@ namespace AggroBird.DebugConsole
         }
 
 
-        public static void Open() => GetInstance().Open();
-        public static void Close() => GetInstance().Close();
+        public static void Open() => GetInstance()?.Open();
+        public static void Close() => GetInstance()?.Close();
 
         public static bool Execute(string cmd)
         {
@@ -711,8 +718,8 @@ namespace AggroBird.DebugConsole
             return ExecuteCommand(cmd, out result, true);
         }
 
-        public static bool IsOpen => GetInstance().IsOpen;
-        public static bool HasFocus => GetInstance().HasFocus;
+        public static bool IsOpen => Application.isPlaying && GetInstance().IsOpen;
+        public static bool HasFocus => Application.isPlaying && GetInstance().HasFocus;
 
         public static void Reload()
         {

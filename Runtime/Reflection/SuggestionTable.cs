@@ -11,7 +11,7 @@ namespace AggroBird.Reflection
 {
     internal enum Style : uint
     {
-        White,
+        Default,
         Class,
         Struct,
         Enum,
@@ -20,6 +20,7 @@ namespace AggroBird.Reflection
         String,
         Method,
         Variable,
+        Error,
     }
 
     internal static class Styles
@@ -35,6 +36,7 @@ namespace AggroBird.Reflection
             0xD69D85,
             0xDCDCAA,
             0x9CDCFE,
+            0xFC3E36,
         };
 
         private static string[] MakeColorCodes()
@@ -53,6 +55,18 @@ namespace AggroBird.Reflection
             return ColorCodes[(int)style];
         }
         public const string Close = "</color>";
+
+        public static Style GetTypeColor(Type type)
+        {
+            if (type.IsEnum || type.IsInterface || type.IsGenericParameter)
+                return Style.Enum;
+            else if (type.IsClass)
+                return Style.Class;
+            else if (type.IsValueType)
+                return Style.Struct;
+            else
+                return Style.Default;
+        }
     }
 
     internal abstract class Suggestion
@@ -91,7 +105,9 @@ namespace AggroBird.Reflection
             if (type.IsEnum)
             {
                 FormatTypeName(type, output);
+                output.Append('.');
                 output.Append(value.ToString());
+                return;
             }
 
             switch (Type.GetTypeCode(type))
@@ -125,18 +141,7 @@ namespace AggroBird.Reflection
             output.Append(value.ToString());
         }
 
-        protected static Style GetTypeColor(Type type)
-        {
-            if (type.IsEnum || type.IsInterface || type.IsGenericParameter)
-                return Style.Enum;
-            else if (type.IsClass)
-                return Style.Class;
-            else if (type.IsValueType)
-                return Style.Struct;
-            else
-                return Style.White;
-        }
-        protected static string Highlight(string str, int len, Style color = Style.White)
+        protected static string Highlight(string str, int len, Style color = Style.Default)
         {
             if (len >= str.Length)
             {
@@ -159,12 +164,11 @@ namespace AggroBird.Reflection
             return $"{Styles.Open(Style.Keyword)}{result}{Styles.Close}";
         }
 
-
         protected void FormatTypeName(Type type, StringBuilder output, int highlight = 0)
         {
             if (type.IsGenericParameter)
             {
-                output.Append(Highlight(type.Name, highlight, GetTypeColor(type)));
+                output.Append(Highlight(type.Name, highlight, Styles.GetTypeColor(type)));
                 return;
             }
 
@@ -232,7 +236,7 @@ namespace AggroBird.Reflection
                 }
             }
 
-            output.Append(Highlight(fullName, highlight, GetTypeColor(type)));
+            output.Append(Highlight(fullName, highlight, Styles.GetTypeColor(type)));
 
             if (type.IsGenericType)
             {
@@ -337,7 +341,7 @@ namespace AggroBird.Reflection
         {
             if (overload is ConstructorInfo constructor)
             {
-                output.Append($"{Styles.Open(GetTypeColor(constructor.DeclaringType))}{constructor.DeclaringType.Name}{Styles.Close}(");
+                output.Append($"{Styles.Open(Styles.GetTypeColor(constructor.DeclaringType))}{constructor.DeclaringType.Name}{Styles.Close}(");
             }
             else if (overload is MethodInfo method)
             {
@@ -652,43 +656,54 @@ namespace AggroBird.Reflection
         }
     }
 
+    internal readonly struct StyledCommand
+    {
+        public StyledCommand(string command, StyledToken[] styledTokens)
+        {
+            this.command = command;
+            this.styledTokens = styledTokens;
+        }
+
+        public readonly string command;
+        public readonly StyledToken[] styledTokens;
+
+        public static implicit operator bool(StyledCommand styledCommand)
+        {
+            return !string.IsNullOrEmpty(styledCommand.command);
+        }
+    }
+
     internal struct SuggestionTable
     {
         public static readonly SuggestionTable Empty = new SuggestionTable();
 
-
         public SuggestionTable(string input, int cursorPosition, Identifier identifierTable, IReadOnlyList<string> usingNamespaces, bool safeMode)
         {
-            suggestions = Array.Empty<Suggestion>();
-            isOverloadList = false;
-
-            this.input = input;
-            insertOffset = 0;
-            insertLength = 0;
-
             visible = new List<Suggestion>();
             text = string.Empty;
 
             currentHighlightOffset = -1;
             currentHighlightIndex = -1;
 
-            if (cursorPosition < input.Length)
-            {
-                // Strip input behind the cursor, it cannot affect the suggestions
-                input = input.Substring(0, cursorPosition);
-            }
-            
+            suggestions = Array.Empty<Suggestion>();
+            isOverloadList = false;
+            insertOffset = 0;
+            insertLength = 0;
+            styledOutput = default;
+
+            containsErrors = false;
+
             CommandParser commandParser = null;
             try
             {
                 ArrayView<Token> tokens = new Lexer(input).ToArray();
-                commandParser = new CommandParser(tokens, identifierTable, safeMode, 0, true);
+                commandParser = new CommandParser(tokens, identifierTable, safeMode, 0, cursorPosition);
             }
             catch { }
 
-            if (commandParser != null && commandParser.tokens.Length >= 2)
+            if (commandParser != null)
             {
-                try { commandParser.Parse(); } catch { }
+                try { commandParser.Parse(); } catch { containsErrors = true; }
 
                 SuggestionInfo suggestionInfo = commandParser.SuggestionInfo;
                 if (suggestionInfo != null)
@@ -698,15 +713,17 @@ namespace AggroBird.Reflection
                     insertOffset = suggestionInfo.insertOffset;
                     insertLength = suggestionInfo.insertLength;
                 }
+                styledOutput = new StyledCommand(input, commandParser.GetStyledTokens());
             }
         }
 
 
         public readonly Suggestion[] suggestions;
         public readonly bool isOverloadList;
+        public int SuggestionCount => suggestions == null ? 0 : suggestions.Length;
 
         // The string used to build the suggestion table
-        public readonly string input;
+        public readonly StyledCommand styledOutput;
         // Offset and length of the string in the input that needs to be replaced when inserting a suggestion
         public readonly int insertOffset;
         public readonly int insertLength;
@@ -714,6 +731,8 @@ namespace AggroBird.Reflection
         // List of currently visible suggestions
         public readonly List<Suggestion> visible;
         public string text;
+
+        public readonly bool containsErrors;
 
         private int currentHighlightOffset;
         private int currentHighlightIndex;
@@ -873,7 +892,7 @@ namespace AggroBird.Reflection
                 output.Append($"\n< {highlightOffset} more results >");
             }
 
-            output.Append(Styles.Open(Style.White));
+            output.Append(Styles.Open(Style.Default));
             for (int i = 0; i < visibleCount; i++)
             {
                 var suggestion = suggestions[highlightOffset + i];
@@ -893,11 +912,6 @@ namespace AggroBird.Reflection
 
             text = output.ToString();
             return true;
-        }
-
-        public static implicit operator bool(SuggestionTable table)
-        {
-            return table.suggestions != null && table.suggestions.Length > 0;
         }
     }
 }

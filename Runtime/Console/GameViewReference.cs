@@ -1,6 +1,7 @@
 // Copyright, AggrobirdGK
 
 #if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
+
 using System;
 using System.Reflection;
 using UnityEngine;

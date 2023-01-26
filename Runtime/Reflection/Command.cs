@@ -14,6 +14,18 @@ namespace AggroBird.Reflection
         public static readonly VoidResult Empty = new VoidResult();
     }
 
+    internal readonly struct StyledToken
+    {
+        public StyledToken(StringView str, Style style)
+        {
+            this.str = str;
+            this.style = style;
+        }
+
+        public readonly StringView str;
+        public readonly Style style;
+    }
+
     internal sealed class CommandParser : ExpressionParser
     {
         private enum LiteralType
@@ -25,12 +37,14 @@ namespace AggroBird.Reflection
             ULong,
         }
 
-        public CommandParser(ArrayView<Token> tokens, Identifier identifierTable, bool safeMode, int maxIterationCount, bool generateSuggestionInfo = false) : base(tokens)
+        public CommandParser(ArrayView<Token> tokens, Identifier identifierTable, bool safeMode, int maxIterationCount, int cursorPosition = -1) : base(tokens)
         {
             this.identifierTable = identifierTable;
             this.safeMode = safeMode;
             this.maxIterationCount = maxIterationCount;
-            this.generateSuggestionInfo = generateSuggestionInfo;
+            this.cursorPosition = cursorPosition;
+            generateSuggestionInfo = cursorPosition >= 0;
+            styledTokens = generateSuggestionInfo ? new List<StyledToken>() : null;
         }
 
         private bool expectSemicolon = false;
@@ -68,6 +82,8 @@ namespace AggroBird.Reflection
 
                 case TokenType.If:
                 {
+                    AddStyledToken(CurrentToken.str, Style.Keyword);
+
                     Advance();
                     Consume(TokenType.LParen);
                     Expression condition = ParseNext();
@@ -78,10 +94,14 @@ namespace AggroBird.Reflection
                     ParseOptionalBlock(ifBlock);
 
                 ParseNextIf:
-                    if (Match(TokenType.Else))
+                    if (Match(TokenType.Else, out Token elseToken))
                     {
-                        if (Match(TokenType.If))
+                        AddStyledToken(elseToken.str, Style.Keyword);
+
+                        if (Match(TokenType.If, out Token ifToken))
                         {
+                            AddStyledToken(ifToken.str, Style.Keyword);
+
                             Consume(TokenType.LParen);
                             condition = ParseNext();
                             Expression.CheckConvertibleBool(condition, out condition);
@@ -104,6 +124,8 @@ namespace AggroBird.Reflection
 
                 case TokenType.For:
                 {
+                    AddStyledToken(CurrentToken.str, Style.Keyword);
+
                     Advance();
                     Consume(TokenType.LParen);
                     Expression init = ParseOptionalExpression(true, true);
@@ -119,6 +141,8 @@ namespace AggroBird.Reflection
 
                 case TokenType.While:
                 {
+                    AddStyledToken(CurrentToken.str, Style.Keyword);
+
                     Advance();
                     Consume(TokenType.LParen);
                     Expression condition = ParseNext();
@@ -162,6 +186,7 @@ namespace AggroBird.Reflection
                 VariableDeclaration declaration;
                 Token name = Consume();
                 string varName = name.ToString();
+                AddStyledToken(name.str, Style.Variable);
                 if (Peek() == TokenType.Assign)
                 {
                     Advance();
@@ -245,9 +270,51 @@ namespace AggroBird.Reflection
         private bool isParsed = false;
         private Command result = null;
 
+        private readonly int cursorPosition;
         private readonly bool generateSuggestionInfo;
-        private bool GenerateSuggestionInfoAtEol => generateSuggestionInfo && Peek() == TokenType.Eol;
+        private bool GenerateSuggestionInfoAtToken(Token token)
+        {
+            if (generateSuggestionInfo)
+            {
+                if (token.str.Offset + token.str.Length == cursorPosition)
+                {
+                    return true;
+                }
+                else if (position > 0 && tokens[position - 1] == token)
+                {
+                    return tokens[position].str.Offset == cursorPosition;
+                }
+            }
+            return false;
+        }
         public SuggestionInfo SuggestionInfo { get; private set; } = null;
+
+        private readonly List<StyledToken> styledTokens;
+        public StyledToken[] GetStyledTokens()
+        {
+            if (!generateSuggestionInfo)
+            {
+                return Array.Empty<StyledToken>();
+            }
+            else
+            {
+                return styledTokens.ToArray();
+            }
+        }
+        private void AddStyledToken(StringView str, Style style)
+        {
+            if (generateSuggestionInfo)
+            {
+                styledTokens.Add(new StyledToken(str, style));
+            }
+        }
+        private void AddStyledToken(StringView str, Type type)
+        {
+            if (generateSuggestionInfo)
+            {
+                styledTokens.Add(new StyledToken(str, Styles.GetTypeColor(type)));
+            }
+        }
 
 
         public Command Parse()
@@ -272,15 +339,17 @@ namespace AggroBird.Reflection
         }
 
 
-        private bool Identify(Identifier identifier, out Expression result)
+        private bool Identify(Token token, Identifier identifier, out Expression result)
         {
             if (identifier is NamespaceIdentifier namespaceIdentifier)
             {
+                AddStyledToken(token.str, Style.Default);
                 result = new Namespace(namespaceIdentifier);
                 return true;
             }
             else if (identifier is TypeIdentifier typeIdentifier)
             {
+                AddStyledToken(token.str, typeIdentifier.type);
                 result = new Typename(typeIdentifier.type);
                 return true;
             }
@@ -293,7 +362,7 @@ namespace AggroBird.Reflection
 
         protected override Expression NameCallback(Token token)
         {
-            if (GenerateSuggestionInfoAtEol)
+            if (GenerateSuggestionInfoAtToken(token))
             {
                 SuggestionInfo = new IdentifierList(token.str, token.str.Offset, token.str.Length, identifierTable, ExportVariables(), true);
             }
@@ -308,13 +377,14 @@ namespace AggroBird.Reflection
                 {
                     if (scopeVars[j].name == varName)
                     {
+                        AddStyledToken(token.str, Style.Variable);
                         return scopeVars[j].Value;
                     }
                 }
             }
 
             // Check identifier table
-            if (identifierTable.TryFindIdentifier(varName, out Identifier identifier) && Identify(identifier, out Expression result))
+            if (identifierTable.TryFindIdentifier(varName, out Identifier identifier) && Identify(token, identifier, out Expression result))
             {
                 return result;
             }
@@ -379,49 +449,43 @@ namespace AggroBird.Reflection
         {
             if (token.type == TokenType.Period)
             {
-                if (Peek() == TokenType.Eol)
+                if (GenerateSuggestionInfoAtToken(token))
                 {
-                    if (generateSuggestionInfo)
+                    switch (lhs)
                     {
-                        switch (lhs)
-                        {
-                            case Namespace ns:
-                                SuggestionInfo = new IdentifierList(StringView.Empty, token.str.End, 0, ns.identifier, Array.Empty<VariableDeclaration>(), false);
-                                break;
-                            case Typename typename:
-                                SuggestionInfo = new MemberList(StringView.Empty, token.str.End, 0, typename.type, true);
-                                break;
-                            default:
-                                if (lhs.ResultType != typeof(void))
-                                {
-                                    SuggestionInfo = new MemberList(StringView.Empty, token.str.End, 0, lhs.ResultType, false);
-                                }
-                                break;
-                        }
+                        case Namespace ns:
+                            SuggestionInfo = new IdentifierList(StringView.Empty, token.str.End, 0, ns.identifier, Array.Empty<VariableDeclaration>(), false);
+                            break;
+                        case Typename typename:
+                            SuggestionInfo = new MemberList(StringView.Empty, token.str.End, 0, typename.type, true);
+                            break;
+                        default:
+                            if (lhs.ResultType != typeof(void))
+                            {
+                                SuggestionInfo = new MemberList(StringView.Empty, token.str.End, 0, lhs.ResultType, false);
+                            }
+                            break;
                     }
-
-                    throw new UnexpectedEndOfExpressionException();
                 }
-                else
-                {
-                    Token next = Consume(TokenType.Identifier);
 
+                Token next = Consume(TokenType.Identifier);
+                {
                     string query = next.str.ToString();
                     if (lhs is Namespace ns)
                     {
-                        if (GenerateSuggestionInfoAtEol)
+                        if (GenerateSuggestionInfoAtToken(next))
                         {
                             SuggestionInfo = new IdentifierList(next.str, next.str.Offset, next.str.Length, ns.identifier, Array.Empty<VariableDeclaration>(), false);
                         }
 
-                        if (ns.identifier.TryFindIdentifier(query, out Identifier identifier) && Identify(identifier, out Expression result))
+                        if (ns.identifier.TryFindIdentifier(query, out Identifier identifier) && Identify(next, identifier, out Expression result))
                         {
                             return result;
                         }
                     }
                     else if (lhs is Typename typename)
                     {
-                        if (GenerateSuggestionInfoAtEol)
+                        if (GenerateSuggestionInfoAtToken(next))
                         {
                             SuggestionInfo = new MemberList(next.str, next.str.Offset, next.str.Length, typename.type, true);
                         }
@@ -442,6 +506,7 @@ namespace AggroBird.Reflection
                         else if (members.Length > 1 || members[0] is MethodInfo)
                         {
                             // Multiple methods overload
+                            AddStyledToken(next.str, Style.Method);
                             return new MethodOverload(query, MakeMethodOverloadList(members, next.str));
                         }
                         else if (members[0] is FieldInfo fieldInfo)
@@ -462,7 +527,7 @@ namespace AggroBird.Reflection
                     }
                     else
                     {
-                        if (GenerateSuggestionInfoAtEol && lhs.ResultType != typeof(void))
+                        if (GenerateSuggestionInfoAtToken(next) && lhs.ResultType != typeof(void))
                         {
                             SuggestionInfo = new MemberList(next.str, next.str.Offset, next.str.Length, lhs.ResultType, false);
                         }
@@ -477,6 +542,7 @@ namespace AggroBird.Reflection
                         else if (members.Length > 1 || members[0] is MethodInfo)
                         {
                             // Multiple methods overload
+                            AddStyledToken(next.str, Style.Method);
                             return new MethodOverload(query, lhs, MakeMethodOverloadList(members, next.str));
                         }
                         else if (members[0] is FieldInfo fieldInfo)
@@ -614,7 +680,7 @@ namespace AggroBird.Reflection
         {
             if (lhs is MethodOverload methodOverload)
             {
-                Expression[] args = ParseArguments(TokenType.RParen, methodOverload.methods);
+                Expression[] args = ParseArguments(token, methodOverload.methods);
 
                 MethodInfo[] optimal = Expression.GetOptimalOverloads(methodOverload.methods, args);
 
@@ -627,7 +693,7 @@ namespace AggroBird.Reflection
             {
                 ConstructorInfo[] constructors = Expression.FilterMembers(typename.type.GetConstructors(MakeInstanceBindingFlags()), true);
 
-                Expression[] args = ParseArguments(TokenType.RParen, constructors);
+                Expression[] args = ParseArguments(token, constructors);
 
                 if (typename.type.IsValueType && args.Length == 0)
                 {
@@ -645,7 +711,7 @@ namespace AggroBird.Reflection
             {
                 MethodInfo[] overloads = new MethodInfo[] { lhs.ResultType.GetMethod("Invoke") };
 
-                Expression[] args = ParseArguments(TokenType.RParen, overloads, lhs.ResultType);
+                Expression[] args = ParseArguments(token, overloads, lhs.ResultType);
 
                 MethodInfo[] optimal = Expression.GetOptimalOverloads(overloads, args);
 
@@ -657,7 +723,7 @@ namespace AggroBird.Reflection
         }
         protected override Expression SubscriptCallback(Expression lhs, Token token)
         {
-            Expression[] args = ParseArguments(TokenType.RBracket, null);
+            Expression[] args = ParseArguments(token, null);
 
             if (lhs is Typename typename)
             {
@@ -719,21 +785,22 @@ namespace AggroBird.Reflection
             switch (token.type)
             {
                 case TokenType.StringLiteral:
-                    return new BoxedObject(token.str.ToString());
+                    AddStyledToken(token.str, Style.String);
+                    return new BoxedObject(FormatStringLiteral(token.str));
 
                 case TokenType.CharLiteral:
-                    if (token.str.Length == 0) throw new DebugConsoleException("Empty character literal");
-                    if (token.str.Length > 1) throw new DebugConsoleException("Too many characters in character literal");
-                    return new BoxedObject(token.str[0]);
+                    AddStyledToken(token.str, Style.String);
+                    return new BoxedObject(FormatCharLiteral(token.str));
 
                 case TokenType.NumberLiteral:
                 {
+                    AddStyledToken(token.str, Style.Number);
+
                     string value = token.str.ToString();
 
                     int numBase = 10;
 
                     int idx = 0;
-                    int prefix = 0;
                     if (value.Length > 2)
                     {
                         if (value[1] == 'x' || value[1] == 'X')
@@ -747,7 +814,7 @@ namespace AggroBird.Reflection
                             idx += 2;
                         }
                     }
-                    prefix = idx;
+                    int prefix = idx;
 
                     LiteralType literalType = LiteralType.Any;
                     bool isFloat = false;
@@ -921,7 +988,6 @@ namespace AggroBird.Reflection
                             break;
                         }
 
-                        // Apply 
                         switch (literalType)
                         {
                             // Force to specified format
@@ -947,7 +1013,9 @@ namespace AggroBird.Reflection
         }
         protected override Expression KeywordCallback(Token token)
         {
-            if (GenerateSuggestionInfoAtEol)
+            AddStyledToken(token.str, Style.Keyword);
+
+            if (GenerateSuggestionInfoAtToken(token))
             {
                 SuggestionInfo = new IdentifierList(token.str, token.str.Offset, token.str.Length, identifierTable, Array.Empty<VariableDeclaration>(), true);
             }
@@ -1036,6 +1104,79 @@ namespace AggroBird.Reflection
             }
         }
 
+        private readonly StringBuilder stringBuilder = new StringBuilder();
+        private string FormatStringLiteral(StringView str)
+        {
+            if (str[str.Length - 1] != '"') throw new UnexpectedEndOfExpressionException();
+            if (str.Length == 2) return string.Empty;
+            str = str.SubView(1, str.Length - 2);
+
+            stringBuilder.Clear();
+
+            for (int i = 0; i < str.Length; i++)
+            {
+                char c = str[i];
+                if (c == '\\')
+                {
+                    stringBuilder.Append(ParseCharacterEscape(str, ref i));
+                }
+                else
+                {
+                    stringBuilder.Append(c);
+                }
+            }
+
+            return stringBuilder.ToString();
+        }
+        private char FormatCharLiteral(StringView str)
+        {
+            if (str[str.Length - 1] != '\'') throw new UnexpectedEndOfExpressionException();
+            if (str.Length == 2) throw new DebugConsoleException("Empty character literal");
+            str = str.SubView(1, str.Length - 2);
+
+            if (str[0] == '\\')
+            {
+                int idx = 0;
+                char c = ParseCharacterEscape(str, ref idx);
+                if (idx != str.Length - 1) throw new DebugConsoleException("Too many characters in character literal");
+                return c;
+            }
+            else
+            {
+                if (str.Length > 1) throw new DebugConsoleException("Too many characters in character literal");
+                return str[1];
+            }
+        }
+        private char ParseCharacterEscape(StringView str, ref int idx)
+        {
+            if (idx == str.Length - 1) throw new IndexOutOfRangeException();
+            char c = str[++idx];
+            switch (c)
+            {
+                case '\'': return '\'';
+                case '\"': return '\"';
+                case '\\': return '\\';
+                case 'a': return '\a';
+                case 'b': return '\b';
+                case 'f': return '\f';
+                case 'n': return '\n';
+                case 'r': return '\r';
+                case 't': return '\t';
+                case 'v': return '\v';
+                case 'u':
+                {
+                    int remaining = str.Length - idx;
+                    if (remaining >= 5 && uint.TryParse(str.SubView(idx + 1, 4).ToString(), System.Globalization.NumberStyles.AllowHexSpecifier, null, out uint charCode))
+                    {
+                        idx += 4;
+                        return (char)charCode;
+                    }
+                }
+                break;
+            }
+            throw new DebugConsoleException($"Unexpected character escape code: {c}");
+        }
+
 
         private static List<MethodInfo> MakeMethodOverloadList(MemberInfo[] members, StringView methodName)
         {
@@ -1052,11 +1193,19 @@ namespace AggroBird.Reflection
             return result;
         }
 
-        private Expression[] ParseArguments(TokenType closingToken, IReadOnlyList<MethodBase> overloads, Type delegateType = null)
+        private Expression[] ParseArguments(Token token, IReadOnlyList<MethodBase> overloads, Type delegateType = null)
         {
-            if (GenerateSuggestionInfoAtEol && overloads != null)
+            if (GenerateSuggestionInfoAtToken(token) && overloads != null)
             {
                 SuggestionInfo = new OverloadList(overloads, Array.Empty<Expression>(), delegateType);
+            }
+
+            TokenType closingToken = TokenType.Eol;
+            switch (token.type)
+            {
+                case TokenType.LParen: closingToken = TokenType.RParen; break;
+                case TokenType.LBracket: closingToken = TokenType.RBracket; break;
+                case TokenType.LBrace: closingToken = TokenType.RBrace; break;
             }
 
             if (!Match(closingToken))
@@ -1071,7 +1220,7 @@ namespace AggroBird.Reflection
                     else if (next.type != TokenType.Comma)
                         throw new UnexpectedTokenException(next);
 
-                    if (GenerateSuggestionInfoAtEol && overloads != null)
+                    if (GenerateSuggestionInfoAtToken(next) && overloads != null)
                     {
                         SuggestionInfo = new OverloadList(overloads, args, delegateType);
                     }
