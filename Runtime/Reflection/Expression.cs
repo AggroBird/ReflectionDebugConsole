@@ -870,7 +870,7 @@ namespace AggroBird.Reflection
             Type srcType = expr.ResultType;
 
             // No conversion required
-            if (srcType == dstType || dstType.IsAssignableFrom(srcType))
+            if (dstType.IsAssignableFrom(srcType))
             {
                 return true;
             }
@@ -947,7 +947,7 @@ namespace AggroBird.Reflection
             Type srcType = expr.ResultType;
 
             // No conversion
-            if (srcType == dstType)
+            if (srcType.Equals(dstType))
             {
                 return true;
             }
