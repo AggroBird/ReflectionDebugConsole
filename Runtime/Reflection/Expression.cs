@@ -1766,20 +1766,30 @@ namespace AggroBird.Reflection
 
     internal class ArrayConstructor : Expression
     {
-        public ArrayConstructor(Type arrayType, Expression[] lengths)
+        public ArrayConstructor(Type arrayType, Expression[] lengths, Expression[] elements = null)
         {
             this.arrayType = arrayType;
             this.lengths = lengths;
+            this.elements = elements;
         }
 
         public readonly Type arrayType;
         public readonly Expression[] lengths;
+        public readonly Expression[] elements;
 
 
         public override object Execute(ExecutionContext context)
         {
             int[] lengths = ExpressionUtility.Forward<int>(context, this.lengths);
-            return Array.CreateInstance(arrayType.GetElementType(), lengths);
+            Array array = Array.CreateInstance(arrayType.GetElementType(), lengths);
+            if (elements != null)
+            {
+                for (int i = 0; i < elements.Length; i++)
+                {
+                    array.SetValue(elements[i].Execute(context), i);
+                }
+            }
+            return array;
         }
         public override Type ResultType => arrayType;
     }

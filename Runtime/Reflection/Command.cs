@@ -615,6 +615,7 @@ namespace AggroBird.Reflection
                             TokenType op = token.type;
                             if (info.IsCompound)
                             {
+                                // Events
                                 if (lhs is EventMember eventMember)
                                 {
                                     if (Expression.IsImplicitConvertable(rhs, eventMember.eventInfo.EventHandlerType, out rhs))
@@ -637,6 +638,7 @@ namespace AggroBird.Reflection
                                     throw new DebugConsoleException("The left-hand side of an assignment must be an assignable variable");
                                 }
 
+                                // Delegates
                                 if (lhs.ResultType.IsSubclassOf(typeof(Delegate)))
                                 {
                                     if (Expression.IsImplicitConvertable(rhs, lhs.ResultType, out rhs))
@@ -745,12 +747,25 @@ namespace AggroBird.Reflection
                 if (Match(TokenType.RBracket))
                 {
                     // One-dimensional array
-                    return new Typename(typename.type.MakeArrayType(1));
+                    if (Match(TokenType.LBrace))
+                    {
+                        Expression[] elements = ParseArguments(TokenType.RBrace);
+                        Expression.CheckImplicitConvertible(elements, typename.type);
+                        return new ArrayConstructor(typename.type.MakeArrayType(), new Expression[] { new BoxedObject(elements.Length) }, elements);
+                    }
+                    else
+                    {
+                        return new Typename(typename.type.MakeArrayType());
+                    }
                 }
                 else if (Peek() == TokenType.Comma)
                 {
                     // Multi-dimensional array
                     int rank = ParseArrayRank();
+                    if (Match(TokenType.LBrace, out Token initializer))
+                    {
+                        throw new UnexpectedTokenException(initializer);
+                    }
                     return new Typename(typename.type.MakeArrayType(rank));
                 }
                 else
@@ -758,6 +773,10 @@ namespace AggroBird.Reflection
                     // Array alloc
                     Expression[] lengths = ParseArguments(TokenType.RBracket);
                     Expression.CheckImplicitConvertible(lengths, typeof(int));
+                    if (Match(TokenType.LBrace, out Token initializer))
+                    {
+                        throw new UnexpectedTokenException(initializer);
+                    }
                     return new ArrayConstructor(typename.type.MakeArrayType(lengths.Length), lengths);
                 }
             }
