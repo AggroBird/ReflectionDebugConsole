@@ -691,6 +691,7 @@ namespace AggroBird.Reflection
             }
             else if (lhs is Typename typename)
             {
+                BindingFlags flags = MakeInstanceBindingFlags();
                 ConstructorInfo[] constructors = Expression.FilterMembers(typename.type.GetConstructors(MakeInstanceBindingFlags()), true);
 
                 Expression[] args = ParseMethodArguments(token, constructors);
@@ -723,62 +724,53 @@ namespace AggroBird.Reflection
         }
         protected override Expression SubscriptCallback(Expression lhs, Token token)
         {
-            Expression[] args = ParseSubscriptArguments(token);
-
             if (lhs is Typename typename)
             {
-                // Array type
-                if (args.Length == 0) return new Typename(typename.type.MakeArrayType());
-
-                // Array alloc
-                for (int i = 0; i < args.Length; i++)
+                if (Match(TokenType.RBracket))
                 {
-                    Expression.CheckImplicitConvertible(args[i], typeof(int), out args[i]);
+                    // One-dimensional array
+                    return new Typename(typename.type.MakeArrayType());
                 }
-                return new ArrayConstructor(typename.type.MakeArrayType(), args);
-            }
-
-            if (args.Length == 0) throw new DebugConsoleException("Subscript operator requires more than zero arguments");
-
-            // Try get subscript operator from array
-            if (lhs.ResultType.BaseType == typeof(Array))
-            {
-                for (int i = 0; i < args.Length; i++)
+                else if (Peek() == TokenType.Comma)
                 {
-                    Expression.CheckImplicitConvertible(args[i], typeof(int), out args[i]);
+                    // Multi-dimensional array
+                    int rank = ParseArrayRank();
+                    return new Typename(typename.type.MakeArrayType(rank));
                 }
-
-                if (args.Length == 1)
-                    return new OnedimensionalSubscript(lhs, args[0], lhs.ResultType.GetElementType());
                 else
-                    return new MultidimensionalSubscript(lhs, args, lhs.ResultType.GetElementType());
-            }
-
-            // Handle strings
-            if (lhs.ResultType == typeof(string) && args.Length == 1)
-            {
-                Expression.CheckImplicitConvertible(args[0], typeof(int), out args[0]);
-
-                return new StringSubscript(lhs, args[0]);
-            }
-
-            // Try get subscript operator from class
-            List<PropertyInfo> properties = new List<PropertyInfo>();
-            MemberInfo[] members = lhs.ResultType.GetMember("Item", MemberTypes.Property, MakeInstanceBindingFlags());
-            foreach (var member in members)
-            {
-                if (member is PropertyInfo property && property.CanRead)
                 {
-                    properties.Add(property);
+                    // Array alloc
+                    Expression[] lengths = ParseArguments(TokenType.RBracket);
+                    Expression.CheckImplicitConvertible(lengths, typeof(int));
+                    return new ArrayConstructor(typename.type.MakeArrayType(lengths.Length), lengths);
                 }
             }
+            else
+            {
+                // Try get subscript operator from array
+                PropertyInfo[] properties;
+                if (lhs.ResultType.BaseType == typeof(Array))
+                {
+                    properties = Expression.GetArraySubscriptProperties(lhs.ResultType);
+                }
+                else if (lhs.ResultType == typeof(string))
+                {
+                    properties = new PropertyInfo[] { lhs.ResultType.GetProperty("Chars") };
+                }
+                else
+                {
+                    properties = Expression.GetSubscriptProperties(lhs.ResultType, safeMode);
+                }
 
-            PropertyInfo[] optimal = Expression.GetOptimalOverloads(properties, members[0].Name, args);
+                Expression[] args = ParseSubscriptArguments(token, properties, lhs.ResultType);
 
-            if (optimal.Length == 0) throw new DebugConsoleException($"No compatible subscript operator found for type '{lhs.ResultType}'");
-            if (optimal.Length != 1) throw new DebugConsoleException($"Ambiguous subscript operator for type '{lhs.ResultType}'");
+                PropertyInfo[] optimal = Expression.GetOptimalOverloads(properties, args);
 
-            return new CustomSubscript(lhs, args, optimal[0]);
+                if (optimal.Length == 0) throw new DebugConsoleException($"No compatible subscript operator found for type '{lhs.ResultType}'");
+                if (optimal.Length != 1) throw new DebugConsoleException($"Ambiguous subscript operator for type '{lhs.ResultType}'");
+
+                return new Subscript(lhs, args, optimal[0]);
+            }
         }
         protected override Expression LiteralCallback(Token token)
         {
@@ -1198,7 +1190,7 @@ namespace AggroBird.Reflection
         {
             if (GenerateSuggestionInfoAtToken(token))
             {
-                SuggestionInfo = new OverloadList(overloads, Array.Empty<Expression>(), delegateType);
+                SuggestionInfo = new MethodOverloadList(overloads, Array.Empty<Expression>(), delegateType);
             }
 
             TokenType closingToken = TokenType.RParen;
@@ -1216,16 +1208,44 @@ namespace AggroBird.Reflection
 
                     if (GenerateSuggestionInfoAtToken(next))
                     {
-                        SuggestionInfo = new OverloadList(overloads, args, delegateType);
+                        SuggestionInfo = new MethodOverloadList(overloads, args, delegateType);
                     }
                 }
                 return args.ToArray();
             }
             return Array.Empty<Expression>();
         }
-        private Expression[] ParseSubscriptArguments(Token token)
+        private Expression[] ParseSubscriptArguments(Token token, IReadOnlyList<PropertyInfo> properties, Type declaringType)
         {
+            if (GenerateSuggestionInfoAtToken(token))
+            {
+                SuggestionInfo = new PropertyOverloadList(properties, Array.Empty<Expression>(), declaringType);
+            }
+
             TokenType closingToken = TokenType.RBracket;
+            if (!Match(closingToken))
+            {
+                List<Expression> args = new List<Expression>();
+                while (true)
+                {
+                    args.Add(ParseNext());
+                    Token next = Consume();
+                    if (next.type == closingToken)
+                        break;
+                    else if (next.type != TokenType.Comma)
+                        throw new UnexpectedTokenException(next);
+
+                    if (GenerateSuggestionInfoAtToken(next))
+                    {
+                        SuggestionInfo = new PropertyOverloadList(properties, args, declaringType);
+                    }
+                }
+                return args.ToArray();
+            }
+            return Array.Empty<Expression>();
+        }
+        private Expression[] ParseArguments(TokenType closingToken)
+        {
             if (!Match(closingToken))
             {
                 List<Expression> args = new List<Expression>();
@@ -1242,28 +1262,23 @@ namespace AggroBird.Reflection
             }
             return Array.Empty<Expression>();
         }
+        private int ParseArrayRank()
+        {
+            int rank = 1;
+            while (true)
+            {
+                Token next = Consume();
+                if (next.type == TokenType.RBracket)
+                    break;
+                else if (next.type != TokenType.Comma)
+                    throw new UnexpectedTokenException(next);
+                rank++;
+            }
+            return rank;
+        }
 
-        private BindingFlags MakeInstanceBindingFlags()
-        {
-            return MakeInstanceBindingFlags(safeMode);
-        }
-        private BindingFlags MakeStaticBindingFlags()
-        {
-            return MakeStaticBindingFlags(safeMode);
-        }
-
-        internal static BindingFlags MakeInstanceBindingFlags(bool safeMode)
-        {
-            BindingFlags result = BindingFlags.Instance | BindingFlags.Public | BindingFlags.FlattenHierarchy;
-            if (!safeMode) result |= BindingFlags.NonPublic;
-            return result;
-        }
-        internal static BindingFlags MakeStaticBindingFlags(bool safeMode)
-        {
-            BindingFlags result = BindingFlags.Static | BindingFlags.Public | BindingFlags.FlattenHierarchy;
-            if (!safeMode) result |= BindingFlags.NonPublic;
-            return result;
-        }
+        private BindingFlags MakeInstanceBindingFlags() => Expression.MakeBindingFlags(false, safeMode);
+        private BindingFlags MakeStaticBindingFlags() => Expression.MakeBindingFlags(true, safeMode);
 
         protected override Precedence PeekNextPrecedence(Expression lhs)
         {

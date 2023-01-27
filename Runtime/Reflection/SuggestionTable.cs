@@ -253,6 +253,27 @@ namespace AggroBird.Reflection
                 }
             }
         }
+
+        protected void FormatParameters(StringBuilder output, ParameterInfo[] parameters, int currentParameterIndex)
+        {
+            int currentParamIdx = currentParameterIndex;
+            if (currentParamIdx >= parameters.Length) currentParamIdx = parameters.Length - 1;
+            int varArgParam = Expression.HasVariableParameterCount(parameters) ? parameters.Length - 1 : -1;
+            for (int i = 0; i < parameters.Length; i++)
+            {
+                if (i > 0) output.Append(", ");
+                if (i == currentParamIdx) output.Append("<b>");
+                if (i == varArgParam) output.Append($"{Styles.Open(Style.Keyword)}params{Styles.Close} ");
+                FormatTypeName(parameters[i].ParameterType, output);
+                output.Append($" {Styles.Open(Style.Variable)}{parameters[i].Name}{Styles.Close}");
+                if (parameters[i].HasDefaultValue)
+                {
+                    output.Append($" = ");
+                    Stringify(parameters[i].ParameterType, parameters[i].DefaultValue, output);
+                }
+                if (i == currentParamIdx) output.Append("</b>");
+            }
+        }
     }
 
     internal class MemberSuggestion : Suggestion
@@ -334,9 +355,9 @@ namespace AggroBird.Reflection
         }
     }
 
-    internal class OverloadSuggestion : Suggestion
+    internal class MethodOverloadSuggestion : Suggestion
     {
-        public OverloadSuggestion(MethodBase overload, int currentParameterIndex, IReadOnlyList<string> usingNamespaces, Type delegateType = null) : base(usingNamespaces)
+        public MethodOverloadSuggestion(MethodBase overload, int currentParameterIndex, IReadOnlyList<string> usingNamespaces, Type delegateType = null) : base(usingNamespaces)
         {
             this.overload = overload;
             this.currentParameterIndex = currentParameterIndex;
@@ -360,35 +381,48 @@ namespace AggroBird.Reflection
                 FormatTypeName(method.ReturnType, output);
                 if (delegateType == null)
                 {
-                    output.Append($" {Styles.Open(Style.Method)}{method.Name}{Styles.Close}(");
+                    output.Append($" {Styles.Open(Style.Method)}{method.Name}{Styles.Close}");
                 }
                 else
                 {
                     output.Append(' ');
                     FormatTypeName(delegateType, output);
-                    output.Append('(');
                 }
             }
 
-            ParameterInfo[] parameters = overload.GetParameters();
-            int currentParamIdx = currentParameterIndex;
-            if (currentParamIdx >= parameters.Length) currentParamIdx = parameters.Length - 1;
-            int varArgParam = Expression.HasVariableParameterCount(overload) ? parameters.Length - 1 : -1;
-            for (int i = 0; i < parameters.Length; i++)
-            {
-                if (i > 0) output.Append(", ");
-                if (i == currentParamIdx) output.Append("<b>");
-                if (i == varArgParam) output.Append($"{Styles.Open(Style.Keyword)}params{Styles.Close} ");
-                FormatTypeName(parameters[i].ParameterType, output);
-                output.Append($" {Styles.Open(Style.Variable)}{parameters[i].Name}{Styles.Close}");
-                if (parameters[i].HasDefaultValue)
-                {
-                    output.Append($" = ");
-                    Stringify(parameters[i].ParameterType, parameters[i].DefaultValue, output);
-                }
-                if (i == currentParamIdx) output.Append("</b>");
-            }
+            output.Append('(');
+            FormatParameters(output, overload.GetParameters(), currentParameterIndex);
             output.Append(')');
+        }
+    }
+
+    internal class SubscriptPropertySuggestion : Suggestion
+    {
+        public SubscriptPropertySuggestion(PropertyInfo property, int currentParameterIndex, IReadOnlyList<string> usingNamespaces, Type declaringType) : base(usingNamespaces)
+        {
+            this.property = property;
+            this.currentParameterIndex = currentParameterIndex;
+            this.declaringType = declaringType;
+        }
+
+        private readonly PropertyInfo property;
+        private readonly int currentParameterIndex;
+        private readonly Type declaringType;
+
+
+        public override string Text => property.Name;
+        public override void BuildSuggestionString(StringBuilder output, bool isHighlighted)
+        {
+            FormatTypeName(property.PropertyType, output);
+            if (declaringType.BaseType != typeof(Array))
+            {
+                output.Append(' ');
+                FormatTypeName(declaringType, output);
+            }
+
+            output.Append('[');
+            FormatParameters(output, property.GetIndexParameters(), currentParameterIndex);
+            output.Append(']');
         }
     }
 
@@ -519,7 +553,7 @@ namespace AggroBird.Reflection
                 int queryLength = queryString.Length;
                 List<Suggestion> result = new List<Suggestion>();
 
-                BindingFlags bindingFlags = isStatic ? CommandParser.MakeStaticBindingFlags(safeMode) : CommandParser.MakeInstanceBindingFlags(safeMode);
+                BindingFlags bindingFlags = Expression.MakeBindingFlags(isStatic, safeMode);
                 MemberInfo[] members = Expression.FilterMembers(type.GetMembers(bindingFlags));
                 for (int i = 0; i < members.Length; i++)
                 {
@@ -628,9 +662,9 @@ namespace AggroBird.Reflection
         }
     }
 
-    internal sealed class OverloadList : SuggestionInfo
+    internal sealed class MethodOverloadList : SuggestionInfo
     {
-        public OverloadList(IReadOnlyList<MethodBase> overloads, IReadOnlyList<Expression> args, Type delegateType = null) : base(StringView.Empty, 0, 0)
+        public MethodOverloadList(IReadOnlyList<MethodBase> overloads, IReadOnlyList<Expression> args, Type delegateType = null) : base(StringView.Empty, 0, 0)
         {
             this.overloads = overloads;
             this.args = args;
@@ -650,11 +684,12 @@ namespace AggroBird.Reflection
             int currentArgumentIndex = CurrentArgumentIndex;
             for (int i = 0; i < overloads.Count; i++)
             {
-                if (Expression.IsCompatibleOverload(overloads[i], args, false))
+                ParameterInfo[] parameters = overloads[i].GetParameters();
+                if (Expression.IsCompatibleOverload(parameters, args, false))
                 {
-                    if (Expression.HasVariableParameterCount(overloads[i]) || currentArgumentIndex < overloads[i].GetParameters().Length)
+                    if (Expression.HasVariableParameterCount(parameters) || currentArgumentIndex < parameters.Length)
                     {
-                        result.Add(new OverloadSuggestion(overloads[i], currentArgumentIndex, usingNamespaces, delegateType));
+                        result.Add(new MethodOverloadSuggestion(overloads[i], currentArgumentIndex, usingNamespaces, delegateType));
                     }
                 }
             }
@@ -664,6 +699,49 @@ namespace AggroBird.Reflection
                 result.Sort((lhs, rhs) => lhs.Text.CompareTo(rhs.Text));
                 return result.ToArray();
             }
+
+            return result.ToArray();
+        }
+    }
+
+    internal sealed class PropertyOverloadList : SuggestionInfo
+    {
+        public PropertyOverloadList(IReadOnlyList<PropertyInfo> properties, IReadOnlyList<Expression> args, Type declaringType) : base(StringView.Empty, 0, 0)
+        {
+            this.properties = properties;
+            this.args = args;
+            this.declaringType = declaringType;
+        }
+
+        private readonly IReadOnlyList<PropertyInfo> properties;
+        private readonly IReadOnlyList<Expression> args;
+        private readonly Type declaringType;
+        public int CurrentArgumentIndex => args.Count;
+
+
+        public override Suggestion[] GetSuggestions(int cursorPosition, IReadOnlyList<string> usingNamespaces, bool safeMode)
+        {
+            List<Suggestion> result = new List<Suggestion>();
+
+            int currentArgumentIndex = CurrentArgumentIndex;
+            for (int i = 0; i < properties.Count; i++)
+            {
+                ParameterInfo[] parameters = properties[i].GetIndexParameters();
+                if (Expression.IsCompatibleOverload(parameters, args, false))
+                {
+                    if (Expression.HasVariableParameterCount(parameters) || currentArgumentIndex < parameters.Length)
+                    {
+                        result.Add(new SubscriptPropertySuggestion(properties[i], currentArgumentIndex, usingNamespaces, declaringType));
+                    }
+                }
+            }
+
+            if (result.Count > 0)
+            {
+                result.Sort((lhs, rhs) => lhs.Text.CompareTo(rhs.Text));
+                return result.ToArray();
+            }
+
             return result.ToArray();
         }
     }
@@ -721,7 +799,7 @@ namespace AggroBird.Reflection
                 if (suggestionInfo != null)
                 {
                     suggestions = suggestionInfo.GetSuggestions(cursorPosition, usingNamespaces, safeMode);
-                    isOverloadList = suggestionInfo is OverloadList;
+                    isOverloadList = suggestionInfo is MethodOverloadList;
                     insertOffset = suggestionInfo.insertOffset;
                     insertLength = suggestionInfo.insertLength;
                 }

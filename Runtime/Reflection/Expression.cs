@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -65,6 +66,53 @@ namespace AggroBird.Reflection
         }
     }
 
+    internal sealed class ArraySubscriptPropertyInfo : PropertyInfo
+    {
+        public ArraySubscriptPropertyInfo(Type arrayType, MethodInfo getMethod, MethodInfo setMethod)
+        {
+            this.arrayType = arrayType;
+            this.getMethod = getMethod;
+            this.setMethod = setMethod;
+        }
+
+        private readonly Type arrayType;
+        private readonly MethodInfo getMethod;
+        private readonly MethodInfo setMethod;
+
+        public override string Name => "Item";
+        public override PropertyAttributes Attributes => PropertyAttributes.None;
+
+        public override bool CanRead => true;
+        public override bool CanWrite => true;
+
+        public override Type PropertyType => arrayType.GetElementType();
+        public override Type DeclaringType => arrayType;
+        public override Type ReflectedType => arrayType;
+
+        public override MethodInfo GetGetMethod(bool nonPublic) => getMethod;
+        public override MethodInfo GetSetMethod(bool nonPublic) => setMethod;
+
+        public override ParameterInfo[] GetIndexParameters() => getMethod.GetParameters();
+
+        public override object[] GetCustomAttributes(bool inherit) => Array.Empty<object>();
+        public override object[] GetCustomAttributes(Type attributeType, bool inherit) => Array.Empty<object>();
+        public override bool IsDefined(Type attributeType, bool inherit) => false;
+
+        public override MethodInfo[] GetAccessors(bool nonPublic) => throw new NotImplementedException();
+        public override object GetValue(object obj, BindingFlags invokeAttr, Binder binder, object[] index, CultureInfo culture) => getMethod.Invoke(obj, index);
+        public override void SetValue(object obj, object value, BindingFlags invokeAttr, Binder binder, object[] index, CultureInfo culture) => setMethod.Invoke(obj, CombineParameters(value, index));
+        private static object[] CombineParameters(object value, object[] index)
+        {
+            object[] result = new object[index.Length + 1];
+            result[0] = value;
+            for (int i = 0; i < index.Length; i++)
+            {
+                result[i + 1] = index[i];
+            }
+            return result;
+        }
+    }
+
     internal abstract class Expression
     {
         public abstract object Execute(ExecutionContext context);
@@ -77,44 +125,18 @@ namespace AggroBird.Reflection
 
         private class BaseCastAttribute : Attribute { }
 
+
         static Expression()
         {
-            foreach (var member in typeof(Array).GetMember("GetValue", MemberTypes.Method, BindingFlags.Public | BindingFlags.Instance))
+            Type arrayType = typeof(Array);
+            MethodInfo[] getMethods = arrayType.GetMember("GetValue", MemberTypes.Method, BindingFlags.Public | BindingFlags.Instance) as MethodInfo[];
+            MethodInfo[] setMethods = arrayType.GetMember("SetValue", MemberTypes.Method, BindingFlags.Public | BindingFlags.Instance) as MethodInfo[];
+            Array.Sort(getMethods, new ArraySubscriptPropertySorter());
+            Array.Sort(setMethods, new ArraySubscriptPropertySorter(true));
+            ArrayGetSetMethods = new GetSetMethods[getMethods.Length];
+            for (int i = 0; i < getMethods.Length; i++)
             {
-                if (member is MethodInfo methodInfo)
-                {
-                    ParameterInfo[] parameters = methodInfo.GetParameters();
-                    if (parameters.Length == 1)
-                    {
-                        if (parameters[0].ParameterType == typeof(int))
-                        {
-                            ArrayGetValueSingleKeyMethodInfo = methodInfo;
-                        }
-                        else if (parameters[0].ParameterType == typeof(int[]))
-                        {
-                            ArrayGetValueMultipleKeyMethodInfo = methodInfo;
-                        }
-                    }
-                }
-            }
-
-            foreach (var member in typeof(Array).GetMember("SetValue", MemberTypes.Method, BindingFlags.Public | BindingFlags.Instance))
-            {
-                if (member is MethodInfo methodInfo)
-                {
-                    ParameterInfo[] parameters = methodInfo.GetParameters();
-                    if (parameters.Length == 2)
-                    {
-                        if (parameters[1].ParameterType == typeof(int))
-                        {
-                            ArraySetValueSingleKeyMethodInfo = methodInfo;
-                        }
-                        else if (parameters[1].ParameterType == typeof(int[]))
-                        {
-                            ArraySetValueMultipleKeyMethodInfo = methodInfo;
-                        }
-                    }
-                }
+                ArrayGetSetMethods[i] = new GetSetMethods(getMethods[i], setMethods[i], GetArraySubscriptPropertyIndexCount(getMethods[i], false));
             }
 
             foreach (var member in typeof(Expression).FindMembers(MemberTypes.Method, BindingFlags.Public | BindingFlags.Static, CastMemberFilter, null))
@@ -138,8 +160,55 @@ namespace AggroBird.Reflection
                 }
             }
         }
+
         private static bool CastMemberFilter(MemberInfo m, object filterCriteria) => m.GetCustomAttribute<BaseCastAttribute>() != null;
 
+        private static int GetArraySubscriptPropertyIndexCount(MethodInfo method, bool setMethod)
+        {
+            ParameterInfo[] parameters = method.GetParameters();
+            ParameterInfo firstParam = parameters[setMethod ? 1 : 0];
+            return firstParam.ParameterType.IsArray ? int.MaxValue : parameters.Length;
+        }
+
+        private readonly struct ArraySubscriptPropertySorter : IComparer<MethodInfo>
+        {
+            public ArraySubscriptPropertySorter(bool setMethod)
+            {
+                paramIndex = setMethod ? 1 : 0;
+            }
+
+            private readonly int paramIndex;
+
+            public int Compare(MethodInfo lhs, MethodInfo rhs)
+            {
+                ParameterInfo lhsParam = lhs.GetParameters()[paramIndex];
+                ParameterInfo rhsParam = rhs.GetParameters()[paramIndex];
+                bool lhsArray = lhsParam.ParameterType.IsArray;
+                bool rhsArray = rhsParam.ParameterType.IsArray;
+                int lhsParamCount = lhsArray ? int.MaxValue : lhs.GetParameters().Length;
+                int rhsParamCount = rhsArray ? int.MaxValue : rhs.GetParameters().Length;
+                int paramCount = lhsParamCount.CompareTo(rhsParamCount);
+                if (paramCount != 0) return paramCount;
+                Type lhsType = lhsArray ? lhsParam.ParameterType.GetElementType() : lhsParam.ParameterType;
+                Type rhsType = rhsArray ? rhsParam.ParameterType.GetElementType() : rhsParam.ParameterType;
+                return ((int)Type.GetTypeCode(lhsType)).CompareTo((int)Type.GetTypeCode(rhsType));
+            }
+        }
+
+        private readonly struct GetSetMethods
+        {
+            public GetSetMethods(MethodInfo getMethod, MethodInfo setMethod, int indexCount)
+            {
+                this.getMethod = getMethod;
+                this.setMethod = setMethod;
+                this.indexCount = indexCount;
+            }
+
+            public readonly MethodInfo getMethod;
+            public readonly MethodInfo setMethod;
+            public readonly int indexCount;
+        }
+        private static readonly GetSetMethods[] ArrayGetSetMethods;
 
         private const string OpImplicit = "op_Implicit";
         private const string OpExplicit = "op_Explicit";
@@ -155,11 +224,6 @@ namespace AggroBird.Reflection
         private static readonly MethodInfo CastToUInt64;
         private static readonly MethodInfo CastToSingle;
         private static readonly MethodInfo CastToDouble;
-
-        public static readonly MethodInfo ArrayGetValueSingleKeyMethodInfo;
-        public static readonly MethodInfo ArrayGetValueMultipleKeyMethodInfo;
-        public static readonly MethodInfo ArraySetValueSingleKeyMethodInfo;
-        public static readonly MethodInfo ArraySetValueMultipleKeyMethodInfo;
 
         private static int MaxDelegateParameterCount = 16;
 
@@ -205,6 +269,32 @@ namespace AggroBird.Reflection
         };
 
 
+        public static BindingFlags MakeBindingFlags(bool isStatic, bool safeMode)
+        {
+            BindingFlags result = BindingFlags.Public | BindingFlags.FlattenHierarchy | (isStatic ? BindingFlags.Static : BindingFlags.Instance);
+            if (!safeMode) result |= BindingFlags.NonPublic;
+            return result;
+        }
+
+        public static PropertyInfo[] GetSubscriptProperties(Type type, bool safeMode)
+        {
+            return type.GetMember("Item", MemberTypes.Property, MakeBindingFlags(false, safeMode)) as PropertyInfo[];
+        }
+        public static PropertyInfo[] GetArraySubscriptProperties(Type arrayType)
+        {
+            int rank = arrayType.GetArrayRank();
+            for (int i = 0; i < ArrayGetSetMethods.Length - 1; i++)
+            {
+                GetSetMethods methods = ArrayGetSetMethods[i];
+                if (methods.indexCount == rank)
+                {
+                    return new PropertyInfo[] { new ArraySubscriptPropertyInfo(arrayType, methods.getMethod, methods.setMethod) };
+                }
+            }
+            GetSetMethods last = ArrayGetSetMethods[ArrayGetSetMethods.Length - 1];
+            return new PropertyInfo[] { new ArraySubscriptPropertyInfo(arrayType, last.getMethod, last.setMethod) };
+        }
+
         public static T[] GetOptimalOverloads<T>(IReadOnlyList<T> overloads, params Expression[] args) where T : MethodBase
         {
             if (overloads != null && overloads.Count > 0)
@@ -224,7 +314,7 @@ namespace AggroBird.Reflection
                     optimal.Add(compatible[0]);
                     for (int i = 1; i < compatible.Count; i++)
                     {
-                        switch (CompareMethodOverloads(optimal[0], compatible[i], args))
+                        switch (CompareMethodOverloads(optimal[0].GetParameters(), compatible[i].GetParameters(), args))
                         {
                             case 0:
                                 optimal.Add(compatible[i]);
@@ -242,7 +332,7 @@ namespace AggroBird.Reflection
 
             return Array.Empty<T>();
         }
-        public static PropertyInfo[] GetOptimalOverloads(IReadOnlyList<PropertyInfo> overloads, string methodName, params Expression[] args)
+        public static PropertyInfo[] GetOptimalOverloads(IReadOnlyList<PropertyInfo> overloads, params Expression[] args)
         {
             if (overloads != null && overloads.Count > 0)
             {
@@ -261,7 +351,7 @@ namespace AggroBird.Reflection
                     optimal.Add(compatible[0]);
                     for (int i = 1; i < compatible.Count; i++)
                     {
-                        switch (CompareMethodOverloads(optimal[0].GetMethod, compatible[i].GetMethod, args))
+                        switch (CompareMethodOverloads(optimal[0].GetIndexParameters(), compatible[i].GetIndexParameters(), args))
                         {
                             case 0:
                                 optimal.Add(compatible[i]);
@@ -280,6 +370,41 @@ namespace AggroBird.Reflection
             return Array.Empty<PropertyInfo>();
         }
 
+        private static int CompareMethodOverloads(ParameterInfo[] lhs, ParameterInfo[] rhs, Expression[] args)
+        {
+            int score = 0;
+
+            bool lhsVarArg = HasVariableParameterCount(lhs), rhsVarArg = HasVariableParameterCount(rhs);
+
+            if (lhsVarArg == rhsVarArg)
+            {
+                int lhsDefaults = CountDefaults(lhs), rhsDefaults = CountDefaults(rhs);
+                if (lhsDefaults != rhsDefaults)
+                {
+                    PickSmallest(ref score, lhsDefaults, rhsDefaults);
+                }
+                else if (lhs.Length == rhs.Length)
+                {
+                    // Compare parameters
+                    for (int i = 0; i < args.Length; i++)
+                    {
+                        PickEqual(ref score, lhs[i].ParameterType, rhs[i].ParameterType, args[i].ResultType);
+                    }
+                }
+                else
+                {
+                    // Pick smallest overload
+                    PickSmallest(ref score, lhs.Length, rhs.Length);
+                }
+            }
+            else
+            {
+                // Pick non-vararg
+                PickEqual(ref score, lhsVarArg, rhsVarArg, false);
+            }
+
+            return score < 0 ? -1 : score > 0 ? 1 : 0;
+        }
         private static int CountDefaults(ParameterInfo[] param)
         {
             int result = 0;
@@ -291,42 +416,6 @@ namespace AggroBird.Reflection
                 }
             }
             return result;
-        }
-        private static int CompareMethodOverloads(MethodBase lhs, MethodBase rhs, Expression[] args)
-        {
-            int score = 0;
-
-            bool lhsVarArg = HasVariableParameterCount(lhs), rhsVarArg = HasVariableParameterCount(rhs);
-
-            if (lhsVarArg == rhsVarArg)
-            {
-                ParameterInfo[] lhsParameters = lhs.GetParameters(), rhsParameters = rhs.GetParameters();
-                int lhsDefaults = CountDefaults(lhsParameters), rhsDefaults = CountDefaults(rhsParameters);
-                if (lhsDefaults != rhsDefaults)
-                {
-                    PickSmallest(ref score, lhsDefaults, rhsDefaults);
-                }
-                else if (lhsParameters.Length == rhsParameters.Length)
-                {
-                    // Compare parameters
-                    for (int i = 0; i < args.Length; i++)
-                    {
-                        PickEqual(ref score, lhsParameters[i].ParameterType, rhsParameters[i].ParameterType, args[i].ResultType);
-                    }
-                }
-                else
-                {
-                    // Pick smallest overload
-                    PickSmallest(ref score, lhsParameters.Length, rhsParameters.Length);
-                }
-            }
-            else
-            {
-                // Pick non-vararg
-                PickEqual(ref score, lhsVarArg, rhsVarArg, false);
-            }
-
-            return score < 0 ? -1 : score > 0 ? 1 : 0;
         }
 
         private static void PickEqual(ref int score, bool lhs, bool rhs, bool val)
@@ -617,11 +706,11 @@ namespace AggroBird.Reflection
             return method.CreateDelegate(CreateGenericDelegateType(method), target);
         }
 
-        public static bool HasVariableParameterCount(MethodBase method)
+        public static bool HasVariableParameterCount(ParameterInfo[] param)
         {
-            ParameterInfo[] param = method.GetParameters();
             return param.Length > 0 && param[param.Length - 1].GetCustomAttribute<ParamArrayAttribute>(true) != null;
         }
+        public static bool HasVariableParameterCount(MethodBase method) => HasVariableParameterCount(method.GetParameters());
 
 
         public static bool GetCompatibleDelegateOverload(MethodOverload overload, Type delegateType, out Expression castExpr)
@@ -867,16 +956,22 @@ namespace AggroBird.Reflection
         {
             CheckImplicitConvertible(expr, typeof(bool), out result);
         }
-
-        public static bool IsCompatibleOverload(MethodBase method, IReadOnlyList<Expression> args, bool matchParameterCount = true)
+        public static void CheckImplicitConvertible(Expression[] args, Type dstType)
         {
-            ParameterInfo[] param = method.GetParameters();
-            int actualParamCount = param.Length;
+            for (int i = 0; i < args.Length; i++)
+            {
+                CheckImplicitConvertible(args[i], typeof(int), out args[i]);
+            }
+        }
+
+        public static bool IsCompatibleOverload(ParameterInfo[] parameters, IReadOnlyList<Expression> args, bool matchParameterCount = true)
+        {
+            int actualParamCount = parameters.Length;
             int actualArgCount = args.Count;
             if (actualParamCount > 0)
             {
                 int lastParamIndex = actualParamCount - 1;
-                ParameterInfo lastParam = param[lastParamIndex];
+                ParameterInfo lastParam = parameters[lastParamIndex];
                 if (lastParam.GetCustomAttribute<ParamArrayAttribute>(true) != null)
                 {
                     if (actualArgCount >= actualParamCount)
@@ -900,12 +995,16 @@ namespace AggroBird.Reflection
             {
                 for (int i = 0; i < actualArgCount; i++)
                 {
-                    if (!IsImplicitConvertable(args[i], param[i].ParameterType, out _))
+                    if (!IsImplicitConvertable(args[i], parameters[i].ParameterType, out _))
                         return false;
                 }
-                return !matchParameterCount || actualArgCount == actualParamCount || param[actualArgCount].HasDefaultValue;
+                return !matchParameterCount || actualArgCount == actualParamCount || parameters[actualArgCount].HasDefaultValue;
             }
             return false;
+        }
+        public static bool IsCompatibleOverload(MethodBase method, IReadOnlyList<Expression> args, bool matchParameterCount = true)
+        {
+            return IsCompatibleOverload(method.GetParameters(), args, matchParameterCount);
         }
 
         public static object InvokeMethod(ExecutionContext context, MethodInfo method, object target, Expression[] args)
@@ -953,31 +1052,27 @@ namespace AggroBird.Reflection
 
         private static bool FindValidCastOperator(string name, Type srcType, Type dstType, out MethodInfo result)
         {
-            MemberInfo[] srcCasts = srcType.GetMember(name, MemberTypes.Method, BindingFlags.Static | BindingFlags.Public);
+            MethodInfo[] srcCasts = srcType.GetMember(name, MemberTypes.Method, BindingFlags.Static | BindingFlags.Public) as MethodInfo[];
             for (int i = 0; i < srcCasts.Length; i++)
             {
-                if (srcCasts[i] is MethodInfo castMethod)
+                MethodInfo castMethod = srcCasts[i];
+                ParameterInfo[] parameters = castMethod.GetParameters();
+                if (parameters.Length == 1 && castMethod.ReturnType == dstType && parameters[0].ParameterType == srcType)
                 {
-                    ParameterInfo[] parameters = castMethod.GetParameters();
-                    if (parameters.Length == 1 && castMethod.ReturnType == dstType && parameters[0].ParameterType == srcType)
-                    {
-                        result = castMethod;
-                        return true;
-                    }
+                    result = castMethod;
+                    return true;
                 }
             }
 
-            MemberInfo[] dstCasts = dstType.GetMember(name, MemberTypes.Method, BindingFlags.Static | BindingFlags.Public);
+            MethodInfo[] dstCasts = dstType.GetMember(name, MemberTypes.Method, BindingFlags.Static | BindingFlags.Public) as MethodInfo[];
             for (int i = 0; i < dstCasts.Length; i++)
             {
-                if (dstCasts[i] is MethodInfo castMethod)
+                MethodInfo castMethod = dstCasts[i];
+                ParameterInfo[] parameters = castMethod.GetParameters();
+                if (parameters.Length == 1 && castMethod.ReturnType == dstType && parameters[0].ParameterType == srcType)
                 {
-                    ParameterInfo[] parameters = castMethod.GetParameters();
-                    if (parameters.Length == 1 && castMethod.ReturnType == dstType && parameters[0].ParameterType == srcType)
-                    {
-                        result = castMethod;
-                        return true;
-                    }
+                    result = castMethod;
+                    return true;
                 }
             }
 
@@ -1567,96 +1662,9 @@ namespace AggroBird.Reflection
     }
 
     // Subscript
-    internal abstract class Subscript : Expression
+    internal class Subscript : Expression
     {
-
-    }
-
-    internal class OnedimensionalSubscript : Subscript
-    {
-        public OnedimensionalSubscript(Expression lhs, Expression arg, Type elementType)
-        {
-            this.lhs = lhs;
-            this.arg = arg;
-            this.elementType = elementType;
-        }
-
-        public readonly Expression lhs;
-        public readonly Expression arg;
-        public readonly Type elementType;
-
-
-        public override object Execute(ExecutionContext context)
-        {
-            object obj = lhs.SafeExecute(context);
-            int index = arg.Forward<int>(context);
-            return ArrayGetValueSingleKeyMethodInfo.Invoke(obj, new object[] { index });
-        }
-        public override Type ResultType => elementType;
-
-        public override bool Assignable => true;
-        public override object SetValue(ExecutionContext context, object val, bool returnInitialValue)
-        {
-            object obj = lhs.SafeExecute(context);
-            int index = arg.Forward<int>(context);
-            if (returnInitialValue)
-            {
-                object result = ArrayGetValueSingleKeyMethodInfo.Invoke(obj, new object[] { index });
-                ArraySetValueSingleKeyMethodInfo.Invoke(obj, new object[] { val, index });
-                return result;
-            }
-            else
-            {
-                ArraySetValueSingleKeyMethodInfo.Invoke(obj, new object[] { val, index });
-                return ArrayGetValueSingleKeyMethodInfo.Invoke(obj, new object[] { index });
-            }
-        }
-    }
-
-    internal class MultidimensionalSubscript : Subscript
-    {
-        public MultidimensionalSubscript(Expression lhs, Expression[] args, Type elementType)
-        {
-            this.lhs = lhs;
-            this.args = args;
-            this.elementType = elementType;
-        }
-
-        public readonly Expression lhs;
-        public readonly Expression[] args;
-        public readonly Type elementType;
-
-
-        public override object Execute(ExecutionContext context)
-        {
-            object obj = lhs.SafeExecute(context);
-            int[] indices = ExpressionUtility.Forward<int>(context, args);
-            return ArrayGetValueMultipleKeyMethodInfo.Invoke(obj, new object[] { indices });
-        }
-        public override Type ResultType => elementType;
-
-        public override bool Assignable => true;
-        public override object SetValue(ExecutionContext context, object val, bool returnInitialValue)
-        {
-            object obj = lhs.SafeExecute(context);
-            int[] indices = ExpressionUtility.Forward<int>(context, args);
-            if (returnInitialValue)
-            {
-                object result = ArrayGetValueMultipleKeyMethodInfo.Invoke(obj, new object[] { indices });
-                ArraySetValueMultipleKeyMethodInfo.Invoke(obj, new object[] { val, indices });
-                return result;
-            }
-            else
-            {
-                ArraySetValueMultipleKeyMethodInfo.Invoke(obj, new object[] { val, indices });
-                return ArrayGetValueMultipleKeyMethodInfo.Invoke(obj, new object[] { indices });
-            }
-        }
-    }
-
-    internal class CustomSubscript : Subscript
-    {
-        public CustomSubscript(Expression lhs, Expression[] args, PropertyInfo property)
+        public Subscript(Expression lhs, Expression[] args, PropertyInfo property)
         {
             this.lhs = lhs;
             this.args = args;
@@ -1690,27 +1698,6 @@ namespace AggroBird.Reflection
                 return InvokeMethod(context, property.GetMethod, obj, args);
             }
         }
-    }
-
-    internal class StringSubscript : Subscript
-    {
-        public StringSubscript(Expression lhs, Expression arg)
-        {
-            this.lhs = lhs;
-            this.arg = arg;
-        }
-
-        public readonly Expression lhs;
-        public readonly Expression arg;
-
-
-        public override object Execute(ExecutionContext context)
-        {
-            string str = (string)lhs.SafeExecute(context);
-            int index = arg.Forward<int>(context);
-            return str[index];
-        }
-        public override Type ResultType => typeof(char);
     }
 
     // Constructors
@@ -1754,19 +1741,19 @@ namespace AggroBird.Reflection
 
     internal class ArrayConstructor : Expression
     {
-        public ArrayConstructor(Type arrayType, Expression[] args)
+        public ArrayConstructor(Type arrayType, Expression[] lengths)
         {
             this.arrayType = arrayType;
-            this.args = args;
+            this.lengths = lengths;
         }
 
         public readonly Type arrayType;
-        public readonly Expression[] args;
+        public readonly Expression[] lengths;
 
 
         public override object Execute(ExecutionContext context)
         {
-            int[] lengths = ExpressionUtility.Forward<int>(context, args);
+            int[] lengths = ExpressionUtility.Forward<int>(context, this.lengths);
             return Array.CreateInstance(arrayType.GetElementType(), lengths);
         }
         public override Type ResultType => arrayType;
