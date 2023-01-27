@@ -953,7 +953,7 @@ namespace AggroBird.Reflection
             }
 
             // Boxing, unboxing or casting
-            if (expr.ResultType == typeof(object) || dstType.IsAssignableFrom(srcType) || dstType.IsSubclassOf(srcType))
+            if (expr.ResultType.Equals(typeof(object)) || dstType.IsAssignableFrom(srcType) || dstType.IsSubclassOf(srcType))
             {
                 castExpr = new Conversion(dstType, expr);
                 return true;
