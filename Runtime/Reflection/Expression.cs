@@ -2071,7 +2071,7 @@ namespace AggroBird.Reflection
             if (val != null)
             {
                 Type lhsType = val.GetType();
-                return lhsType.Equals(type) || lhsType.IsSubclassOf(type);
+                return type.IsAssignableFrom(lhsType);
             }
             return false;
         }
@@ -2095,7 +2095,7 @@ namespace AggroBird.Reflection
             if (val != null)
             {
                 Type lhsType = val.GetType();
-                if (lhsType.Equals(type) || lhsType.IsSubclassOf(type))
+                if (type.IsAssignableFrom(lhsType))
                 {
                     return val;
                 }
