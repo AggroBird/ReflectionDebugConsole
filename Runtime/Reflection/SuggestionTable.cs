@@ -308,6 +308,8 @@ namespace AggroBird.Reflection
             {
                 case FieldInfo fieldInfo:
                 {
+                    if (fieldInfo.IsInitOnly) output.Append($"{Styles.Open(Style.Keyword)}readonly{Styles.Close} ");
+                    if (fieldInfo.IsLiteral) output.Append($"{Styles.Open(Style.Keyword)}const{Styles.Close} ");
                     FormatTypeName(output, fieldInfo.FieldType);
                     output.Append($" {Highlight(fieldInfo.Name, len)}");
                 }
