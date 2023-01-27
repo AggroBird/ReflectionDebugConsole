@@ -1480,7 +1480,7 @@ namespace AggroBird.Reflection
         }
         public override Type ResultType => TargetField.FieldType;
 
-        public override bool Assignable => !TargetField.IsInitOnly;
+        public override bool Assignable => !TargetField.IsInitOnly && !TargetField.IsLiteral;
         public override object SetValue(ExecutionContext context, object val, bool returnInitialValue)
         {
             object root = lhs.SafeExecute(context);
