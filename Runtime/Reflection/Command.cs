@@ -180,33 +180,49 @@ namespace AggroBird.Reflection
         }
         private Expression ParseRootExpression()
         {
-            Expression result = ParseNext();
-            if (Peek() == TokenType.Identifier && result is Typename typename)
+            if (Match(TokenType.Var, out Token varToken))
             {
-                VariableDeclaration declaration;
-                Token name = Consume();
-                string varName = name.ToString();
+                AddStyledToken(varToken.str, Style.Keyword);
+                Token name = Consume(TokenType.Identifier);
                 AddStyledToken(name.str, Style.Variable);
-                if (Peek() == TokenType.Assign)
-                {
-                    Advance();
-                    Expression rhs = ParseNext();
-                    if (!Expression.IsImplicitConvertable(rhs, typename.type, out rhs))
-                    {
-                        throw new InvalidCastException(rhs.ResultType, typename.type);
-                    }
-                    declaration = new VariableAssignment(typename.type, varName, rhs);
-                }
-                else
-                {
-                    declaration = new VariableDeclaration(typename.type, varName);
-                }
+                Consume(TokenType.Assign);
+
+                Expression rhs = ParseNext();
+                if (rhs.ResultType == typeof(void)) throw new DebugConsoleException("Cannot assign void to an implicitly-typed variable");
+                VariableDeclaration declaration = new VariableAssignment(rhs.ResultType, name.ToString(), rhs);
                 variables.Last().Add(declaration);
                 variableCount++;
                 return declaration;
             }
-            expectSemicolon = !Match(TokenType.Semicolon);
-            return result;
+            else
+            {
+                Expression result = ParseNext();
+                if (Peek() == TokenType.Identifier && result is Typename typename)
+                {
+                    Token name = Consume();
+                    AddStyledToken(name.str, Style.Variable);
+                    VariableDeclaration declaration;
+                    if (Peek() == TokenType.Assign)
+                    {
+                        Advance();
+                        Expression rhs = ParseNext();
+                        if (!Expression.IsImplicitConvertable(rhs, typename.type, out rhs))
+                        {
+                            throw new InvalidCastException(rhs.ResultType, typename.type);
+                        }
+                        declaration = new VariableAssignment(typename.type, name.ToString(), rhs);
+                    }
+                    else
+                    {
+                        declaration = new VariableDeclaration(typename.type, name.ToString());
+                    }
+                    variables.Last().Add(declaration);
+                    variableCount++;
+                    return declaration;
+                }
+                expectSemicolon = !Match(TokenType.Semicolon);
+                return result;
+            }
         }
         private Expression ParseOptionalExpression(bool allowDeclaration, bool requireSemicolon)
         {

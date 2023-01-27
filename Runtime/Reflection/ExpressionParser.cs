@@ -197,6 +197,7 @@ namespace AggroBird.Reflection
                 new PrefixRule(TokenType.Decimal, InvokeKeywordCallback),
                 new PrefixRule(TokenType.String, InvokeKeywordCallback),
                 new PrefixRule(TokenType.Object, InvokeKeywordCallback),
+                new PrefixRule(TokenType.Var, InvokeKeywordCallback),
 
                 new PrefixRule(TokenType.If, InvokeKeywordCallback),
                 new PrefixRule(TokenType.Else, InvokeKeywordCallback),

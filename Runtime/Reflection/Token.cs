@@ -205,6 +205,8 @@ namespace AggroBird.Reflection
         String,
         [TokenInfo("object", TokenFamily.Keyword)]
         Object,
+        [TokenInfo("var", TokenFamily.Keyword)]
+        Var,
 
         [TokenInfo("if", TokenFamily.Keyword)]
         If,
