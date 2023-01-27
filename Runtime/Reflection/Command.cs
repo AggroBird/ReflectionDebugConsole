@@ -729,7 +729,7 @@ namespace AggroBird.Reflection
                 if (Match(TokenType.RBracket))
                 {
                     // One-dimensional array
-                    return new Typename(typename.type.MakeArrayType());
+                    return new Typename(typename.type.MakeArrayType(1));
                 }
                 else if (Peek() == TokenType.Comma)
                 {
