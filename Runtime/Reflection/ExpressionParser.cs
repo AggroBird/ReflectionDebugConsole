@@ -148,6 +148,9 @@ namespace AggroBird.Reflection
                 new InfixRule(TokenType.Le, InvokeInfixCallback, Precedence.Relational, Associativity.Left),
                 new InfixRule(TokenType.Ge, InvokeInfixCallback, Precedence.Relational, Associativity.Left),
 
+                new InfixRule(TokenType.Is, InvokeInfixCallback, Precedence.Relational, Associativity.Left),
+                new InfixRule(TokenType.As, InvokeInfixCallback, Precedence.Relational, Associativity.Left),
+
                 new InfixRule(TokenType.Eq, InvokeInfixCallback, Precedence.Equality, Associativity.Left),
                 new InfixRule(TokenType.Ne, InvokeInfixCallback, Precedence.Equality, Associativity.Left),
 

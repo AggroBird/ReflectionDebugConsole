@@ -114,6 +114,11 @@ namespace AggroBird.Reflection
         [TokenInfo(">=", TokenFamily.Operator, operatorType: OperatorType.Infix | OperatorType.Comparison, infixOperatorName: "op_GreaterThanOrEqual")]
         Ge,
 
+        [TokenInfo("is", TokenFamily.Keyword, operatorType: OperatorType.Infix | OperatorType.Comparison)]
+        Is,
+        [TokenInfo("as", TokenFamily.Keyword, operatorType: OperatorType.Infix | OperatorType.Comparison)]
+        As,
+
         // Precedence.Equality
         [TokenInfo("==", TokenFamily.Operator, operatorType: OperatorType.Infix | OperatorType.Comparison, infixOperatorName: "op_Equality")]
         Eq,
@@ -205,6 +210,7 @@ namespace AggroBird.Reflection
         String,
         [TokenInfo("object", TokenFamily.Keyword)]
         Object,
+
         [TokenInfo("var", TokenFamily.Keyword)]
         Var,
 

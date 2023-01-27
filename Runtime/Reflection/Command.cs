@@ -590,6 +590,11 @@ namespace AggroBird.Reflection
                 TokenInfo info = TokenUtility.GetTokenInfo(token.type);
                 if (info.IsInfix)
                 {
+                    if (info.family == TokenFamily.Keyword)
+                    {
+                        AddStyledToken(token.str, Style.Keyword);
+                    }
+
                     Expression rhs = ParseNext(GetGrammar(token.type).AssociativePrecedence);
                     switch (token.type)
                     {
@@ -610,6 +615,23 @@ namespace AggroBird.Reflection
                             Expression.CheckConvertibleBool(lhs, out lhs);
                             Expression.CheckConvertibleBool(rhs, out rhs);
                             return new LogicalOr(lhs, rhs);
+
+                        case TokenType.Is:
+                        {
+                            if (rhs is Typename typename)
+                            {
+                                return new IsCast(lhs, typename.type);
+                            }
+                            throw new DebugConsoleException("Type expected");
+                        }
+                        case TokenType.As:
+                        {
+                            if (rhs is Typename typename)
+                            {
+                                return new AsCast(lhs, typename.type);
+                            }
+                            throw new DebugConsoleException("Type expected");
+                        }
 
                         default:
                             TokenType op = token.type;
@@ -751,11 +773,11 @@ namespace AggroBird.Reflection
                     {
                         Expression[] elements = ParseArguments(TokenType.RBrace);
                         Expression.CheckImplicitConvertible(elements, typename.type);
-                        return new ArrayConstructor(typename.type.MakeArrayType(), new Expression[] { new BoxedObject(elements.Length) }, elements);
+                        return new ArrayConstructor(MakeArrayType(typename.type), new Expression[] { new BoxedObject(elements.Length) }, elements);
                     }
                     else
                     {
-                        return new Typename(typename.type.MakeArrayType());
+                        return new Typename(MakeArrayType(typename.type));
                     }
                 }
                 else if (Peek() == TokenType.Comma)
@@ -766,7 +788,7 @@ namespace AggroBird.Reflection
                     {
                         throw new UnexpectedTokenException(initializer);
                     }
-                    return new Typename(typename.type.MakeArrayType(rank));
+                    return new Typename(MakeArrayType(typename.type, rank));
                 }
                 else
                 {
@@ -777,7 +799,7 @@ namespace AggroBird.Reflection
                     {
                         throw new UnexpectedTokenException(initializer);
                     }
-                    return new ArrayConstructor(typename.type.MakeArrayType(lengths.Length), lengths);
+                    return new ArrayConstructor(MakeArrayType(typename.type, lengths.Length), lengths);
                 }
             }
             else
@@ -1205,6 +1227,11 @@ namespace AggroBird.Reflection
                 break;
             }
             throw new DebugConsoleException($"Unexpected character escape code: {c}");
+        }
+
+        private static Type MakeArrayType(Type elementType, int rank = 1)
+        {
+            return rank <= 1 ? elementType.MakeArrayType() : elementType.MakeArrayType(rank);
         }
 
 

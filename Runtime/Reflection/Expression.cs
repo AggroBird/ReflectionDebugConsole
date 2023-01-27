@@ -865,19 +865,19 @@ namespace AggroBird.Reflection
         }
         public static bool IsImplicitConvertable(Expression expr, Type dstType, out Expression castExpr)
         {
+            castExpr = expr;
+
             Type srcType = expr.ResultType;
 
             // No conversion required
             if (srcType == dstType || dstType.IsAssignableFrom(srcType))
             {
-                castExpr = expr;
                 return true;
             }
 
             // Null
             if (expr is Null && !dstType.IsValueType)
             {
-                castExpr = expr;
                 return true;
             }
 
@@ -893,7 +893,6 @@ namespace AggroBird.Reflection
                 return true;
             }
 
-            castExpr = null;
             return false;
         }
 
@@ -943,12 +942,13 @@ namespace AggroBird.Reflection
         }
         public static bool IsExplicitConvertable(Expression expr, Type dstType, out Expression castExpr)
         {
+            castExpr = expr;
+
             Type srcType = expr.ResultType;
 
             // No conversion
             if (srcType == dstType)
             {
-                castExpr = expr;
                 return true;
             }
 
@@ -965,7 +965,6 @@ namespace AggroBird.Reflection
                 return true;
             }
 
-            castExpr = null;
             return false;
         }
 
@@ -1414,11 +1413,8 @@ namespace AggroBird.Reflection
         public readonly Type type;
 
 
-        public override object Execute(ExecutionContext context)
-        {
-            return $"{GetPrefix(type)}{type.FullName}";
-        }
-        public override Type ResultType => throw new DebugConsoleException("Typename cannot be used as variable");
+        public override object Execute(ExecutionContext context) => throw new DebugConsoleException("Typename cannot be used as expression");
+        public override Type ResultType => throw new DebugConsoleException("Typename cannot be used as expression");
     }
 
     internal class BoxedObject : Expression
@@ -2056,6 +2052,57 @@ namespace AggroBird.Reflection
         {
             return (T)obj;
         }
+    }
+
+    internal class IsCast : Expression
+    {
+        public IsCast(Expression lhs, Type type)
+        {
+            this.lhs = lhs;
+            this.type = type;
+        }
+
+        public readonly Expression lhs;
+        public readonly Type type;
+
+        public override object Execute(ExecutionContext context)
+        {
+            object val = lhs.Execute(context);
+            if (val != null)
+            {
+                Type lhsType = val.GetType();
+                return lhsType.Equals(type) || lhsType.IsSubclassOf(type);
+            }
+            return false;
+        }
+        public override Type ResultType => typeof(bool);
+    }
+
+    internal class AsCast : Expression
+    {
+        public AsCast(Expression lhs, Type type)
+        {
+            this.lhs = lhs;
+            this.type = type;
+        }
+
+        public readonly Expression lhs;
+        public readonly Type type;
+
+        public override object Execute(ExecutionContext context)
+        {
+            object val = lhs.Execute(context);
+            if (val != null)
+            {
+                Type lhsType = val.GetType();
+                if (lhsType.Equals(type) || lhsType.IsSubclassOf(type))
+                {
+                    return val;
+                }
+            }
+            return null;
+        }
+        public override Type ResultType => type;
     }
 
     // Blocks
