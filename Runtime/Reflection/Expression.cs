@@ -985,7 +985,7 @@ namespace AggroBird.Reflection
         {
             for (int i = 0; i < args.Length; i++)
             {
-                CheckImplicitConvertible(args[i], typeof(int), out args[i]);
+                CheckImplicitConvertible(args[i], dstType, out args[i]);
             }
         }
 
@@ -1705,7 +1705,7 @@ namespace AggroBird.Reflection
         {
             return InvokeMethod(context, property.GetMethod, lhs.SafeExecute(context), args);
         }
-        public override Type ResultType => property.GetMethod.ReturnType;
+        public override Type ResultType => property.PropertyType;
 
         public override bool Assignable => property.CanWrite;
         public override object SetValue(ExecutionContext context, object val, bool returnInitialValue)

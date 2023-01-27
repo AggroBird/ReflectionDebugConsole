@@ -763,18 +763,20 @@ namespace AggroBird.Reflection
             }
             else
             {
-                // Try get subscript operator from array
                 PropertyInfo[] properties;
                 if (lhs.ResultType.BaseType == typeof(Array))
                 {
+                    // Try get subscript operator from array
                     properties = Expression.GetArraySubscriptProperties(lhs.ResultType);
                 }
                 else if (lhs.ResultType == typeof(string))
                 {
+                    // Try get subscript operator from string
                     properties = new PropertyInfo[] { lhs.ResultType.GetProperty("Chars") };
                 }
                 else
                 {
+                    // Try get subscript operator from class
                     properties = Expression.GetSubscriptProperties(lhs.ResultType, safeMode);
                 }
 
