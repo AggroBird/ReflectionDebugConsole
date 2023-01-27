@@ -388,7 +388,7 @@ namespace AggroBird.Reflection
                     // Compare parameters
                     for (int i = 0; i < args.Length; i++)
                     {
-                        PickEqual(ref score, lhs[i].ParameterType, rhs[i].ParameterType, args[i].ResultType);
+                        PickSmallest(ref score, GetInheritanceWeight(lhs[i].ParameterType, args[i].ResultType), GetInheritanceWeight(rhs[i].ParameterType, args[i].ResultType));
                     }
                 }
                 else
@@ -416,6 +416,31 @@ namespace AggroBird.Reflection
                 }
             }
             return result;
+        }
+
+        private static int GetInheritanceWeight(Type baseType, Type type)
+        {
+            if (type.Equals(baseType))
+            {
+                return 0;
+            }
+            else if (type.IsSubclassOf(baseType))
+            {
+                int depth = 0;
+                while (true)
+                {
+                    if (type.Equals(baseType))
+                    {
+                        return depth;
+                    }
+                    else
+                    {
+                        type = type.BaseType;
+                        depth++;
+                    }
+                }
+            }
+            return int.MaxValue;
         }
 
         private static void PickEqual(ref int score, bool lhs, bool rhs, bool val)
