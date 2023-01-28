@@ -881,12 +881,14 @@ namespace AggroBird.Reflection
                 return true;
             }
 
+            // Find cast operator
             if (IsImplicitConvertableBaseType(expr, dstType, out MethodInfo castMethod))
             {
                 castExpr = new MethodMember(castMethod, new Expression[] { expr });
                 return true;
             }
 
+            // Delegate conversion
             if (expr is MethodOverload overload && GetCompatibleDelegateOverload(overload, dstType, out Expression delegateCast))
             {
                 castExpr = delegateCast;
@@ -952,13 +954,21 @@ namespace AggroBird.Reflection
                 return true;
             }
 
-            // Boxing, unboxing or casting
-            if (expr.ResultType.Equals(typeof(object)) || dstType.IsAssignableFrom(srcType) || dstType.IsSubclassOf(srcType))
+            // Boxing / unboxing
+            if (dstType.Equals(typeof(object)) || srcType.Equals(typeof(object)))
             {
                 castExpr = new Conversion(dstType, expr);
                 return true;
             }
 
+            // Downcast / upcast
+            if (dstType.IsAssignableFrom(srcType) || dstType.IsSubclassOf(srcType))
+            {
+                castExpr = new Conversion(dstType, expr);
+                return true;
+            }
+
+            // Find cast operator
             if (IsExplicitConvertableBaseType(expr, dstType, out MethodInfo castMethod))
             {
                 castExpr = new MethodMember(castMethod, new Expression[] { expr });
