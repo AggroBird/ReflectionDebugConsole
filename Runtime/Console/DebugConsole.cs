@@ -597,7 +597,7 @@ namespace AggroBird.DebugConsole
 
                     case "/close":
                     {
-                        if (args.Length > 1)
+                        if (args.Length != 1)
                         {
                             LogError($"Invalid amount of arguments provided for command '{args[0]}'");
                             return false;
@@ -610,7 +610,7 @@ namespace AggroBird.DebugConsole
 
                     case "/reload":
                     {
-                        if (args.Length > 1)
+                        if (args.Length != 1)
                         {
                             LogError($"Invalid amount of arguments provided for command '{args[0]}'");
                             return false;
@@ -622,7 +622,7 @@ namespace AggroBird.DebugConsole
 
                     case "/scale":
                     {
-                        if (args.Length > 2)
+                        if (args.Length != 2)
                         {
                             LogError($"Invalid amount of arguments provided for command '{args[0]}'");
                             return false;
