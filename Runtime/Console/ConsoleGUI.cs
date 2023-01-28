@@ -203,6 +203,7 @@ namespace AggroBird.DebugConsole
                     Rect inputArea = new Rect(0, y, width + scaleModifier, boxHeight);
 
                     boxStyle.normal.textColor = backgroundColor;
+                    boxStyle.richText = false;
                     GUI.SetNextControlName(DebugConsole.UniqueKey);
                     string newInput = GUI.TextField(DrawBackground(inputArea, borderThickness), consoleInput, boxStyle);
 
@@ -236,6 +237,7 @@ namespace AggroBird.DebugConsole
                     // Draw styled text
                     GUI.BeginClip(Inset(inputArea, borderThickness));
                     boxStyle.normal.textColor = foregroundColor;
+                    boxStyle.richText = true;
                     inputArea.position = new Vector2(-borderThickness, -borderThickness) - scrollOffset;
                     inputArea.width += scrollOffset.x;
                     GUI.Label(inputArea, isReady ? styledInput : ScanningAssembliesText, boxStyle);
@@ -269,6 +271,7 @@ namespace AggroBird.DebugConsole
 
                     boxHeight += scaleModifier;
 
+                    boxStyle.richText = true;
                     GUI.Box(DrawBackground(new Rect(0, y, dimensions.x, boxHeight), borderThickness), suggestionResult.text, boxStyle);
                 }
 
@@ -588,10 +591,64 @@ namespace AggroBird.DebugConsole
         }
 
 
+        private void RebuildStyledInput()
+        {
+            if (suggestionResult.styledOutput)
+            {
+                stringBuilder.Clear();
+                StyledCommand styledOutput = suggestionResult.styledOutput;
+                int outputLength = 0;
+                int maxLength = 0;
+                int shortest = Mathf.Min(styledOutput.command.Length, consoleInput.Length);
+                for (; maxLength < shortest; maxLength++)
+                {
+                    if (styledOutput.command[maxLength] != consoleInput[maxLength])
+                    {
+                        break;
+                    }
+                }
+                foreach (StyledToken token in styledOutput.styledTokens)
+                {
+                    if (token.str.Offset >= maxLength)
+                    {
+                        break;
+                    }
+                    if (token.str.Offset > outputLength)
+                    {
+                        int appendLen = token.str.Offset - outputLength;
+                        stringBuilder.EscapeRTF(styledOutput.command, outputLength, appendLen);
+                        outputLength += appendLen;
+                    }
+                    stringBuilder.Append(Styles.Open(token.style));
+                    int newLength = token.str.Offset + token.str.Length;
+                    if (newLength > maxLength)
+                    {
+                        int subLength = token.str.Length - (newLength - maxLength);
+                        stringBuilder.EscapeRTF(token.str.SubView(0, subLength));
+                        outputLength += subLength;
+                    }
+                    else
+                    {
+                        stringBuilder.EscapeRTF(token.str);
+                        outputLength += token.str.Length;
+                    }
+                    stringBuilder.Append(Styles.Close);
+                }
+                if (consoleInput.Length > outputLength)
+                {
+                    stringBuilder.EscapeRTF(consoleInput, outputLength, consoleInput.Length - outputLength);
+                }
+                styledInput = stringBuilder.ToString();
+            }
+            else
+            {
+                styledInput = consoleInput;
+            }
+        }
+
         private void SetupGUIStyle()
         {
             boxStyle = new GUIStyle();
-            boxStyle.richText = true;
             boxStyle.normal.textColor = foregroundColor;
             boxStyle.border = new RectOffset(4, 4, 4, 4);
             boxStyle.clipping = TextClipping.Clip;
@@ -619,61 +676,6 @@ namespace AggroBird.DebugConsole
             texture.SetPixels32(pixels);
             texture.Apply();
             return texture;
-        }
-
-        private void RebuildStyledInput()
-        {
-            if (suggestionResult.styledOutput)
-            {
-                stringBuilder.Clear();
-                StyledCommand styledOutput = suggestionResult.styledOutput;
-                int outputLength = 0;
-                int maxLength = 0;
-                int shortest = Mathf.Min(styledOutput.command.Length, consoleInput.Length);
-                for (; maxLength < shortest; maxLength++)
-                {
-                    if (styledOutput.command[maxLength] != consoleInput[maxLength])
-                    {
-                        break;
-                    }
-                }
-                foreach (StyledToken token in styledOutput.styledTokens)
-                {
-                    if (token.str.Offset >= maxLength)
-                    {
-                        break;
-                    }
-                    if (token.str.Offset > outputLength)
-                    {
-                        int appendLen = token.str.Offset - outputLength;
-                        stringBuilder.Append(styledOutput.command, outputLength, appendLen);
-                        outputLength += appendLen;
-                    }
-                    stringBuilder.Append(Styles.Open(token.style));
-                    int newLength = token.str.Offset + token.str.Length;
-                    if (newLength > maxLength)
-                    {
-                        int subLength = token.str.Length - (newLength - maxLength);
-                        stringBuilder.AppendStringView(token.str.SubView(0, subLength));
-                        outputLength += subLength;
-                    }
-                    else
-                    {
-                        stringBuilder.AppendStringView(token.str);
-                        outputLength += token.str.Length;
-                    }
-                    stringBuilder.Append(Styles.Close);
-                }
-                if (consoleInput.Length > outputLength)
-                {
-                    stringBuilder.Append(consoleInput, outputLength, consoleInput.Length - outputLength);
-                }
-                styledInput = stringBuilder.ToString();
-            }
-            else
-            {
-                styledInput = consoleInput;
-            }
         }
     }
 }

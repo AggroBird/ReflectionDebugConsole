@@ -260,7 +260,7 @@ namespace AggroBird.Reflection
                 int parentArgumentCount = type.DeclaringType == null ? 0 : type.DeclaringType.GetGenericArguments().Length;
                 if (genericArgs.Length > parentArgumentCount)
                 {
-                    output.Append('<');
+                    output.EscapeRTF('<');
                     for (int i = parentArgumentCount; i < genericArgs.Length; i++)
                     {
                         if (i != 0) output.Append(", ");
@@ -294,7 +294,7 @@ namespace AggroBird.Reflection
         {
             if (genericArguments.Length > 0)
             {
-                output.Append('<');
+                output.EscapeRTF('<');
                 if (currentParameterIndex >= genericArguments.Length) currentParameterIndex = genericArguments.Length - 1;
                 for (int i = 0; i < genericArguments.Length; i++)
                 {

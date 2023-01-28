@@ -3,6 +3,7 @@
 #if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
 
 using System.Collections.Generic;
+using System.Text;
 
 namespace AggroBird.Reflection
 {
@@ -15,6 +16,32 @@ namespace AggroBird.Reflection
         public static void PopBack<T>(this List<T> list)
         {
             list.RemoveAt(list.Count - 1);
+        }
+
+
+        private const char EscapeCharacter = '\u200B';
+
+        public static void EscapeRTF(this StringBuilder stringBuilder, string str)
+        {
+            EscapeRTF(stringBuilder, str, 0, str.Length);
+        }
+        public static void EscapeRTF(this StringBuilder stringBuilder, StringView str)
+        {
+            EscapeRTF(stringBuilder, str.GetStringData(), str.Offset, str.Length);
+        }
+        public static void EscapeRTF(this StringBuilder stringBuilder, string str, int startIndex, int count)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                char c = str[i + startIndex];
+                stringBuilder.Append(c);
+                if (c == '<') stringBuilder.Append(EscapeCharacter);
+            }
+        }
+        public static void EscapeRTF(this StringBuilder stringBuilder, char c)
+        {
+            stringBuilder.Append(c);
+            stringBuilder.Append(EscapeCharacter);
         }
     }
 }
