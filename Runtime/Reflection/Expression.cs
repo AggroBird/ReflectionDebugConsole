@@ -1504,11 +1504,8 @@ namespace AggroBird.Reflection
         public readonly NamespaceIdentifier identifier;
 
 
-        public override object Execute(ExecutionContext context)
-        {
-            return $"namespace {identifier.Name} ({identifier.ChildCount} {(identifier.ChildCount == 1 ? "child" : "children")})";
-        }
-        public override Type ResultType => typeof(void);
+        public override object Execute(ExecutionContext context) => throw new DebugConsoleException("Namespace cannot be used as expression");
+        public override Type ResultType => throw new DebugConsoleException("Namespace cannot be used as expression");
     }
 
     internal class Typename : Expression
@@ -1761,12 +1758,8 @@ namespace AggroBird.Reflection
         public readonly List<MethodInfo> methods;
 
 
-        public override object Execute(ExecutionContext context)
-        {
-            if (methods.Count == 1) return methods[0];
-            return $"<{methods.Count} methods>";
-        }
-        public override Type ResultType => typeof(void);
+        public override object Execute(ExecutionContext context) => throw new DebugConsoleException("Method cannot be used as expression");
+        public override Type ResultType => throw new DebugConsoleException("Method cannot be used as expression");
     }
 
     internal class MethodMember : Expression

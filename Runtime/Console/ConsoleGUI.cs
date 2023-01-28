@@ -233,6 +233,7 @@ namespace AggroBird.DebugConsole
                         RebuildStyledInput();
                     }
 
+                    // Draw styled text
                     GUI.BeginClip(Inset(inputArea, borderThickness));
                     boxStyle.normal.textColor = foregroundColor;
                     inputArea.position = new Vector2(-borderThickness, -borderThickness) - scrollOffset;
