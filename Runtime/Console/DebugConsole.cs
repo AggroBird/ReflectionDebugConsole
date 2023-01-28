@@ -259,7 +259,7 @@ namespace AggroBird.DebugConsole
                 }
                 else
                 {
-                    identifierTableTask = Task.Factory.StartNew(() => builder.Build(cancellationToken));
+                    identifierTableTask = Task.Run(() => builder.Build(cancellationToken));
                 }
             }
         }

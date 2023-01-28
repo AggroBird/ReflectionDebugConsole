@@ -280,7 +280,7 @@ namespace AggroBird.DebugConsole
                         }
                         else
                         {
-                            updateSuggestionsTask = Task.Factory.StartNew(() => builder.Build());
+                            updateSuggestionsTask = Task.Run(() => builder.Build());
                         }
                     }
                     else
