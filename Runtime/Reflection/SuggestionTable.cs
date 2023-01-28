@@ -696,7 +696,7 @@ namespace AggroBird.Reflection
                 ParameterInfo[] parameters = overloads[i].GetParameters();
                 if (Expression.IsCompatibleOverload(parameters, args, false))
                 {
-                    if (Expression.HasVariableParameterCount(parameters) || currentArgumentIndex < parameters.Length)
+                    if (Expression.HasVariableParameterCount(parameters) || currentArgumentIndex < parameters.Length || (currentArgumentIndex == 0 && parameters.Length == 0))
                     {
                         result.Add(new MethodOverloadSuggestion(overloads[i], currentArgumentIndex, usingNamespaces, delegateType));
                     }
