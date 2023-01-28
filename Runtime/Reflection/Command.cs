@@ -824,7 +824,6 @@ namespace AggroBird.Reflection
             }
             else if (lhs is Typename typename)
             {
-                BindingFlags flags = MakeInstanceBindingFlags();
                 ConstructorInfo[] constructors = Expression.FilterMembers(typename.type.GetConstructors(MakeInstanceBindingFlags()), true);
 
                 Expression[] args = ParseMethodArguments(token, constructors);
