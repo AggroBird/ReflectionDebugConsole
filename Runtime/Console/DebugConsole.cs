@@ -562,13 +562,13 @@ namespace AggroBird.DebugConsole
                 return false;
             }
 
-#if UNITY_EDITOR
             // Handle console commands
             if (cmd.Length > 1 && cmd[0] == '/' && cmd[1] != ' ')
             {
                 string[] args = cmd.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
                 switch (args[0])
                 {
+#if UNITY_EDITOR
                     case "/open":
                     {
                         if (args.Length != 2)
@@ -606,6 +606,7 @@ namespace AggroBird.DebugConsole
                         CloseConnection();
                     }
                     break;
+#endif
 
                     case "/reload":
                     {
@@ -619,6 +620,23 @@ namespace AggroBird.DebugConsole
                     }
                     break;
 
+                    case "/scale":
+                    {
+                        if (args.Length > 2)
+                        {
+                            LogError($"Invalid amount of arguments provided for command '{args[0]}'");
+                            return false;
+                        }
+
+                        if (!float.TryParse(args[1], out float setScale))
+                        {
+                            LogError($"Failed to parse scale argument: '{args[1]}'");
+                        }
+
+                        scale = setScale;
+                    }
+                    break;
+
                     default:
                         LogError($"Unknown console command: '{args[0]}'");
                         break;
@@ -627,6 +645,7 @@ namespace AggroBird.DebugConsole
                 return true;
             }
 
+#if UNITY_EDITOR
             // Forward commands to the client if there is one
             if (!isRemoteCommand && !Application.isPlaying)
             {
