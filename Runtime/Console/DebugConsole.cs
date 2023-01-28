@@ -1,15 +1,18 @@
 // Copyright, AggrobirdGK
 
+#if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
 using AggroBird.Reflection;
-using System;
 using System.Collections.Generic;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using UnityEngine;
 using UnityObject = UnityEngine.Object;
+#endif
+
+using System;
+using System.Runtime.CompilerServices;
+using UnityEngine;
 
 [assembly: InternalsVisibleTo("AggroBird.DebugConsole.Editor")]
 

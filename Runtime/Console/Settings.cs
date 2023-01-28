@@ -116,13 +116,5 @@ namespace AggroBird.DebugConsole
         [Header("Assemblies")]
         [Tooltip("Assemblies to include/exclude from the scan")]
         public AssemblyTable assemblies = new AssemblyTable();
-
-
-#if UNITY_EDITOR && !EXCLUDE_DEBUG_CONSOLE
-        private void OnValidate()
-        {
-            DebugConsole.Reload();
-        }
-#endif
     }
 }

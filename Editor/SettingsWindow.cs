@@ -33,13 +33,14 @@ namespace AggroBird.DebugConsole.Editor
         private Settings settings = null;
         private SerializedObject settingsObject = null;
         private SerializedObject windowObject = null;
+        private bool hasPendingChanges = false;
 
         private void OnEnable()
         {
             minSize = new Vector2(400, minSize.y);
 
             Undo.undoRedoPerformed += OnUndo;
-
+            
             windowObject = new SerializedObject(this);
 
             localMacros = DebugConsole.LoadPrefs<ListObject<Macro>>(DebugConsole.MacrosKey);
@@ -54,8 +55,22 @@ namespace AggroBird.DebugConsole.Editor
             DebugConsole.SavePrefs(DebugConsole.MacrosKey, new ListObject<Macro>(localMacros));
 
             ReloadMacros();
+            ApplyChanges();
 
             Undo.undoRedoPerformed -= OnUndo;
+        }
+        private void OnLostFocus()
+        {
+            ApplyChanges();
+        }
+
+        private void ApplyChanges()
+        {
+            if (hasPendingChanges)
+            {
+                hasPendingChanges = false;
+                DebugConsole.Reload();
+            }
         }
 
 
@@ -166,16 +181,13 @@ namespace AggroBird.DebugConsole.Editor
             isEditorWindow = false;
             EditorGUILayout.EndScrollView();
 
-            settingsObject.ApplyModifiedProperties();
-            windowObject.ApplyModifiedProperties();
+            hasPendingChanges |= settingsObject.ApplyModifiedProperties();
+            hasPendingChanges |= windowObject.ApplyModifiedProperties();
         }
 
-        private void OnValidate()
-        {
-            ReloadMacros();
-        }
         private void OnUndo()
         {
+            hasPendingChanges = true;
             ReloadMacros();
             Repaint();
         }
