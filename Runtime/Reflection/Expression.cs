@@ -861,8 +861,25 @@ namespace AggroBird.Reflection
             castExpr = null;
             return false;
         }
+        private static bool CanBindMethodOverloadToDelegate(Expression expr, Type dstType, out Expression castExpr)
+        {
+            if (expr is MethodOverload overload)
+            {
+                if (GetCompatibleDelegateOverload(overload, dstType, out castExpr))
+                {
+                    return true;
+                }
+                else
+                {
+                    throw new DebugConsoleException($"Failed to bind compatible overload of method '{overload.methodName}' to type '{dstType}'");
+                }
+            }
 
-        private static bool IsImplicitConvertableBaseType(Expression expr, Type dstType, out MethodInfo castMethod)
+            castExpr = expr;
+            return false;
+        }
+
+        private static bool IsImplicitConvertableByOperator(Expression expr, Type dstType, out MethodInfo castMethod)
         {
             Type srcType = expr.ResultType;
 
@@ -973,9 +990,14 @@ namespace AggroBird.Reflection
         }
         public static bool IsImplicitConvertable(Expression expr, Type dstType, out Expression castExpr)
         {
-            castExpr = expr;
+            // Delegate conversion
+            if (CanBindMethodOverloadToDelegate(expr, dstType, out castExpr))
+            {
+                return true;
+            }
 
             Type srcType = expr.ResultType;
+            castExpr = expr;
 
             // No conversion required
             if (dstType.IsAssignableFrom(srcType))
@@ -990,23 +1012,16 @@ namespace AggroBird.Reflection
             }
 
             // Find cast operator
-            if (IsImplicitConvertableBaseType(expr, dstType, out MethodInfo castMethod))
+            if (IsImplicitConvertableByOperator(expr, dstType, out MethodInfo castMethod))
             {
                 castExpr = new MethodMember(castMethod, new Expression[] { expr });
-                return true;
-            }
-
-            // Delegate conversion
-            if (expr is MethodOverload overload && GetCompatibleDelegateOverload(overload, dstType, out Expression delegateCast))
-            {
-                castExpr = delegateCast;
                 return true;
             }
 
             return false;
         }
 
-        private static bool IsExplicitConvertableBaseType(Expression expr, Type dstType, out MethodInfo castMethod)
+        private static bool IsExplicitConvertableByOperator(Expression expr, Type dstType, out MethodInfo castMethod)
         {
             Type srcType = expr.ResultType;
 
@@ -1052,9 +1067,14 @@ namespace AggroBird.Reflection
         }
         public static bool IsExplicitConvertable(Expression expr, Type dstType, out Expression castExpr)
         {
-            castExpr = expr;
+            // Delegate conversion
+            if (CanBindMethodOverloadToDelegate(expr, dstType, out castExpr))
+            {
+                return true;
+            }
 
             Type srcType = expr.ResultType;
+            castExpr = expr;
 
             // No conversion
             if (srcType.Equals(dstType))
@@ -1077,7 +1097,7 @@ namespace AggroBird.Reflection
             }
 
             // Find cast operator
-            if (IsExplicitConvertableBaseType(expr, dstType, out MethodInfo castMethod))
+            if (IsExplicitConvertableByOperator(expr, dstType, out MethodInfo castMethod))
             {
                 castExpr = new MethodMember(castMethod, new Expression[] { expr });
                 return true;
