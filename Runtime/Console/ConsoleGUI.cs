@@ -218,12 +218,14 @@ namespace AggroBird.DebugConsole
 
                     // Get selection position and update focus
                     HasFocus = GUI.GetNameOfFocusedControl() == DebugConsole.UniqueKey;
+                    Vector2 scrollOffset = Vector2.zero;
                     if (HasFocus)
                     {
                         consoleFocusFrameCount = CaptureFrameCount;
 
                         editor = (TextEditor)GUIUtility.GetStateObject(typeof(TextEditor), GUIUtility.keyboardControl);
                         cursorPosition = (capturePosition == -1) ? editor.cursorIndex : capturePosition;
+                        scrollOffset = editor.scrollOffset;
                     }
 
                     if (styledInput == null)
@@ -231,8 +233,12 @@ namespace AggroBird.DebugConsole
                         RebuildStyledInput();
                     }
 
+                    GUI.BeginClip(Inset(inputArea, borderThickness));
                     boxStyle.normal.textColor = foregroundColor;
+                    inputArea.position = new Vector2(-borderThickness, -borderThickness) - scrollOffset;
+                    inputArea.width += scrollOffset.x;
                     GUI.Label(inputArea, isReady ? styledInput : ScanningAssembliesText, boxStyle);
+                    GUI.EndClip();
 
                     if (GUI.Button(DrawBackground(new Rect(width, dimensions.y - boxHeight, buttonWidth, boxHeight), borderThickness), ">", buttonStyle))
                     {
@@ -251,7 +257,7 @@ namespace AggroBird.DebugConsole
                 {
                     if (!isDocked)
                     {
-                        boxHeight = boxStyle.lineHeight * suggestionResult.suggestions.Length + verticalPadding;
+                        boxHeight = boxStyle.lineHeight * suggestionResult.visibleLineCount + verticalPadding;
                         y -= boxHeight;
                     }
                     else
@@ -319,15 +325,19 @@ namespace AggroBird.DebugConsole
         }
         private Rect DrawBackground(Rect rect, float borderThickness)
         {
-            Rect copy = rect;
-            GUI.DrawTexture(copy, whiteTexture);
-            copy.x += borderThickness;
-            copy.y += borderThickness;
-            borderThickness *= 2;
-            copy.width -= borderThickness;
-            copy.height -= borderThickness;
-            GUI.DrawTexture(copy, blackTexture);
+            GUI.DrawTexture(rect, whiteTexture);
+            GUI.DrawTexture(Inset(rect, borderThickness), blackTexture);
             return rect;
+        }
+        private Rect Inset(Rect rect, float inset)
+        {
+            Rect copy = rect;
+            copy.x += inset;
+            copy.y += inset;
+            inset *= 2;
+            copy.width -= inset;
+            copy.height -= inset;
+            return copy;
         }
 
 

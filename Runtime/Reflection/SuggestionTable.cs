@@ -789,6 +789,7 @@ namespace AggroBird.Reflection
             insertOffset = 0;
             insertLength = 0;
             styledOutput = default;
+            visibleLineCount = 0;
 
             containsErrors = false;
 
@@ -830,6 +831,8 @@ namespace AggroBird.Reflection
         // List of currently visible suggestions
         public readonly List<Suggestion> visible;
         public string text;
+        // Amount of suggestion lines including overflow
+        public int visibleLineCount;
 
         public readonly bool containsErrors;
 
@@ -839,8 +842,6 @@ namespace AggroBird.Reflection
         public bool Update(ref int highlightOffset, ref int highlightIndex, int direction, int maxCount, StringBuilder output)
         {
             if (suggestions == null || suggestions.Length == 0) return false;
-
-            visible.Clear();
 
             // Clamp direction
             direction = direction > 0 ? 1 : direction < 0 ? -1 : direction;
@@ -983,12 +984,15 @@ namespace AggroBird.Reflection
             currentHighlightOffset = highlightOffset;
             currentHighlightIndex = highlightIndex;
 
+            visible.Clear();
             output.Clear();
+            visibleLineCount = 0;
 
             // Underflow
             if (highlightOffset > 0)
             {
                 output.Append($"\n< {highlightOffset} more results >");
+                visibleLineCount++;
             }
 
             output.Append(Styles.Open(Style.Default));
@@ -998,18 +1002,21 @@ namespace AggroBird.Reflection
 
                 visible.Add(suggestion);
 
-                if (output.Length > 0) output.Append('\n');
+                output.Append('\n');
                 suggestion.BuildSuggestionString(output, i == highlightIndex);
             }
             output.Append(Styles.Close);
+            visibleLineCount += visibleCount;
 
             // Overflow
             if (overflow > 0)
             {
                 output.Append($"\n< {overflow} more results >");
+                visibleLineCount++;
             }
 
             text = output.ToString();
+
             return true;
         }
     }
