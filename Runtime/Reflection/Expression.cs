@@ -962,7 +962,7 @@ namespace AggroBird.Reflection
             }
 
             // Downcast / upcast
-            if (dstType.IsAssignableFrom(srcType) || dstType.IsSubclassOf(srcType))
+            if (dstType.IsAssignableFrom(srcType) || srcType.IsAssignableFrom(dstType))
             {
                 castExpr = new Conversion(dstType, expr);
                 return true;
@@ -2051,17 +2051,9 @@ namespace AggroBird.Reflection
 
         public override object Execute(ExecutionContext context)
         {
-            return ConvertMethod.MakeGenericMethod(type).Invoke(this, new object[] { rhs.Execute(context) });
+            return rhs.Execute(context);
         }
         public override Type ResultType => type;
-
-
-        private static readonly MethodInfo ConvertMethod = typeof(Conversion).GetMethod("Convert");
-
-        public static T Convert<T>(object obj)
-        {
-            return (T)obj;
-        }
     }
 
     internal class IsCast : Expression
