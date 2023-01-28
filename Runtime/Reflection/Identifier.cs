@@ -72,19 +72,9 @@ namespace AggroBird.Reflection
                         break;
                 }
             }
-            StringView last = fullName.SubView(index, fullName.Length - index);
-            if (buffer.Count == 0)
-            {
-                singleItem[0] = last;
-                return singleItem;
-            }
-            else
-            {
-                buffer.Add(last);
-                return buffer.ToArray();
-            }
+            buffer.Add(fullName.SubView(index, fullName.Length - index));
+            return buffer.ToArray();
         }
-        private static readonly StringView[] singleItem = new StringView[1];
 
 
         public bool TryFindIdentifier(StringView name, out Identifier identifier)
