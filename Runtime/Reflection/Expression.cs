@@ -144,6 +144,48 @@ namespace AggroBird.Reflection
         public Type ElementType => elementType;
     }
 
+    internal abstract class Generic
+    {
+        public abstract string Name { get; }
+        public abstract Type[] GetGenericArguments();
+    }
+
+    internal class GenericMethod : Generic
+    {
+        public GenericMethod(MethodInfo methodInfo)
+        {
+            this.methodInfo = methodInfo;
+        }
+
+        public readonly MethodInfo methodInfo;
+
+        public override string Name => methodInfo.Name;
+        public override Type[] GetGenericArguments() => methodInfo.GetGenericArguments();
+    }
+
+    internal class GenericType : Generic
+    {
+        public GenericType(Type type)
+        {
+            this.type = type;
+
+            int parentGenericArgumentCount = type.DeclaringType == null ? 0 : type.DeclaringType.GetGenericArguments().Length;
+            Type[] selfGenericArguments = type.GetGenericArguments();
+            int genericArgumentCount = selfGenericArguments.Length - parentGenericArgumentCount;
+            genericArguments = new Type[genericArgumentCount];
+            for (int i = parentGenericArgumentCount; i < selfGenericArguments.Length; i++)
+            {
+                genericArguments[i] = selfGenericArguments[i - parentGenericArgumentCount];
+            }
+        }
+
+        public readonly Type type;
+        public readonly Type[] genericArguments;
+
+        public override string Name => type.Name;
+        public override Type[] GetGenericArguments() => genericArguments;
+    }
+
     internal abstract class Expression
     {
         public abstract object Execute(ExecutionContext context);
@@ -524,9 +566,6 @@ namespace AggroBird.Reflection
         {
             if (member is MethodBase methodBase)
             {
-                // Skip generic methods
-                if (methodBase.ContainsGenericParameters) return false;
-
                 if (!includeSpecial)
                 {
                     // Skip property methods
@@ -1167,24 +1206,24 @@ namespace AggroBird.Reflection
 
         private static bool FindValidCastOperator(string name, Type srcType, Type dstType, out MethodInfo result)
         {
-            MethodInfo[] srcCasts = srcType.GetMember(name, MemberTypes.Method, BindingFlags.Static | BindingFlags.Public) as MethodInfo[];
+            MethodInfo[] srcCasts = srcType.GetMember(name, MemberTypes.Method, BindingFlags.Static | BindingFlags.Public | BindingFlags.FlattenHierarchy) as MethodInfo[];
             for (int i = 0; i < srcCasts.Length; i++)
             {
                 MethodInfo castMethod = srcCasts[i];
                 ParameterInfo[] parameters = castMethod.GetParameters();
-                if (parameters.Length == 1 && castMethod.ReturnType == dstType && parameters[0].ParameterType == srcType)
+                if (parameters.Length == 1 && castMethod.ReturnType.Equals(dstType) && parameters[0].ParameterType.IsAssignableFrom(srcType))
                 {
                     result = castMethod;
                     return true;
                 }
             }
 
-            MethodInfo[] dstCasts = dstType.GetMember(name, MemberTypes.Method, BindingFlags.Static | BindingFlags.Public) as MethodInfo[];
+            MethodInfo[] dstCasts = dstType.GetMember(name, MemberTypes.Method, BindingFlags.Static | BindingFlags.Public | BindingFlags.FlattenHierarchy) as MethodInfo[];
             for (int i = 0; i < dstCasts.Length; i++)
             {
                 MethodInfo castMethod = dstCasts[i];
                 ParameterInfo[] parameters = castMethod.GetParameters();
-                if (parameters.Length == 1 && castMethod.ReturnType == dstType && parameters[0].ParameterType == srcType)
+                if (parameters.Length == 1 && castMethod.ReturnType.Equals(dstType) && parameters[0].ParameterType.IsAssignableFrom(srcType))
                 {
                     result = castMethod;
                     return true;
@@ -1208,6 +1247,20 @@ namespace AggroBird.Reflection
         public static Type CreateArrayType(Type elementType, int rank = 1)
         {
             return rank <= 1 ? elementType.MakeArrayType() : elementType.MakeArrayType(rank);
+        }
+
+        public static string FormatGenericName(Type type)
+        {
+            return FormatGenericName(type.Name);
+        }
+        public static string FormatGenericName(string name)
+        {
+            int idx = name.IndexOf('`');
+            if (idx != -1)
+            {
+                return name.Substring(0, idx);
+            }
+            return name;
         }
 
 
@@ -1520,9 +1573,9 @@ namespace AggroBird.Reflection
         public override Type ResultType => throw new DebugConsoleException("Typename cannot be used as expression");
     }
 
-    internal class Generic : Expression
+    internal class GenericTypename : Expression
     {
-        public Generic(Type type)
+        public GenericTypename(Type type)
         {
             this.type = type;
         }

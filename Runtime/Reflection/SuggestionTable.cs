@@ -271,7 +271,7 @@ namespace AggroBird.Reflection
             }
         }
 
-        protected void FormatParameters(StringBuilder output, ParameterInfo[] parameters, int currentParameterIndex)
+        protected void FormatParameters(StringBuilder output, ParameterInfo[] parameters, int currentParameterIndex = -1)
         {
             if (currentParameterIndex >= parameters.Length) currentParameterIndex = parameters.Length - 1;
             int varArgParam = Expression.HasVariableParameterCount(parameters) ? parameters.Length - 1 : -1;
@@ -290,18 +290,15 @@ namespace AggroBird.Reflection
                 if (i == currentParameterIndex) output.Append("</b>");
             }
         }
-        protected void FormatGenericArguments(StringBuilder output, Type generic, int currentParameterIndex)
+        protected void FormatGenericArguments(StringBuilder output, Type[] genericArguments, int currentParameterIndex = -1)
         {
-            int parentGenericArgumentCount = generic.DeclaringType == null ? 0 : generic.DeclaringType.GetGenericArguments().Length;
-            Type[] genericArguments = generic.GetGenericArguments();
-            if (genericArguments.Length > parentGenericArgumentCount)
+            if (genericArguments.Length > 0)
             {
                 output.Append('<');
-                currentParameterIndex += parentGenericArgumentCount;
                 if (currentParameterIndex >= genericArguments.Length) currentParameterIndex = genericArguments.Length - 1;
-                for (int i = parentGenericArgumentCount; i < genericArguments.Length; i++)
+                for (int i = 0; i < genericArguments.Length; i++)
                 {
-                    if (i > parentGenericArgumentCount) output.Append(", ");
+                    if (i > 0) output.Append(", ");
                     if (i == currentParameterIndex) output.Append("<b>");
                     FormatTypeName(output, genericArguments[i]);
                     if (i == currentParameterIndex) output.Append("</b>");
@@ -360,7 +357,9 @@ namespace AggroBird.Reflection
                 case MethodInfo methodInfo:
                 {
                     FormatTypeName(output, methodInfo.ReturnType);
-                    output.Append($" {Highlight(methodInfo.Name, len, Style.Method)}(");
+                    output.Append($" {Highlight(methodInfo.Name, len, Style.Method)}");
+                    FormatGenericArguments(output, methodInfo.GetGenericArguments());
+                    output.Append('(');
                     ParameterInfo[] parameters = methodInfo.GetParameters();
                     int varArgParam = Expression.HasVariableParameterCount(methodInfo) ? parameters.Length - 1 : -1;
                     for (int i = 0; i < parameters.Length; i++)
@@ -426,8 +425,8 @@ namespace AggroBird.Reflection
                     output.Append(' ');
                     FormatTypeName(output, delegateType);
                 }
+                FormatGenericArguments(output, method.GetGenericArguments());
             }
-
             output.Append('(');
             FormatParameters(output, overload.GetParameters(), currentParameterIndex);
             output.Append(')');
@@ -436,22 +435,40 @@ namespace AggroBird.Reflection
 
     internal class GenericOverloadSuggestion : Suggestion
     {
-        public GenericOverloadSuggestion(Type generic, int currentParameterIndex, IReadOnlyList<string> usingNamespaces) : base(usingNamespaces)
+        public GenericOverloadSuggestion(Generic generic, int currentParameterIndex, IReadOnlyList<string> usingNamespaces) : base(usingNamespaces)
         {
             this.generic = generic;
             this.currentParameterIndex = currentParameterIndex;
+            name = Expression.FormatGenericName(generic.Name);
         }
 
-        private readonly Type generic;
+        private readonly Generic generic;
         private readonly int currentParameterIndex;
+        private string name;
 
 
-        public override string Text => generic.Name;
+        public override string Text => name;
         public override void BuildSuggestionString(StringBuilder output, bool isHighlighted)
         {
-            output.Append(GetPrefix(generic));
-            FormatTypeName(output, generic, includeNamespace: false, includeGenericArguments: false);
-            FormatGenericArguments(output, generic, currentParameterIndex);
+            if (generic is GenericType genericType)
+            {
+                output.Append(Styles.Open(Styles.GetTypeColor(genericType.type)));
+                output.Append(name);
+                output.Append(Styles.Close);
+                FormatGenericArguments(output, generic.GetGenericArguments(), currentParameterIndex);
+            }
+            else if (generic is GenericMethod genericMethod)
+            {
+                FormatTypeName(output, genericMethod.methodInfo.ReturnType);
+                output.Append(' ');
+                output.Append(Styles.Open(Style.Method));
+                output.Append(name);
+                output.Append(Styles.Close);
+                FormatGenericArguments(output, genericMethod.GetGenericArguments(), currentParameterIndex);
+                output.Append('(');
+                FormatParameters(output, genericMethod.methodInfo.GetParameters());
+                output.Append(')');
+            }
         }
     }
 
@@ -511,13 +528,7 @@ namespace AggroBird.Reflection
         {
             this.type = type;
             this.highlightLength = highlightLength;
-
-            name = type.Name;
-            int idx = name.IndexOf('`');
-            if (idx != -1)
-            {
-                name = name.Substring(0, idx);
-            }
+            name = Expression.FormatGenericName(type);
         }
 
         private readonly Type type;
@@ -762,13 +773,13 @@ namespace AggroBird.Reflection
 
     internal sealed class GenericsOverloadList : SuggestionInfo
     {
-        public GenericsOverloadList(IReadOnlyList<Type> generics, IReadOnlyList<Type> args) : base(StringView.Empty, 0, 0)
+        public GenericsOverloadList(IReadOnlyList<Generic> generics, IReadOnlyList<Type> args) : base(StringView.Empty, 0, 0)
         {
             this.generics = generics;
             this.args = args;
         }
 
-        private readonly IReadOnlyList<Type> generics;
+        private readonly IReadOnlyList<Generic> generics;
         private readonly IReadOnlyList<Type> args;
 
 
@@ -779,10 +790,9 @@ namespace AggroBird.Reflection
             int currentArgumentIndex = args.Count;
             for (int i = 0; i < generics.Count; i++)
             {
-                Type generic = generics[i];
-                int parentGenericArgumentCount = generic.DeclaringType == null ? 0 : generic.GetGenericArguments().Length;
-                int actualGenericArgumentCount = generic.GetGenericArguments().Length - parentGenericArgumentCount;
-                if (currentArgumentIndex < actualGenericArgumentCount || (currentArgumentIndex == 0 && actualGenericArgumentCount == 0))
+                Generic generic = generics[i];
+                int genericArgumentCount = generic.GetGenericArguments().Length;
+                if (currentArgumentIndex < genericArgumentCount || (currentArgumentIndex == 0 && genericArgumentCount == 0))
                 {
                     result.Add(new GenericOverloadSuggestion(generic, currentArgumentIndex, usingNamespaces));
                 }

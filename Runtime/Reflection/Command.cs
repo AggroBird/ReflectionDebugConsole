@@ -469,10 +469,19 @@ namespace AggroBird.Reflection
                 }
                 else
                 {
-                    Type[] selfGenericArguments = ParseGenericArguments(genericToken, types);
-                    Type[] allGenericArguments = new Type[parentGenericArguments.Length + selfGenericArguments.Length];
-                    Array.Copy(parentGenericArguments, 0, allGenericArguments, 0, parentGenericArguments.Length);
-                    Array.Copy(selfGenericArguments, 0, allGenericArguments, parentGenericArguments.Length, selfGenericArguments.Length);
+                    Generic[] generics = new Generic[types.Count];
+                    for (int i = 0; i < types.Count; i++)
+                    {
+                        generics[i] = new GenericType(types[i]);
+                    }
+                    Type[] selfGenericArguments = ParseGenericArguments(genericToken, generics);
+                    Type[] allGenericArguments = selfGenericArguments;
+                    if (parentGenericArguments.Length > 0)
+                    {
+                        allGenericArguments = new Type[parentGenericArguments.Length + selfGenericArguments.Length];
+                        Array.Copy(parentGenericArguments, 0, allGenericArguments, 0, parentGenericArguments.Length);
+                        Array.Copy(selfGenericArguments, 0, allGenericArguments, parentGenericArguments.Length, selfGenericArguments.Length);
+                    }
                     for (int i = 0; i < types.Count; i++)
                     {
                         if (types[i].GetGenericArguments().Length == allGenericArguments.Length)
@@ -518,7 +527,7 @@ namespace AggroBird.Reflection
                 if (compatible.Count > 1) throw new DebugConsoleException($"Identifier '{token}' is ambiguous between types '{compatible[0]}' and '{compatible[1]}'");
             }
 
-            result = compatible[0].IsGenericTypeDefinition ? new Generic(compatible[0]) : new Typename(compatible[0]);
+            result = compatible[0].IsGenericTypeDefinition ? new GenericTypename(compatible[0]) : new Typename(compatible[0]);
             return true;
         }
         private bool Identify(Token token, Identifier identifier, out Expression result)
@@ -533,6 +542,57 @@ namespace AggroBird.Reflection
             {
                 return Identify(token, identifier.Types, Array.Empty<Type>(), out result);
             }
+        }
+
+        private List<MethodInfo> MakeMethodOverloadList(MemberInfo[] members, StringView methodName)
+        {
+            List<MethodInfo> result = new List<MethodInfo>();
+            if (Match(TokenType.Lt, out Token genericToken))
+            {
+                List<GenericMethod> generics = new List<GenericMethod>();
+                for (int i = 0; i < members.Length; i++)
+                {
+                    if (members[i] is not MethodInfo method)
+                    {
+                        throw new DebugConsoleException($"Ambigious member '{methodName}' for type '{members[i].DeclaringType}'");
+                    }
+
+                    if (!method.IsGenericMethodDefinition) continue;
+
+                    generics.Add(new GenericMethod(method));
+                }
+                Type[] genericArguments = ParseGenericArguments(genericToken, generics);
+
+                foreach (GenericMethod generic in generics)
+                {
+                    if (generic.GetGenericArguments().Length == genericArguments.Length)
+                    {
+                        try
+                        {
+                            result.Add(generic.methodInfo.MakeGenericMethod(genericArguments));
+                        }
+                        catch
+                        {
+
+                        }
+                    }
+                }
+            }
+            else
+            {
+                for (int i = 0; i < members.Length; i++)
+                {
+                    if (members[i] is not MethodInfo method)
+                    {
+                        throw new DebugConsoleException($"Ambigious member '{methodName}' for type '{members[i].DeclaringType}'");
+                    }
+
+                    if (method.IsGenericMethodDefinition) continue;
+
+                    result.Add(method);
+                }
+            }
+            return result;
         }
 
         protected override Expression NameCallback(Token token)
@@ -1283,7 +1343,7 @@ namespace AggroBird.Reflection
                         Match(TokenType.RParen);
                         if (expr is Typename typename)
                             return new BoxedObject(typename.type);
-                        else if (expr is Generic generic)
+                        else if (expr is GenericTypename generic)
                             return new BoxedObject(generic.type);
                         else
                             throw new DebugConsoleException("typeof expects a type as argument");
@@ -1430,20 +1490,6 @@ namespace AggroBird.Reflection
         }
 
 
-        private static List<MethodInfo> MakeMethodOverloadList(MemberInfo[] members, StringView methodName)
-        {
-            List<MethodInfo> result = new List<MethodInfo>();
-            for (int i = 0; i < members.Length; i++)
-            {
-                if (!(members[i] is MethodInfo method))
-                {
-                    throw new DebugConsoleException($"Ambigious member '{methodName}' for type '{members[i].DeclaringType}'");
-                }
-                result.Add(method);
-            }
-            return result;
-        }
-
         private Expression[] ParseMethodArguments(Token token, IReadOnlyList<MethodBase> overloads, Type delegateType = null)
         {
             if (GenerateSuggestionInfoAtToken(token))
@@ -1535,12 +1581,12 @@ namespace AggroBird.Reflection
             return rank;
         }
 
-        private Type[] ParseGenericArguments(Token token, IReadOnlyList<Type> generics)
+        private Type[] ParseGenericArguments(Token token, IReadOnlyList<Generic> generics)
         {
             TokenType next = Peek();
             if (next == TokenType.Gt || next == TokenType.Rsh) // <>
             {
-                throw new UnexpectedTokenException(next);
+                throw new UnexpectedTokenException(TokenType.Gt);
             }
 
             if (GenerateSuggestionInfoAtToken(token))
