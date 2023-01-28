@@ -816,6 +816,10 @@ namespace AggroBird.Reflection
                         if (!Expression.IsConstantArguments(lengthExpr)) throw new DebugConsoleException("A constant value is expected");
 
                         int[] lengths = Expression.ExtractConstantValues<int>(lengthExpr);
+                        foreach (int length in lengths)
+                        {
+                            if (length < 0) throw new DebugConsoleException("Cannot create an array with a negative size");
+                        }
 
                         ArrayInitializer initializer = new ArrayInitializer();
                         ParseArrayInitializer(initializer, typename.type);
