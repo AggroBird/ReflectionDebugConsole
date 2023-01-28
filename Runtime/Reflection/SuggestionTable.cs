@@ -169,7 +169,7 @@ namespace AggroBird.Reflection
             return $"{Styles.Open(Style.Keyword)}{result}{Styles.Close}";
         }
 
-        protected void FormatTypeName(StringBuilder output, Type type, int highlight = 0)
+        protected void FormatTypeName(StringBuilder output, Type type, bool includeNamespace = true, bool includeGenericArguments = true, int highlight = 0)
         {
             if (type.IsGenericParameter)
             {
@@ -186,7 +186,7 @@ namespace AggroBird.Reflection
             // Format array
             if (type.IsArray)
             {
-                FormatTypeName(output, type.GetElementType(), highlight);
+                FormatTypeName(output, type.GetElementType(), highlight: highlight);
                 output.Append('[');
                 int rank = type.GetArrayRank();
                 for (int i = 0; i < rank - 1; i++)
@@ -197,59 +197,71 @@ namespace AggroBird.Reflection
                 return;
             }
 
-            // Strip generic arguments
-            string fullName = type.FullName;
-            if (type.IsGenericType)
+            if (includeNamespace)
             {
-                fullName = fullName.Substring(0, fullName.IndexOf('`'));
-            }
-
-            // Strip longest using namespace
-            if (usingNamespaces != null && usingNamespaces.Count > 0)
-            {
-                int longestNamespace = 0;
-                for (int i = 0; i < usingNamespaces.Count; i++)
+                string typeNamespace = type.Namespace;
+                if (!string.IsNullOrEmpty(typeNamespace))
                 {
-                    if (fullName.StartsWith(usingNamespaces[i]))
+                    if (usingNamespaces != null && usingNamespaces.Count > 0)
                     {
-                        longestNamespace = Math.Max(longestNamespace, usingNamespaces[i].Length);
+                        int longestNamespace = 0;
+                        for (int i = 0; i < usingNamespaces.Count; i++)
+                        {
+                            string ns = usingNamespaces[i];
+                            if (typeNamespace.StartsWith(ns) && (typeNamespace.Length == ns.Length || typeNamespace[ns.Length] == '.'))
+                            {
+                                longestNamespace = Math.Max(longestNamespace, ns.Length);
+                            }
+                        }
+                        if (longestNamespace > 0)
+                        {
+                            if (longestNamespace != typeNamespace.Length)
+                            {
+                                longestNamespace++;
+                                output.Append(typeNamespace, longestNamespace, typeNamespace.Length - longestNamespace);
+                                output.Append('.');
+                            }
+                        }
+                        else
+                        {
+                            output.Append(typeNamespace);
+                            output.Append('.');
+                        }
+                    }
+                    else
+                    {
+                        output.Append(typeNamespace);
+                        output.Append('.');
                     }
                 }
-                if (longestNamespace > 0)
-                {
-                    fullName = fullName.Substring(longestNamespace + 1);
-                }
             }
 
-            // Split highlight color for namespace
-            int last = fullName.LastIndexOf('.');
-            if (last >= 0)
+            string typeName = type.Name;
+
+            // Split generic
+            if (type.IsGenericType)
             {
-                string typeNamespace = fullName.Substring(0, last + 1);
-                string typeName = fullName.Substring(last + 1);
-                output.Append(typeNamespace);
-                fullName = typeName;
+                int split = typeName.IndexOf('`');
+                if (split != -1) typeName = typeName.Substring(0, split);
             }
 
             // Split nested types
             if (type.IsNested)
             {
-                int nestedSplit = fullName.LastIndexOf('+');
-                if (nestedSplit != -1)
-                {
-                    fullName = fullName.Substring(nestedSplit + 1);
-                }
+                int split = typeName.LastIndexOf('+');
+                if (split != -1) typeName = typeName.Substring(split + 1);
             }
 
-            output.Append(Highlight(fullName, highlight, Styles.GetTypeColor(type)));
+            output.Append(Highlight(typeName, highlight, Styles.GetTypeColor(type)));
 
-            if (type.IsGenericType)
+            if (includeGenericArguments && type.IsGenericType)
             {
                 Type[] genericArgs = type.GetGenericArguments();
-                if (genericArgs.Length > 0)
+                int parentArgumentCount = type.DeclaringType == null ? 0 : type.DeclaringType.GetGenericArguments().Length;
+                if (genericArgs.Length > parentArgumentCount)
                 {
                     output.Append('<');
-                    for (int i = 0; i < genericArgs.Length; i++)
+                    for (int i = parentArgumentCount; i < genericArgs.Length; i++)
                     {
                         if (i != 0) output.Append(", ");
                         FormatTypeName(output, genericArgs[i]);
@@ -261,13 +273,12 @@ namespace AggroBird.Reflection
 
         protected void FormatParameters(StringBuilder output, ParameterInfo[] parameters, int currentParameterIndex)
         {
-            int currentParamIdx = currentParameterIndex;
-            if (currentParamIdx >= parameters.Length) currentParamIdx = parameters.Length - 1;
+            if (currentParameterIndex >= parameters.Length) currentParameterIndex = parameters.Length - 1;
             int varArgParam = Expression.HasVariableParameterCount(parameters) ? parameters.Length - 1 : -1;
             for (int i = 0; i < parameters.Length; i++)
             {
                 if (i > 0) output.Append(", ");
-                if (i == currentParamIdx) output.Append("<b>");
+                if (i == currentParameterIndex) output.Append("<b>");
                 if (i == varArgParam) output.Append($"{Styles.Open(Style.Keyword)}params{Styles.Close} ");
                 FormatTypeName(output, parameters[i].ParameterType);
                 output.Append($" {Styles.Open(Style.Variable)}{parameters[i].Name}{Styles.Close}");
@@ -276,7 +287,26 @@ namespace AggroBird.Reflection
                     output.Append($" = ");
                     Stringify(parameters[i].ParameterType, parameters[i].DefaultValue, output);
                 }
-                if (i == currentParamIdx) output.Append("</b>");
+                if (i == currentParameterIndex) output.Append("</b>");
+            }
+        }
+        protected void FormatGenericArguments(StringBuilder output, Type generic, int currentParameterIndex)
+        {
+            int parentGenericArgumentCount = generic.DeclaringType == null ? 0 : generic.DeclaringType.GetGenericArguments().Length;
+            Type[] genericArguments = generic.GetGenericArguments();
+            if (genericArguments.Length > parentGenericArgumentCount)
+            {
+                output.Append('<');
+                currentParameterIndex += parentGenericArgumentCount;
+                if (currentParameterIndex >= genericArguments.Length) currentParameterIndex = genericArguments.Length - 1;
+                for (int i = parentGenericArgumentCount; i < genericArguments.Length; i++)
+                {
+                    if (i > parentGenericArgumentCount) output.Append(", ");
+                    if (i == currentParameterIndex) output.Append("<b>");
+                    FormatTypeName(output, genericArguments[i]);
+                    if (i == currentParameterIndex) output.Append("</b>");
+                }
+                output.Append('>');
             }
         }
 
@@ -351,7 +381,7 @@ namespace AggroBird.Reflection
                 case Type typeInfo:
                 {
                     output.Append(GetPrefix(typeInfo));
-                    FormatTypeName(output, typeInfo, len);
+                    FormatTypeName(output, typeInfo, highlight: len);
                 }
                 break;
                 default:
@@ -382,7 +412,7 @@ namespace AggroBird.Reflection
         {
             if (overload is ConstructorInfo constructor)
             {
-                output.Append($"{Styles.Open(Styles.GetTypeColor(constructor.DeclaringType))}{constructor.DeclaringType.Name}{Styles.Close}(");
+                FormatTypeName(output, constructor.DeclaringType, includeNamespace: false);
             }
             else if (overload is MethodInfo method)
             {
@@ -401,6 +431,27 @@ namespace AggroBird.Reflection
             output.Append('(');
             FormatParameters(output, overload.GetParameters(), currentParameterIndex);
             output.Append(')');
+        }
+    }
+
+    internal class GenericOverloadSuggestion : Suggestion
+    {
+        public GenericOverloadSuggestion(Type generic, int currentParameterIndex, IReadOnlyList<string> usingNamespaces) : base(usingNamespaces)
+        {
+            this.generic = generic;
+            this.currentParameterIndex = currentParameterIndex;
+        }
+
+        private readonly Type generic;
+        private readonly int currentParameterIndex;
+
+
+        public override string Text => generic.Name;
+        public override void BuildSuggestionString(StringBuilder output, bool isHighlighted)
+        {
+            output.Append(GetPrefix(generic));
+            FormatTypeName(output, generic, includeNamespace: false, includeGenericArguments: false);
+            FormatGenericArguments(output, generic, currentParameterIndex);
         }
     }
 
@@ -437,13 +488,13 @@ namespace AggroBird.Reflection
 
     internal class NamespaceSuggestion : Suggestion
     {
-        public NamespaceSuggestion(NamespaceIdentifier identifier, int highlightLength, IReadOnlyList<string> usingNamespaces) : base(usingNamespaces)
+        public NamespaceSuggestion(Identifier identifier, int highlightLength, IReadOnlyList<string> usingNamespaces) : base(usingNamespaces)
         {
             this.identifier = identifier;
             this.highlightLength = highlightLength;
         }
 
-        private readonly NamespaceIdentifier identifier;
+        private readonly Identifier identifier;
         private readonly int highlightLength;
 
         public override string Text => identifier.Name;
@@ -460,13 +511,12 @@ namespace AggroBird.Reflection
         {
             this.type = type;
             this.highlightLength = highlightLength;
-            if (type.ContainsGenericParameters)
+
+            name = type.Name;
+            int idx = name.IndexOf('`');
+            if (idx != -1)
             {
-                name = type.Name.Substring(0, type.Name.IndexOf('`'));
-            }
-            else
-            {
-                name = type.Name;
+                name = name.Substring(0, idx);
             }
         }
 
@@ -479,7 +529,7 @@ namespace AggroBird.Reflection
         {
             int len = isHighlighted ? int.MaxValue : highlightLength;
             output.Append(GetPrefix(type));
-            FormatTypeName(output, type, len);
+            FormatTypeName(output, type, includeNamespace: false, highlight: len);
         }
     }
 
@@ -624,18 +674,20 @@ namespace AggroBird.Reflection
                 string queryString = query.ToString();
                 int queryLength = queryString.Length;
                 bool hasQuery = queryLength > 0;
-                if (identifier.Children != null)
+                foreach (var child in identifier.Children)
                 {
-                    foreach (var pair in identifier.Children)
+                    if (!hasQuery || child.Name.StartsWith(queryString, true, null))
                     {
-                        Identifier child = pair.Value;
-
-                        if (!hasQuery || child.Name.StartsWith(queryString, true, null))
+                        if (child.IsNamespace)
                         {
-                            if (child is NamespaceIdentifier namespaceIdentifier)
-                                suggestions.Add(child.Name, new NamespaceSuggestion(namespaceIdentifier, queryLength, usingNamespaces));
-                            else if (child is TypeIdentifier typeIdentifier)
-                                suggestions.Add(child.Name, new TypeSuggestion(typeIdentifier.type, queryLength, usingNamespaces));
+                            suggestions[child.Name] = new NamespaceSuggestion(child, queryLength, usingNamespaces);
+                        }
+                        else
+                        {
+                            foreach (Type type in child.Types)
+                            {
+                                suggestions[type.Name] = new TypeSuggestion(type, queryLength, usingNamespaces);
+                            }
                         }
                     }
                 }
@@ -658,11 +710,7 @@ namespace AggroBird.Reflection
                 }
                 if (suggestions.Count > 0)
                 {
-                    List<Suggestion> result = new List<Suggestion>();
-                    foreach (var suggestion in suggestions)
-                    {
-                        result.Add(suggestion.Value);
-                    }
+                    List<Suggestion> result = new List<Suggestion>(suggestions.Values);
                     result.Sort((lhs, rhs) => lhs.Text.CompareTo(rhs.Text));
                     return result.ToArray();
                 }
@@ -683,14 +731,13 @@ namespace AggroBird.Reflection
         private readonly IReadOnlyList<MethodBase> overloads;
         private readonly IReadOnlyList<Expression> args;
         private readonly Type delegateType;
-        public int CurrentArgumentIndex => args.Count;
 
 
         public override Suggestion[] GetSuggestions(int cursorPosition, IReadOnlyList<string> usingNamespaces, bool safeMode)
         {
             List<Suggestion> result = new List<Suggestion>();
 
-            int currentArgumentIndex = CurrentArgumentIndex;
+            int currentArgumentIndex = args.Count;
             for (int i = 0; i < overloads.Count; i++)
             {
                 ParameterInfo[] parameters = overloads[i].GetParameters();
@@ -700,6 +747,44 @@ namespace AggroBird.Reflection
                     {
                         result.Add(new MethodOverloadSuggestion(overloads[i], currentArgumentIndex, usingNamespaces, delegateType));
                     }
+                }
+            }
+
+            if (result.Count > 0)
+            {
+                result.Sort((lhs, rhs) => lhs.Text.CompareTo(rhs.Text));
+                return result.ToArray();
+            }
+
+            return result.ToArray();
+        }
+    }
+
+    internal sealed class GenericsOverloadList : SuggestionInfo
+    {
+        public GenericsOverloadList(IReadOnlyList<Type> generics, IReadOnlyList<Type> args) : base(StringView.Empty, 0, 0)
+        {
+            this.generics = generics;
+            this.args = args;
+        }
+
+        private readonly IReadOnlyList<Type> generics;
+        private readonly IReadOnlyList<Type> args;
+
+
+        public override Suggestion[] GetSuggestions(int cursorPosition, IReadOnlyList<string> usingNamespaces, bool safeMode)
+        {
+            List<Suggestion> result = new List<Suggestion>();
+
+            int currentArgumentIndex = args.Count;
+            for (int i = 0; i < generics.Count; i++)
+            {
+                Type generic = generics[i];
+                int parentGenericArgumentCount = generic.DeclaringType == null ? 0 : generic.GetGenericArguments().Length;
+                int actualGenericArgumentCount = generic.GetGenericArguments().Length - parentGenericArgumentCount;
+                if (currentArgumentIndex < actualGenericArgumentCount || (currentArgumentIndex == 0 && actualGenericArgumentCount == 0))
+                {
+                    result.Add(new GenericOverloadSuggestion(generic, currentArgumentIndex, usingNamespaces));
                 }
             }
 
@@ -809,7 +894,7 @@ namespace AggroBird.Reflection
                 if (suggestionInfo != null)
                 {
                     suggestions = suggestionInfo.GetSuggestions(cursorPosition, usingNamespaces, safeMode);
-                    isOverloadList = suggestionInfo is MethodOverloadList;
+                    isOverloadList = suggestionInfo is MethodOverloadList || suggestionInfo is GenericsOverloadList;
                     insertOffset = suggestionInfo.insertOffset;
                     insertLength = suggestionInfo.insertLength;
                 }

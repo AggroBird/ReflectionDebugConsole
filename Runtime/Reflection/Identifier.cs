@@ -26,14 +26,14 @@ namespace AggroBird.Reflection
 
                     if (!Expression.IncludeMember(type)) continue;
 
-                    ArrayView<StringView> name = SplitName(type.FullName, buffer);
-                    if (name.Length == 0) return;
-
                     // Skip nested (member scanner will pick it up)
                     if (type.IsNested) continue;
 
                     // Skip hidden
                     if (safeMode && !type.IsPublic) continue;
+
+                    ArrayView<StringView> name = SplitName(type.FullName, buffer);
+                    if (name.Length == 0) continue;
 
                     AddTypeRecursive(name, type);
                     for (int i = 0; i < usingNamespaces.Length; i++)
@@ -57,6 +57,11 @@ namespace AggroBird.Reflection
             }
         }
 
+        private Identifier(StringView name)
+        {
+            Name = name.ToString();
+        }
+
         private static ArrayView<StringView> SplitName(string fullName, List<StringView> buffer)
         {
             buffer.Clear();
@@ -70,6 +75,9 @@ namespace AggroBird.Reflection
                         buffer.Add(fullName.SubView(index, i - index));
                         index = i + 1;
                         break;
+                    case '`':
+                        buffer.Add(fullName.SubView(index, i - index));
+                        return buffer.ToArray();
                 }
             }
             buffer.Add(fullName.SubView(index, fullName.Length - index));
@@ -91,29 +99,18 @@ namespace AggroBird.Reflection
         private void AddTypeRecursive(ArrayView<StringView> name, Type type)
         {
             Identifier current = this;
-            for (int i = 0; i < name.Length - 1; i++)
+            for (int i = 0; i < name.Length; i++)
             {
                 if (!current.TryFindIdentifier(name[i], out Identifier next))
                 {
-                    next = new NamespaceIdentifier(name[i]);
+                    next = new Identifier(name[i]);
                     current.AddChild(next);
                 }
                 current = next;
             }
 
-            StringView last = name[name.Length - 1];
-            if (current.TryFindIdentifier(last, out Identifier identifier))
-            {
-                if (identifier is NamespaceIdentifier)
-                {
-                    current.children[last] = new TypeIdentifier(type);
-                }
-                return;
-            }
-            else
-            {
-                current.AddChild(new TypeIdentifier(type));
-            }
+            if (current.types == null) current.types = new List<Type>();
+            current.types.Add(type);
         }
 
         private void AddChild(Identifier child)
@@ -124,37 +121,16 @@ namespace AggroBird.Reflection
 
 
         private Dictionary<StringView, Identifier> children = null;
+        private List<Type> types = null;
+
         public int ChildCount => children == null ? 0 : children.Count;
-        public IReadOnlyDictionary<StringView, Identifier> Children => children;
+        public bool IsNamespace => types == null || types.Count == 0;
 
-        public virtual string Name => string.Empty;
+        public IReadOnlyCollection<Identifier> Children => children == null ? Array.Empty<Identifier>() : children.Values;
+        public IReadOnlyList<Type> Types => types == null ? Array.Empty<Type>() : types;
+
+        public string Name { get; private set; }
         public override string ToString() => Name;
-    }
-
-    internal class NamespaceIdentifier : Identifier
-    {
-        public NamespaceIdentifier(StringView name)
-        {
-            this.name = name.ToString();
-        }
-
-
-        private readonly string name;
-
-        public override string Name => name;
-    }
-
-    internal sealed class TypeIdentifier : Identifier
-    {
-        public TypeIdentifier(Type type)
-        {
-            this.type = type;
-        }
-
-
-        public readonly Type type;
-
-        public override string Name => type.Name;
     }
 }
 #endif

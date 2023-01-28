@@ -448,24 +448,90 @@ namespace AggroBird.Reflection
         }
 
 
+        private bool Identify(Token token, IReadOnlyList<Type> types, Type[] parentGenericArguments, out Expression result)
+        {
+            AddStyledToken(token.str, types[0]);
+
+            List<Type> compatible = new List<Type>();
+            if (Match(TokenType.Lt, out Token genericToken))
+            {
+                TokenType next = Peek();
+                if (next == TokenType.Comma || next == TokenType.Gt)
+                {
+                    int rank = CountRank(TokenType.Gt);
+                    for (int i = 0; i < types.Count; i++)
+                    {
+                        if ((types[i].GetGenericArguments().Length - parentGenericArguments.Length) == rank)
+                        {
+                            compatible.Add(types[i]);
+                        }
+                    }
+                }
+                else
+                {
+                    Type[] selfGenericArguments = ParseGenericArguments(genericToken, types);
+                    Type[] allGenericArguments = new Type[parentGenericArguments.Length + selfGenericArguments.Length];
+                    Array.Copy(parentGenericArguments, 0, allGenericArguments, 0, parentGenericArguments.Length);
+                    Array.Copy(selfGenericArguments, 0, allGenericArguments, parentGenericArguments.Length, selfGenericArguments.Length);
+                    for (int i = 0; i < types.Count; i++)
+                    {
+                        if (types[i].GetGenericArguments().Length == allGenericArguments.Length)
+                        {
+                            try
+                            {
+                                compatible.Add(types[i].MakeGenericType(allGenericArguments));
+                            }
+                            catch
+                            {
+
+                            }
+                        }
+                    }
+                }
+                if (compatible.Count == 0) throw new DebugConsoleException($"No compatible generic overload found for type '{token}'");
+                if (compatible.Count > 1) throw new DebugConsoleException($"Ambiguous generic overloads for type between '{compatible[0]}' and '{compatible[1]}'");
+            }
+            else
+            {
+                for (int i = 0; i < types.Count; i++)
+                {
+                    if (types[i].GetGenericArguments().Length == parentGenericArguments.Length)
+                    {
+                        if (parentGenericArguments.Length == 0)
+                        {
+                            compatible.Add(types[i]);
+                        }
+                        else
+                        {
+                            try
+                            {
+                                compatible.Add(types[i].MakeGenericType(parentGenericArguments));
+                            }
+                            catch
+                            {
+
+                            }
+                        }
+                    }
+                }
+                if (compatible.Count == 0) throw new DebugConsoleException($"Using the generic type '{token}' requires generic type arguments");
+                if (compatible.Count > 1) throw new DebugConsoleException($"Identifier '{token}' is ambiguous between types '{compatible[0]}' and '{compatible[1]}'");
+            }
+
+            result = compatible[0].IsGenericTypeDefinition ? new Generic(compatible[0]) : new Typename(compatible[0]);
+            return true;
+        }
         private bool Identify(Token token, Identifier identifier, out Expression result)
         {
-            if (identifier is NamespaceIdentifier namespaceIdentifier)
+            if (identifier.IsNamespace)
             {
                 AddStyledToken(token.str, Style.Default);
-                result = new Namespace(namespaceIdentifier);
-                return true;
-            }
-            else if (identifier is TypeIdentifier typeIdentifier)
-            {
-                AddStyledToken(token.str, typeIdentifier.type);
-                result = new Typename(typeIdentifier.type);
+                result = new Namespace(identifier);
                 return true;
             }
             else
             {
-                result = null;
-                return false;
+                return Identify(token, identifier.Types, Array.Empty<Type>(), out result);
             }
         }
 
@@ -602,11 +668,18 @@ namespace AggroBird.Reflection
                         MemberInfo[] members = Expression.FilterMembers(typename.type.GetMember(query, MakeStaticBindingFlags()));
                         if (members == null || members.Length == 0)
                         {
-                            Type nestedType = Expression.FilterMembers(typename.type.GetNestedType(query, MakeStaticBindingFlags()));
-                            if (nestedType != null)
+                            // Check nested types
+                            List<Type> nestedTypes = new List<Type>();
+                            foreach (Type nestedType in Expression.FilterMembers(typename.type.GetNestedTypes(MakeStaticBindingFlags())))
                             {
-                                // Nested type
-                                return new Typename(nestedType);
+                                if (nestedType.Name.StartsWith(query) && (nestedType.Name.Length == query.Length || nestedType.Name[query.Length] == '`'))
+                                {
+                                    nestedTypes.Add(nestedType);
+                                }
+                            }
+                            if (nestedTypes.Count > 0 && Identify(next, nestedTypes, typename.type.GetGenericArguments(), out Expression result))
+                            {
+                                return result;
                             }
 
                             // No member found
@@ -880,7 +953,7 @@ namespace AggroBird.Reflection
                 else if (Peek() == TokenType.Comma)
                 {
                     // Multi-dimensional array
-                    int rank = ParseArrayRank();
+                    int rank = CountRank(TokenType.RBracket);
                     if (Match(TokenType.LBrace))
                     {
                         ArrayInitializer initializer = new ArrayInitializer();
@@ -1207,8 +1280,11 @@ namespace AggroBird.Reflection
                     if (Match(TokenType.LParen))
                     {
                         Expression expr = ParseNext();
-                        if (expr is Typename typename && Match(TokenType.RParen))
+                        Match(TokenType.RParen);
+                        if (expr is Typename typename)
                             return new BoxedObject(typename.type);
+                        else if (expr is Generic generic)
+                            return new BoxedObject(generic.type);
                         else
                             throw new DebugConsoleException("typeof expects a type as argument");
                     }
@@ -1363,7 +1439,6 @@ namespace AggroBird.Reflection
                 {
                     throw new DebugConsoleException($"Ambigious member '{methodName}' for type '{members[i].DeclaringType}'");
                 }
-                if (method.IsGenericMethod) continue;
                 result.Add(method);
             }
             return result;
@@ -1445,19 +1520,68 @@ namespace AggroBird.Reflection
             }
             return Array.Empty<Expression>();
         }
-        private int ParseArrayRank()
+        private int CountRank(TokenType closingToken)
         {
             int rank = 1;
             while (true)
             {
                 Token next = Consume();
-                if (next.type == TokenType.RBracket)
+                if (next.type == closingToken)
                     break;
                 else if (next.type != TokenType.Comma)
                     throw new UnexpectedTokenException(next);
                 rank++;
             }
             return rank;
+        }
+
+        private Type[] ParseGenericArguments(Token token, IReadOnlyList<Type> generics)
+        {
+            TokenType next = Peek();
+            if (next == TokenType.Gt || next == TokenType.Rsh) // <>
+            {
+                throw new UnexpectedTokenException(next);
+            }
+
+            if (GenerateSuggestionInfoAtToken(token))
+            {
+                SuggestionInfo = new GenericsOverloadList(generics, Array.Empty<Type>());
+            }
+
+            List<Type> result = new List<Type>();
+            genericDepth++;
+            while (true)
+            {
+                Expression arg = ParseNext();
+                if (arg is not Typename typename)
+                {
+                    throw new DebugConsoleException("Type expected for generic parameter");
+                }
+                result.Add(typename.type);
+
+                next = Peek();
+                if (next == TokenType.Gt || next == TokenType.Rsh)
+                {
+                    Advance();
+                    doublePop = next == TokenType.Rsh;
+                    break;
+                }
+                else if (next == TokenType.Comma)
+                {
+                    Advance();
+                }
+                else
+                {
+                    throw new UnexpectedTokenException(next);
+                }
+
+                if (GenerateSuggestionInfoAtToken(next))
+                {
+                    SuggestionInfo = new GenericsOverloadList(generics, result);
+                }
+            }
+            genericDepth--;
+            return result.ToArray();
         }
 
         private void ParseArrayInitializer(ArrayInitializer initializer, Type elementType)
@@ -1491,10 +1615,64 @@ namespace AggroBird.Reflection
         private BindingFlags MakeInstanceBindingFlags() => Expression.MakeBindingFlags(false, safeMode);
         private BindingFlags MakeStaticBindingFlags() => Expression.MakeBindingFlags(true, safeMode);
 
+
+        private bool doublePop = false;
+        private int genericDepth = 0;
+
         protected override Precedence PeekNextPrecedence(Expression lhs)
         {
-            if (Peek() == TokenType.Comma) return Precedence.Root;
+            TokenType next = Peek();
+
+            if (next == TokenType.Comma)
+            {
+                return Precedence.Root;
+            }
+
+            if (next == TokenType.Gt || next == TokenType.Rsh)
+            {
+                if (genericDepth > 0)
+                {
+                    // This token is part of generic syntax
+                    return Precedence.Root;
+                }
+            }
+
             return base.PeekNextPrecedence(lhs);
+        }
+
+        public override TokenType Peek()
+        {
+            if (doublePop)
+            {
+                return TokenType.Gt;
+            }
+            else
+            {
+                return base.Peek();
+            }
+        }
+        public override Token Consume()
+        {
+            if (doublePop)
+            {
+                doublePop = false;
+                return new Token(TokenType.Gt, CurrentToken.line);
+            }
+            else
+            {
+                return base.Consume();
+            }
+        }
+        public override void Advance()
+        {
+            if (doublePop)
+            {
+                doublePop = false;
+            }
+            else
+            {
+                base.Advance();
+            }
         }
     }
 

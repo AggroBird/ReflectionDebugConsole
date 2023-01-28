@@ -513,12 +513,10 @@ namespace AggroBird.Reflection
             if (type.IsPointer) return false;
             if (type.IsSubclassOf(typeof(Delegate)))
             {
-                // Unsupported delegate type
+                // Check delegate type
                 MethodInfo invokeMethod = type.GetMethod("Invoke");
-                if (invokeMethod != null)
-                {
-                    if (!IncludeMember(invokeMethod, true)) return false;
-                }
+                if (invokeMethod == null) return false;
+                if (!IncludeMember(invokeMethod, true)) return false;
             }
             return true;
         }
@@ -1496,12 +1494,12 @@ namespace AggroBird.Reflection
 
     internal class Namespace : Expression
     {
-        public Namespace(NamespaceIdentifier identifier)
+        public Namespace(Identifier identifier)
         {
             this.identifier = identifier;
         }
 
-        public readonly NamespaceIdentifier identifier;
+        public readonly Identifier identifier;
 
 
         public override object Execute(ExecutionContext context) => throw new DebugConsoleException("Namespace cannot be used as expression");
@@ -1520,6 +1518,20 @@ namespace AggroBird.Reflection
 
         public override object Execute(ExecutionContext context) => throw new DebugConsoleException("Typename cannot be used as expression");
         public override Type ResultType => throw new DebugConsoleException("Typename cannot be used as expression");
+    }
+
+    internal class Generic : Expression
+    {
+        public Generic(Type type)
+        {
+            this.type = type;
+        }
+
+        public readonly Type type;
+
+
+        public override object Execute(ExecutionContext context) => throw new DebugConsoleException($"Unexpected use of an unbound generic type '{type}'");
+        public override Type ResultType => throw new DebugConsoleException($"Unexpected use of an unbound generic type '{type}'");
     }
 
     internal class BoxedObject : Expression
@@ -1741,13 +1753,13 @@ namespace AggroBird.Reflection
     // Methods
     internal class MethodOverload : Expression
     {
-        public MethodOverload(string methodName, Expression lhs, List<MethodInfo> methods)
+        public MethodOverload(string methodName, Expression lhs, IReadOnlyList<MethodInfo> methods)
         {
             this.methodName = methodName;
             this.lhs = lhs;
             this.methods = methods;
         }
-        public MethodOverload(string methodName, List<MethodInfo> methods)
+        public MethodOverload(string methodName, IReadOnlyList<MethodInfo> methods)
         {
             this.methodName = methodName;
             this.methods = methods;
@@ -1755,7 +1767,7 @@ namespace AggroBird.Reflection
 
         public readonly string methodName;
         public readonly Expression lhs;
-        public readonly List<MethodInfo> methods;
+        public readonly IReadOnlyList<MethodInfo> methods;
 
 
         public override object Execute(ExecutionContext context) => throw new DebugConsoleException("Method cannot be used as expression");
