@@ -655,28 +655,7 @@ namespace AggroBird.DebugConsole
                 }
                 if (consoleInput.Length > outputLength)
                 {
-                    bool appended = false;
-                    if (styledOutput.styledTokens.Length > 0 && styledOutput.command.Length != consoleInput.Length)
-                    {
-                        StyledToken last = styledOutput.styledTokens[styledOutput.styledTokens.Length - 1];
-                        if (last.str.End == outputLength)
-                        {
-                            switch (last.style)
-                            {
-                                case Style.String:
-                                case Style.Number:
-                                    stringBuilder.Append(Styles.Open(last.style));
-                                    stringBuilder.Append(consoleInput, outputLength, consoleInput.Length - outputLength);
-                                    stringBuilder.Append(Styles.Close);
-                                    appended = true;
-                                    break;
-                            }
-                        }
-                    }
-                    if (!appended)
-                    {
-                        stringBuilder.Append(consoleInput, outputLength, consoleInput.Length - outputLength);
-                    }
+                    stringBuilder.Append(consoleInput, outputLength, consoleInput.Length - outputLength);
                 }
                 styledInput = stringBuilder.ToString();
             }
