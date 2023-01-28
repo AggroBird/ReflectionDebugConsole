@@ -69,7 +69,9 @@ namespace AggroBird.Reflection
                     Block block = new Block();
                     stack.Last().expressions.Add(block);
                     if (!Match(TokenType.RBrace))
+                    {
                         Push(block);
+                    }
                 }
                 break;
 
@@ -86,12 +88,15 @@ namespace AggroBird.Reflection
 
                     Advance();
                     Consume(TokenType.LParen);
+                    PushScope();
                     Expression condition = ParseNext();
                     Expression.CheckConvertibleBool(condition, out condition);
                     Consume(TokenType.RParen);
                     IfBlock ifBlock = new IfBlock(condition);
                     stack.Last().expressions.Add(ifBlock);
+                    PushBlock(ifBlock);
                     ParseOptionalBlock(ifBlock);
+                    Pop();
 
                 ParseNextIf:
                     if (Match(TokenType.Else, out Token elseToken))
@@ -103,11 +108,14 @@ namespace AggroBird.Reflection
                             AddStyledToken(ifToken.str, Style.Keyword);
 
                             Consume(TokenType.LParen);
+                            PushScope();
                             condition = ParseNext();
                             Expression.CheckConvertibleBool(condition, out condition);
                             Consume(TokenType.RParen);
                             ElseIfBlock elseIfBlock = new ElseIfBlock(condition);
+                            PushBlock(elseIfBlock);
                             ParseOptionalBlock(elseIfBlock);
+                            Pop();
                             ifBlock.AddSubBlock(elseIfBlock);
 
                             goto ParseNextIf;
@@ -115,7 +123,9 @@ namespace AggroBird.Reflection
                         else
                         {
                             ElseBlock elseBlock = new ElseBlock();
+                            Push(elseBlock);
                             ParseOptionalBlock(elseBlock);
+                            Pop();
                             ifBlock.AddSubBlock(elseBlock);
                         }
                     }
@@ -128,6 +138,7 @@ namespace AggroBird.Reflection
 
                     Advance();
                     Consume(TokenType.LParen);
+                    PushScope();
                     Expression init = ParseOptionalExpression(true, true);
                     Expression condition = ParseOptionalExpression(false, true);
                     if (condition != null) Expression.CheckConvertibleBool(condition, out condition);
@@ -135,7 +146,9 @@ namespace AggroBird.Reflection
                     Consume(TokenType.RParen);
                     ForBlock forBlock = new ForBlock(init, condition, step, maxIterationCount);
                     stack.Last().expressions.Add(forBlock);
+                    PushBlock(forBlock);
                     ParseOptionalBlock(forBlock);
+                    Pop();
                 }
                 break;
 
@@ -145,12 +158,75 @@ namespace AggroBird.Reflection
 
                     Advance();
                     Consume(TokenType.LParen);
+                    PushScope();
                     Expression condition = ParseNext();
                     Expression.CheckConvertibleBool(condition, out condition);
                     Consume(TokenType.RParen);
                     WhileBlock whileBlock = new WhileBlock(condition, maxIterationCount);
                     stack.Last().expressions.Add(whileBlock);
+                    PushBlock(whileBlock);
                     ParseOptionalBlock(whileBlock);
+                    Pop();
+                }
+                break;
+
+                case TokenType.Foreach:
+                {
+                    AddStyledToken(CurrentToken.str, Style.Keyword);
+
+                    Advance();
+                    Consume(TokenType.LParen);
+                    PushScope();
+                    Type iterType = null;
+                    if (Match(TokenType.Var, out Token varToken))
+                    {
+                        AddStyledToken(varToken.str, Style.Keyword);
+                    }
+                    else
+                    {
+                        Expression type = ParseNext();
+                        if (type is Typename typename && !typename.type.Equals(typeof(void)))
+                        {
+                            iterType = typename.type;
+                        }
+                        else
+                        {
+                            throw new DebugConsoleException("Type expected for foreach loop");
+                        }
+                    }
+
+                    Token name = Consume(TokenType.Identifier);
+                    AddStyledToken(name.str, Style.Variable);
+
+                    Token inToken = Consume(TokenType.In);
+                    AddStyledToken(inToken.str, Style.Keyword);
+
+                    Expression collection = ParseNext();
+                    Consume(TokenType.RParen);
+                    EnumeratorInfo enumeratorInfo = Expression.GetEnumerator(collection.ResultType);
+                    if (iterType == null)
+                    {
+                        iterType = enumeratorInfo.ElementType;
+                    }
+                    else if (!enumeratorInfo.ElementType.Equals(typeof(object)))
+                    {
+                        // Ensure up / down cast is possible when not unboxing
+                        if (!iterType.IsAssignableFrom(enumeratorInfo.ElementType) || !enumeratorInfo.ElementType.IsAssignableFrom(iterType))
+                        {
+                            throw new InvalidCastException(enumeratorInfo.ElementType, iterType);
+                        }
+                    }
+
+                    // Create iter variable
+                    VariableDeclaration declaration = new VariableDeclaration(iterType, name.ToString());
+                    variables.Last().Add(declaration);
+                    variableCount++;
+
+                    ForeachBlock foreachBlock = new ForeachBlock(collection, enumeratorInfo, declaration, maxIterationCount);
+                    stack.Last().expressions.Add(foreachBlock);
+                    PushBlock(foreachBlock);
+                    ParseOptionalBlock(foreachBlock);
+                    Pop();
                 }
                 break;
 
@@ -161,17 +237,16 @@ namespace AggroBird.Reflection
                 break;
             }
         }
+
         private void ParseOptionalBlock(Block parent)
         {
             if (Match(TokenType.LBrace))
             {
-                Push(parent);
                 while (!Match(TokenType.RBrace))
                 {
                     ParseBlock();
                 }
                 if (expectSemicolon) throw new UnexpectedEndOfExpressionException();
-                Pop();
             }
             else
             {
@@ -246,17 +321,35 @@ namespace AggroBird.Reflection
             return result;
         }
 
+
         private void Push(Block block)
         {
-            stack.Add(block);
-            variables.Add(new List<VariableDeclaration>());
+            PushBlock(block);
+            PushScope();
         }
         private void Pop()
         {
+            PopScope();
+            PopBlock();
+        }
+
+        private void PushBlock(Block block)
+        {
+            stack.Add(block);
+        }
+        private void PopBlock()
+        {
             if (stack.Count == 1) throw new UnexpectedTokenException(Peek());
+            stack.PopBack();
+        }
+        private void PushScope()
+        {
+            variables.Add(new List<VariableDeclaration>());
+        }
+        private void PopScope()
+        {
             variableCount -= variables.Last().Count;
             variables.PopBack();
-            stack.PopBack();
         }
 
 

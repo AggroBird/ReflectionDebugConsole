@@ -222,6 +222,10 @@ namespace AggroBird.Reflection
         For,
         [TokenInfo("while", TokenFamily.Keyword)]
         While,
+        [TokenInfo("foreach", TokenFamily.Keyword)]
+        Foreach,
+        [TokenInfo("in", TokenFamily.Keyword)]
+        In,
 
         // Names
         [TokenInfo(TokenFamily.Identifier)]

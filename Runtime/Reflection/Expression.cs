@@ -113,6 +113,37 @@ namespace AggroBird.Reflection
         }
     }
 
+    internal class EnumeratorInfo
+    {
+        public EnumeratorInfo(Type elementType, MethodInfo getEnumerator, MethodInfo moveNext, MethodInfo getCurrent)
+        {
+            this.elementType = elementType;
+            this.getEnumerator = getEnumerator;
+            this.moveNext = moveNext;
+            this.getCurrent = getCurrent;
+        }
+
+        private readonly Type elementType;
+        private readonly MethodInfo getEnumerator;
+        private readonly MethodInfo moveNext;
+        private readonly MethodInfo getCurrent;
+
+        public object GetEnumerator(object collection)
+        {
+            return getEnumerator.Invoke(collection, null);
+        }
+        public bool MoveNext(object enumerator)
+        {
+            return (bool)moveNext.Invoke(enumerator, null);
+        }
+        public object Current(object enumerator)
+        {
+            return getCurrent.Invoke(enumerator, null);
+        }
+
+        public Type ElementType => elementType;
+    }
+
     internal abstract class Expression
     {
         public abstract object Execute(ExecutionContext context);
@@ -557,6 +588,41 @@ namespace AggroBird.Reflection
             }
 
             return true;
+        }
+
+        public static EnumeratorInfo GetEnumerator(Type type)
+        {
+            foreach (MethodInfo getEnumerator in type.GetMethods(BindingFlags.Instance | BindingFlags.Public))
+            {
+                if (getEnumerator.GetParameters().Length == 0 && !getEnumerator.ReturnType.Equals(typeof(void)) && getEnumerator.Name == "GetEnumerator")
+                {
+                    Type enumeratorType = getEnumerator.ReturnType;
+                    MethodInfo moveNext = null;
+                    foreach (MethodInfo method in enumeratorType.GetMethods(BindingFlags.Instance | BindingFlags.Public))
+                    {
+                        if (method.GetParameters().Length == 0 && method.ReturnType.Equals(typeof(bool)) && method.Name == "MoveNext")
+                        {
+                            moveNext = method;
+                            break;
+                        }
+                    }
+                    MethodInfo getCurrent = null;
+                    foreach (PropertyInfo property in enumeratorType.GetProperties(BindingFlags.Instance | BindingFlags.Public))
+                    {
+                        if (property.CanRead && property.GetIndexParameters().Length == 0 && !property.PropertyType.Equals(typeof(void)) && property.Name == "Current")
+                        {
+                            getCurrent = property.GetMethod;
+                            break;
+                        }
+                    }
+                    if (moveNext == null || getCurrent == null)
+                    {
+                        throw new DebugConsoleException($"foreach requires that the return type '{enumeratorType}' of '{type}.GetEnumerator()' must have a suitable public 'MoveNext' method and public 'Current' property");
+                    }
+                    return new EnumeratorInfo(type.IsArray ? type.GetElementType() : getCurrent.ReturnType, getEnumerator, moveNext, getCurrent);
+                }
+            }
+            throw new DebugConsoleException($"foreach statement cannot operate on variables of type '{type}' because it does not contain a public instance or extension definition for 'GetEnumerator'");
         }
 
 
@@ -2244,9 +2310,13 @@ namespace AggroBird.Reflection
 
         public override object Execute(ExecutionContext context)
         {
-            return rhs.Execute(context);
+            return ConvertMethod.MakeGenericMethod(type).Invoke(this, new object[] { rhs.Execute(context) });
         }
         public override Type ResultType => type;
+
+
+        private static readonly MethodInfo ConvertMethod = typeof(Conversion).GetMethod("Convert");
+        public static T Convert<T>(object obj) => (T)obj;
     }
 
     internal class IsCast : Expression
@@ -2459,6 +2529,52 @@ namespace AggroBird.Reflection
         }
     }
 
+    internal class ForeachBlock : Block
+    {
+        public ForeachBlock(Expression collection, EnumeratorInfo enumeratorInfo, VariableDeclaration iterVar, int maxIterations)
+        {
+            this.collection = collection;
+            this.enumeratorInfo = enumeratorInfo;
+            this.iterVar = iterVar;
+            this.maxIterations = maxIterations;
+        }
+
+        public readonly Expression collection;
+        public readonly EnumeratorInfo enumeratorInfo;
+        public readonly VariableDeclaration iterVar;
+        public readonly int maxIterations;
+
+
+        public override object Execute(ExecutionContext context)
+        {
+            int outerStackOffset = context.variables.Count;
+            context.Push(this);
+            object result = VoidResult.Empty;
+            int iterCount = 0;
+            object collectionObj = collection.Execute(context);
+            object enumeratorObj = enumeratorInfo.GetEnumerator(collectionObj);
+            iterVar.Execute(context);
+            for (; enumeratorInfo.MoveNext(enumeratorObj);)
+            {
+                int innerStackOffset = context.variables.Count;
+
+                iterVar.Value.UpdateValue(enumeratorInfo.Current(enumeratorObj));
+
+                for (int i = 0; i < expressions.Count; i++)
+                {
+                    result = expressions[i].Execute(context);
+                }
+
+                if (++iterCount >= maxIterations) throw new DebugConsoleException($"Maximum loop iteration reached ({maxIterations})");
+
+                context.variables.RemoveRange(innerStackOffset, context.variables.Count - innerStackOffset);
+            }
+            context.Pop();
+            context.variables.RemoveRange(outerStackOffset, context.variables.Count - outerStackOffset);
+            return result;
+        }
+    }
+
     // Variables
     internal class VariableDeclaration : Expression
     {
@@ -2490,6 +2606,8 @@ namespace AggroBird.Reflection
         public VariableAssignment(Type type, string name, Expression rhs) : base(type, name)
         {
             this.rhs = rhs;
+
+            Value = new VariableReference(type, name);
         }
 
         public readonly Expression rhs;

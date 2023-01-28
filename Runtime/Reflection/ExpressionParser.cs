@@ -206,6 +206,8 @@ namespace AggroBird.Reflection
                 new PrefixRule(TokenType.Else, InvokeKeywordCallback),
                 new PrefixRule(TokenType.For, InvokeKeywordCallback),
                 new PrefixRule(TokenType.While, InvokeKeywordCallback),
+                new PrefixRule(TokenType.Foreach, InvokeKeywordCallback),
+                new PrefixRule(TokenType.In, InvokeKeywordCallback),
                 
                 // Names
                 new PrefixRule(TokenType.Identifier, InvokeNameCallback),
