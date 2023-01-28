@@ -582,7 +582,7 @@ namespace AggroBird.Reflection
             }
 
             // Skip compiler generated members
-            if (member.GetCustomAttribute<CompilerGeneratedAttribute>() != null)
+            if (!includeSpecial && member.GetCustomAttribute<CompilerGeneratedAttribute>() != null)
             {
                 return false;
             }
@@ -709,7 +709,7 @@ namespace AggroBird.Reflection
         }
         public static Type FilterMembers(Type nestedType)
         {
-            if (IncludeMember(nestedType))
+            if (nestedType != null && IncludeMember(nestedType))
             {
                 return nestedType;
             }
