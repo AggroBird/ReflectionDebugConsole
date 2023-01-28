@@ -119,6 +119,8 @@ namespace AggroBird.Reflection
         public abstract Type ResultType { get; }
         public virtual TypeCode GetTypeCode() => Type.GetTypeCode(ResultType);
 
+        public virtual bool IsConstant => false;
+
         public virtual bool Assignable => false;
         public virtual object SetValue(ExecutionContext context, object val, bool returnInitialValue) => throw new DebugConsoleException("Expression is read only");
 
@@ -1434,15 +1436,41 @@ namespace AggroBird.Reflection
             this.obj = obj;
             type = obj == null ? typeof(object) : obj.GetType();
             typeCode = Type.GetTypeCode(type);
+
+            switch (typeCode)
+            {
+                case TypeCode.Boolean:
+                case TypeCode.Char:
+                case TypeCode.SByte:
+                case TypeCode.Byte:
+                case TypeCode.Int16:
+                case TypeCode.UInt16:
+                case TypeCode.Int32:
+                case TypeCode.UInt32:
+                case TypeCode.Int64:
+                case TypeCode.UInt64:
+                case TypeCode.Single:
+                case TypeCode.Double:
+                case TypeCode.Decimal:
+                case TypeCode.String:
+                    isConstant = true;
+                    break;
+                default:
+                    isConstant = false;
+                    break;
+            }
         }
 
         public readonly object obj;
         public readonly Type type;
         public readonly TypeCode typeCode;
+        public readonly bool isConstant;
 
         public override object Execute(ExecutionContext context) => obj;
         public override Type ResultType => type;
         public override TypeCode GetTypeCode() => typeCode;
+
+        public override bool IsConstant => isConstant;
 
         public override string ToString()
         {
@@ -1472,6 +1500,8 @@ namespace AggroBird.Reflection
         public readonly Expression lhs;
         public readonly List<FieldInfo> fields = new List<FieldInfo>();
         private FieldInfo TargetField => fields.Last();
+
+        public override bool IsConstant => TargetField.IsLiteral;
 
 
         public override object Execute(ExecutionContext context)
@@ -1812,6 +1842,8 @@ namespace AggroBird.Reflection
         public readonly Expression arg;
         public readonly UnaryOperatorFunction func;
 
+        public override bool IsConstant => arg.IsConstant;
+
 
         public override object Execute(ExecutionContext context) => func.Invoke(context, arg);
         public override Type ResultType => func.ReturnType;
@@ -1829,6 +1861,8 @@ namespace AggroBird.Reflection
         public readonly Expression lhs;
         public readonly Expression rhs;
         public readonly InfixOperatorFunction func;
+
+        public override bool IsConstant => lhs.IsConstant && rhs.IsConstant;
 
 
         public override object Execute(ExecutionContext context) => func.Invoke(context, lhs, rhs);

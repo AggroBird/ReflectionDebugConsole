@@ -190,6 +190,25 @@ namespace AggroBird.Reflection
         }
 
 
+        private static Expression MakeOperator(Expression arg, UnaryOperatorFunction func)
+        {
+            if (arg.IsConstant)
+            {
+                return new BoxedObject(func.Invoke(null, arg));
+            }
+
+            return new UnaryOperator(arg, func);
+        }
+        private static Expression MakeOperator(Expression lhs, Expression rhs, InfixOperatorFunction func)
+        {
+            if (lhs.IsConstant && rhs.IsConstant)
+            {
+                return new BoxedObject(func.Invoke(null, lhs, rhs));
+            }
+
+            return new InfixOperator(lhs, rhs, func);
+        }
+
         public static Expression MakeUnaryOperator(TokenType op, Expression arg)
         {
             TokenInfo info = TokenUtility.GetTokenInfo(op);
@@ -199,7 +218,7 @@ namespace AggroBird.Reflection
                 return expr;
             }
 
-            return new UnaryOperator(arg, MakeUnary(op, arg.GetTypeCode(), arg));
+            return MakeOperator(arg, MakeUnary(op, arg.GetTypeCode(), arg));
         }
         private static UnaryOperatorFunction MakeUnary(TokenType op, TypeCode type, Expression argExpr)
         {
@@ -329,11 +348,11 @@ namespace AggroBird.Reflection
 
             if (info.IsShift && IsIntegral(lhsType) && CheckShiftOperand(rhsType))
             {
-                return new InfixOperator(lhsExpr, rhsExpr, MakeInfix(op, Max(lhsType, TypeCode.Int32), lhsExpr, rhsExpr));
+                return MakeOperator(lhsExpr, rhsExpr, MakeInfix(op, Max(lhsType, TypeCode.Int32), lhsExpr, rhsExpr));
             }
             else if (CheckArithmeticImplicitConversion(lhsType, rhsType, out TypeCode cast))
             {
-                return new InfixOperator(lhsExpr, rhsExpr, MakeInfix(op, cast, lhsExpr, rhsExpr));
+                return MakeOperator(lhsExpr, rhsExpr, MakeInfix(op, cast, lhsExpr, rhsExpr));
             }
             else if (TryFindUserOperator(info, lhsExpr, rhsExpr, out Expression expr))
             {
@@ -341,14 +360,14 @@ namespace AggroBird.Reflection
             }
             else if (op == TokenType.Add && (lhsType == TypeCode.String || rhsType == TypeCode.String))
             {
-                return new InfixOperator(lhsExpr, rhsExpr, InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Stringify(lhs.Execute(context)) + Stringify(rhs.Execute(context)); }));
+                return MakeOperator(lhsExpr, rhsExpr, InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Stringify(lhs.Execute(context)) + Stringify(rhs.Execute(context)); }));
             }
             else if (!lhsExpr.ResultType.IsValueType && !rhsExpr.ResultType.IsValueType)
             {
                 switch (op)
                 {
-                    case TokenType.Eq: return new InfixOperator(lhsExpr, rhsExpr, InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return ReferenceEquals(lhs.Execute(context), rhs.Execute(context)); }));
-                    case TokenType.Ne: return new InfixOperator(lhsExpr, rhsExpr, InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return !ReferenceEquals(lhs.Execute(context), rhs.Execute(context)); }));
+                    case TokenType.Eq: return MakeOperator(lhsExpr, rhsExpr, InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return ReferenceEquals(lhs.Execute(context), rhs.Execute(context)); }));
+                    case TokenType.Ne: return MakeOperator(lhsExpr, rhsExpr, InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return !ReferenceEquals(lhs.Execute(context), rhs.Execute(context)); }));
                 }
             }
 
