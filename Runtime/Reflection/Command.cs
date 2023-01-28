@@ -771,41 +771,69 @@ namespace AggroBird.Reflection
                     // One-dimensional array
                     if (Match(TokenType.LBrace))
                     {
-                        Expression[] elements = ParseArguments(TokenType.RBrace);
-                        Expression.CheckImplicitConvertible(elements, typename.type);
-                        return new ArrayConstructor(MakeArrayType(typename.type), new Expression[] { new BoxedObject(elements.Length) }, elements);
+                        ArrayInitializer initializer = new ArrayInitializer();
+                        ParseArrayInitializer(initializer, typename.type);
+
+                        int[] lengths = new int[1] { -1 };
+
+                        initializer.ValidateInitializerLength(lengths);
+
+                        return new ConstantSizeArrayConstructor(typename.type, lengths, initializer);
                     }
                     else
                     {
-                        return new Typename(MakeArrayType(typename.type));
+                        return new Typename(Expression.CreateArrayType(typename.type));
                     }
                 }
                 else if (Peek() == TokenType.Comma)
                 {
                     // Multi-dimensional array
                     int rank = ParseArrayRank();
-                    if (Match(TokenType.LBrace, out Token initializer))
+                    if (Match(TokenType.LBrace))
                     {
-                        throw new UnexpectedTokenException(initializer);
+                        ArrayInitializer initializer = new ArrayInitializer();
+                        ParseArrayInitializer(initializer, typename.type);
+
+                        int[] lengths = new int[rank];
+                        Array.Fill(lengths, -1);
+
+                        initializer.ValidateInitializerLength(lengths);
+
+                        return new ConstantSizeArrayConstructor(typename.type, lengths, initializer);
                     }
-                    return new Typename(MakeArrayType(typename.type, rank));
+                    else
+                    {
+                        return new Typename(Expression.CreateArrayType(typename.type, rank));
+                    }
                 }
                 else
                 {
-                    // Array alloc
-                    Expression[] lengths = ParseArguments(TokenType.RBracket);
-                    Expression.CheckImplicitConvertible(lengths, typeof(int));
-                    if (Match(TokenType.LBrace, out Token initializer))
+                    // Fixed length array alloc
+                    Expression[] lengthExpr = ParseArguments(TokenType.RBracket);
+                    Expression.CheckImplicitConvertible(lengthExpr, typeof(int));
+                    if (Match(TokenType.LBrace))
                     {
-                        throw new UnexpectedTokenException(initializer);
+                        if (!Expression.IsConstantArguments(lengthExpr)) throw new DebugConsoleException("A constant value is expected");
+
+                        int[] lengths = Expression.ExtractConstantValues<int>(lengthExpr);
+
+                        ArrayInitializer initializer = new ArrayInitializer();
+                        ParseArrayInitializer(initializer, typename.type);
+
+                        initializer.ValidateInitializerLength(lengths);
+
+                        return new ConstantSizeArrayConstructor(typename.type, lengths, initializer);
                     }
-                    return new ArrayConstructor(MakeArrayType(typename.type, lengths.Length), lengths);
+                    else
+                    {
+                        return new DynamicSizeArrayConstructor(typename.type, lengthExpr);
+                    }
                 }
             }
             else
             {
                 PropertyInfo[] properties;
-                if (lhs.ResultType.BaseType == typeof(Array))
+                if (lhs.ResultType.IsArray)
                 {
                     // Try get subscript operator from array
                     properties = Expression.GetArraySubscriptProperties(lhs.ResultType);
@@ -813,7 +841,7 @@ namespace AggroBird.Reflection
                 else if (lhs.ResultType == typeof(string))
                 {
                     // Try get subscript operator from string
-                    properties = new PropertyInfo[] { lhs.ResultType.GetProperty("Chars") };
+                    properties = Expression.GetStringSubscriptProperties();
                 }
                 else
                 {
@@ -1229,11 +1257,6 @@ namespace AggroBird.Reflection
             throw new DebugConsoleException($"Unexpected character escape code: {c}");
         }
 
-        private static Type MakeArrayType(Type elementType, int rank = 1)
-        {
-            return rank <= 1 ? elementType.MakeArrayType() : elementType.MakeArrayType(rank);
-        }
-
 
         private static List<MethodInfo> MakeMethodOverloadList(MemberInfo[] members, StringView methodName)
         {
@@ -1339,6 +1362,34 @@ namespace AggroBird.Reflection
                 rank++;
             }
             return rank;
+        }
+
+        private void ParseArrayInitializer(ArrayInitializer initializer, Type elementType)
+        {
+            if (!Match(TokenType.RBrace))
+            {
+                while (true)
+                {
+                    if (Match(TokenType.LBrace))
+                    {
+                        ArrayInitializer nested = new ArrayInitializer();
+                        ParseArrayInitializer(nested, elementType);
+                        initializer.values.Add(nested);
+                    }
+                    else
+                    {
+                        Expression expr = ParseNext();
+                        Expression.CheckImplicitConvertible(expr, elementType, out expr);
+                        initializer.values.Add(expr);
+                    }
+
+                    Token next = Consume();
+                    if (next.type == TokenType.RBrace)
+                        break;
+                    else if (next.type != TokenType.Comma)
+                        throw new UnexpectedTokenException(next);
+                }
+            }
         }
 
         private BindingFlags MakeInstanceBindingFlags() => Expression.MakeBindingFlags(false, safeMode);

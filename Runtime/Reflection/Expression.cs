@@ -297,6 +297,9 @@ namespace AggroBird.Reflection
             return new PropertyInfo[] { new ArraySubscriptPropertyInfo(arrayType, last.getMethod, last.setMethod) };
         }
 
+        private static readonly PropertyInfo[] StringSubscriptProperties = new PropertyInfo[] { typeof(string).GetProperty("Chars") };
+        public static PropertyInfo[] GetStringSubscriptProperties() => StringSubscriptProperties;
+
         public static T[] GetOptimalOverloads<T>(IReadOnlyList<T> overloads, params Expression[] args) where T : MethodBase
         {
             if (overloads != null && overloads.Count > 0)
@@ -1000,6 +1003,18 @@ namespace AggroBird.Reflection
             }
         }
 
+        public static bool IsConstantArguments(Expression[] args)
+        {
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (!args[i].IsConstant)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         public static bool IsCompatibleOverload(ParameterInfo[] parameters, IReadOnlyList<Expression> args, bool matchParameterCount = true)
         {
             int actualParamCount = parameters.Length;
@@ -1114,6 +1129,21 @@ namespace AggroBird.Reflection
 
             result = null;
             return false;
+        }
+
+        public static T[] ExtractConstantValues<T>(Expression[] args)
+        {
+            T[] result = new T[args.Length];
+            for (int i = 0; i < result.Length; i++)
+            {
+                result[i] = (T)args[i].Execute(null);
+            }
+            return result;
+        }
+
+        public static Type CreateArrayType(Type elementType, int rank = 1)
+        {
+            return rank <= 1 ? elementType.MakeArrayType() : elementType.MakeArrayType(rank);
         }
 
 
@@ -1800,30 +1830,159 @@ namespace AggroBird.Reflection
         public override Type ResultType => type;
     }
 
-    internal class ArrayConstructor : Expression
+    internal class ArrayInitializer : Expression
     {
-        public ArrayConstructor(Type arrayType, Expression[] lengths, Expression[] elements = null)
+        public readonly List<Expression> values = new List<Expression>();
+
+        public void ValidateInitializerLength(int[] lengths)
         {
-            this.arrayType = arrayType;
-            this.lengths = lengths;
-            this.elements = elements;
+            ValidateInitializerLength(lengths, 0);
+        }
+        private void ValidateInitializerLength(int[] lengths, int depth)
+        {
+            if (depth == lengths.Length)
+            {
+                throw new DebugConsoleException($"Unexpected array initializer");
+            }
+
+            if (lengths[depth] == -1)
+            {
+                lengths[depth] = values.Count;
+            }
+            else
+            {
+                if (lengths[depth] != values.Count)
+                {
+                    throw new DebugConsoleException($"An array initializer of length '{lengths[depth]}' is expected");
+                }
+            }
+
+            int nextDepth = depth + 1;
+            for (int i = 0; i < values.Count; i++)
+            {
+                if (values[i] is ArrayInitializer nested)
+                {
+                    nested.ValidateInitializerLength(lengths, nextDepth);
+                }
+                else if (nextDepth != lengths.Length)
+                {
+                    throw new DebugConsoleException("A nested array initializer is expected");
+                }
+            }
         }
 
+        private void InitializeArray(ExecutionContext context, Array array, int[] indices, int depth)
+        {
+            for (int i = 0; i < values.Count; i++)
+            {
+                indices[depth] = i;
+
+                if (values[i] is ArrayInitializer nested)
+                {
+                    nested.InitializeArray(context, array, indices, depth + 1);
+                }
+                else
+                {
+                    array.SetValue(values[i].Execute(context), indices);
+                }
+            }
+        }
+        public void InitializeArray(ExecutionContext context, Array array)
+        {
+            int rank = array.GetType().GetArrayRank();
+            switch (rank)
+            {
+                case 1:
+                    for (int i = 0; i < values.Count; i++)
+                    {
+                        array.SetValue(values[i].Execute(context), i);
+                    }
+                    break;
+                case 2:
+                    for (int i = 0; i < values.Count; i++)
+                    {
+                        ArrayInitializer n0 = (ArrayInitializer)values[i];
+                        for (int j = 0; j < n0.values.Count; j++)
+                        {
+                            array.SetValue(n0.values[j].Execute(context), i, j);
+                        }
+                    }
+                    break;
+                case 3:
+                    for (int i = 0; i < values.Count; i++)
+                    {
+                        ArrayInitializer n0 = (ArrayInitializer)values[i];
+                        for (int j = 0; j < n0.values.Count; j++)
+                        {
+                            ArrayInitializer n1 = (ArrayInitializer)n0.values[i];
+                            for (int k = 0; k < n1.values.Count; k++)
+                            {
+                                array.SetValue(n1.values[k].Execute(context), i, j, k);
+                            }
+                        }
+                    }
+                    break;
+                default:
+                    InitializeArray(context, array, new int[rank], 0);
+                    break;
+            }
+        }
+
+        public override Type ResultType => throw new NotImplementedException();
+        public override object Execute(ExecutionContext context) => throw new NotImplementedException();
+    }
+
+    internal class DynamicSizeArrayConstructor : Expression
+    {
+        public DynamicSizeArrayConstructor(Type elementType, Expression[] lengths, ArrayInitializer initializer = null)
+        {
+            this.elementType = elementType;
+            arrayType = CreateArrayType(elementType, lengths.Length);
+            this.lengths = lengths;
+            this.initializer = initializer;
+        }
+
+        public readonly Type elementType;
         public readonly Type arrayType;
         public readonly Expression[] lengths;
-        public readonly Expression[] elements;
+        public readonly ArrayInitializer initializer;
 
 
         public override object Execute(ExecutionContext context)
         {
             int[] lengths = ExpressionUtility.Forward<int>(context, this.lengths);
-            Array array = Array.CreateInstance(arrayType.GetElementType(), lengths);
-            if (elements != null)
+            Array array = Array.CreateInstance(elementType, lengths);
+            if (initializer != null)
             {
-                for (int i = 0; i < elements.Length; i++)
-                {
-                    array.SetValue(elements[i].Execute(context), i);
-                }
+                initializer.InitializeArray(context, array);
+            }
+            return array;
+        }
+        public override Type ResultType => arrayType;
+    }
+
+    internal class ConstantSizeArrayConstructor : Expression
+    {
+        public ConstantSizeArrayConstructor(Type elementType, int[] lengths, ArrayInitializer initializer = null)
+        {
+            this.elementType = elementType;
+            arrayType = CreateArrayType(elementType, lengths.Length);
+            this.lengths = lengths;
+            this.initializer = initializer;
+        }
+
+        public readonly Type elementType;
+        public readonly Type arrayType;
+        public readonly int[] lengths;
+        public readonly ArrayInitializer initializer;
+
+
+        public override object Execute(ExecutionContext context)
+        {
+            Array array = Array.CreateInstance(elementType, lengths);
+            if (initializer != null)
+            {
+                initializer.InitializeArray(context, array);
             }
             return array;
         }
