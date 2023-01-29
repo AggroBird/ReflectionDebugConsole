@@ -261,49 +261,6 @@ namespace AggroBird.Reflection
         }
         private static readonly GetSetMethods[] ArrayGetSetMethods;
 
-        private static int MaxDelegateParameterCount = 16;
-
-        private static readonly Type[] ActionTypes =
-        {
-            typeof(Action),
-            typeof(Action<int>).GetGenericTypeDefinition(),
-            typeof(Action<int, int>).GetGenericTypeDefinition(),
-            typeof(Action<int, int, int>).GetGenericTypeDefinition(),
-            typeof(Action<int, int, int, int>).GetGenericTypeDefinition(),
-            typeof(Action<int, int, int, int, int>).GetGenericTypeDefinition(),
-            typeof(Action<int, int, int, int, int, int>).GetGenericTypeDefinition(),
-            typeof(Action<int, int, int, int, int, int, int>).GetGenericTypeDefinition(),
-            typeof(Action<int, int, int, int, int, int, int, int>).GetGenericTypeDefinition(),
-            typeof(Action<int, int, int, int, int, int, int, int, int>).GetGenericTypeDefinition(),
-            typeof(Action<int, int, int, int, int, int, int, int, int, int>).GetGenericTypeDefinition(),
-            typeof(Action<int, int, int, int, int, int, int, int, int, int, int>).GetGenericTypeDefinition(),
-            typeof(Action<int, int, int, int, int, int, int, int, int, int, int, int>).GetGenericTypeDefinition(),
-            typeof(Action<int, int, int, int, int, int, int, int, int, int, int, int, int>).GetGenericTypeDefinition(),
-            typeof(Action<int, int, int, int, int, int, int, int, int, int, int, int, int, int>).GetGenericTypeDefinition(),
-            typeof(Action<int, int, int, int, int, int, int, int, int, int, int, int, int, int, int>).GetGenericTypeDefinition(),
-            typeof(Action<int, int, int, int, int, int, int, int, int, int, int, int, int, int, int, int>).GetGenericTypeDefinition(),
-        };
-        private static readonly Type[] FuncTypes =
-        {
-            typeof(Func<int>).GetGenericTypeDefinition(),
-            typeof(Func<int, int>).GetGenericTypeDefinition(),
-            typeof(Func<int, int, int>).GetGenericTypeDefinition(),
-            typeof(Func<int, int, int, int>).GetGenericTypeDefinition(),
-            typeof(Func<int, int, int, int, int>).GetGenericTypeDefinition(),
-            typeof(Func<int, int, int, int, int, int>).GetGenericTypeDefinition(),
-            typeof(Func<int, int, int, int, int, int, int>).GetGenericTypeDefinition(),
-            typeof(Func<int, int, int, int, int, int, int, int>).GetGenericTypeDefinition(),
-            typeof(Func<int, int, int, int, int, int, int, int, int>).GetGenericTypeDefinition(),
-            typeof(Func<int, int, int, int, int, int, int, int, int, int>).GetGenericTypeDefinition(),
-            typeof(Func<int, int, int, int, int, int, int, int, int, int, int>).GetGenericTypeDefinition(),
-            typeof(Func<int, int, int, int, int, int, int, int, int, int, int, int>).GetGenericTypeDefinition(),
-            typeof(Func<int, int, int, int, int, int, int, int, int, int, int, int, int>).GetGenericTypeDefinition(),
-            typeof(Func<int, int, int, int, int, int, int, int, int, int, int, int, int, int>).GetGenericTypeDefinition(),
-            typeof(Func<int, int, int, int, int, int, int, int, int, int, int, int, int, int, int>).GetGenericTypeDefinition(),
-            typeof(Func<int, int, int, int, int, int, int, int, int, int, int, int, int, int, int, int>).GetGenericTypeDefinition(),
-            typeof(Func<int, int, int, int, int, int, int, int, int, int, int, int, int, int, int, int, int>).GetGenericTypeDefinition(),
-        };
-
 
         public static BindingFlags MakeBindingFlags(bool isStatic, bool safeMode)
         {
@@ -761,45 +718,6 @@ namespace AggroBird.Reflection
         }
 
 
-        public static Type CreateGenericDelegateType(MethodInfo method)
-        {
-            ParameterInfo[] parameters = method.GetParameters();
-            if (parameters.Length > MaxDelegateParameterCount)
-            {
-                throw new DebugConsoleException($"Method {method}: unsupported parameter count ({parameters.Length})");
-            }
-
-            if (method.ReturnType == typeof(void))
-            {
-                if (parameters.Length == 0) return ActionTypes[0];
-                Type[] parameterTypes = new Type[parameters.Length];
-                for (int i = 0; i < parameters.Length; i++)
-                {
-                    parameterTypes[i] = parameters[i].ParameterType;
-                }
-                return ActionTypes[parameters.Length].MakeGenericType(parameterTypes);
-            }
-            else
-            {
-                Type[] parameterTypes = new Type[parameters.Length + 1];
-                for (int i = 0; i < parameters.Length; i++)
-                {
-                    parameterTypes[i] = parameters[i].ParameterType;
-                }
-                parameterTypes[parameters.Length] = method.ReturnType;
-                return FuncTypes[parameters.Length].MakeGenericType(parameterTypes);
-            }
-        }
-
-        public static Delegate CreateDelegate(MethodInfo method)
-        {
-            return method.CreateDelegate(CreateGenericDelegateType(method));
-        }
-        public static Delegate CreateDelegate(MethodInfo method, object target)
-        {
-            return method.CreateDelegate(CreateGenericDelegateType(method), target);
-        }
-
         public static bool HasVariableParameterCount(ParameterInfo[] param)
         {
             return param.Length > 0 && param[param.Length - 1].GetCustomAttribute<ParamArrayAttribute>(true) != null;
@@ -811,7 +729,7 @@ namespace AggroBird.Reflection
         {
             for (int i = 0; i < overload.methods.Count; i++)
             {
-                Type type = CreateGenericDelegateType(overload.methods[i]);
+                Type type = Delegates.CreateGenericDelegateType(overload.methods[i]);
 
                 if (delegateType.IsAssignableFrom(type))
                 {

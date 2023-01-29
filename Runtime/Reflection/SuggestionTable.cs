@@ -338,15 +338,24 @@ namespace AggroBird.Reflection
         {
             this.memberInfo = memberInfo;
             this.highlightLength = highlightLength;
+
+            if (memberInfo is MethodInfo methodInfo)
+            {
+                genericArgumentCount = methodInfo.GetGenericArguments().Length;
+                parameterCount = methodInfo.GetParameters().Length;
+            }
         }
 
         private readonly MemberInfo memberInfo;
         private readonly int highlightLength;
 
+        private readonly int genericArgumentCount;
+        private readonly int parameterCount;
+
 
         public override string Text => memberInfo.Name;
-        public override int GenericArgumentCount => (memberInfo is MethodBase method) ? method.GetGenericArguments().Length : 0;
-        public override int ParameterCount => (memberInfo is MethodBase method) ? method.GetParameters().Length : 0;
+        public override int GenericArgumentCount => genericArgumentCount;
+        public override int ParameterCount => parameterCount;
 
         public override void BuildSuggestionString(StringBuilder output, bool isHighlighted)
         {
@@ -419,16 +428,22 @@ namespace AggroBird.Reflection
             this.overload = overload;
             this.currentParameterIndex = currentParameterIndex;
             this.delegateType = delegateType;
+
+            genericArgumentCount = overload is MethodInfo methodInfo ? methodInfo.GetGenericArguments().Length : 0;
+            parameterCount = overload.GetParameters().Length;
         }
 
         private readonly MethodBase overload;
         private readonly int currentParameterIndex;
         private readonly Type delegateType;
 
+        private readonly int genericArgumentCount;
+        private readonly int parameterCount;
+
 
         public override string Text => overload.Name;
-        public override int GenericArgumentCount => overload.GetGenericArguments().Length;
-        public override int ParameterCount => overload.GetParameters().Length;
+        public override int GenericArgumentCount => genericArgumentCount;
+        public override int ParameterCount => parameterCount;
 
         public override void BuildSuggestionString(StringBuilder output, bool isHighlighted)
         {
@@ -463,16 +478,22 @@ namespace AggroBird.Reflection
             this.generic = generic;
             this.currentParameterIndex = currentParameterIndex;
             name = Expression.FormatGenericName(generic.Name);
+
+            genericArgumentCount = generic.GetGenericArguments().Length;
+            parameterCount = generic.ParameterCount;
         }
 
         private readonly Generic generic;
         private readonly int currentParameterIndex;
         private string name;
 
+        private readonly int genericArgumentCount;
+        private readonly int parameterCount;
+
 
         public override string Text => name;
-        public override int GenericArgumentCount => generic.GetGenericArguments().Length;
-        public override int ParameterCount => generic.ParameterCount;
+        public override int GenericArgumentCount => genericArgumentCount;
+        public override int ParameterCount => parameterCount;
 
         public override void BuildSuggestionString(StringBuilder output, bool isHighlighted)
         {
@@ -555,14 +576,19 @@ namespace AggroBird.Reflection
             this.type = type;
             this.highlightLength = highlightLength;
             name = Expression.FormatGenericName(type);
+
+            genericArgumentCount = type.GetGenericArguments().Length;
         }
 
         private readonly Type type;
         private readonly int highlightLength;
         private readonly string name;
 
+        private readonly int genericArgumentCount;
+
+
         public override string Text => name;
-        public override int GenericArgumentCount => type.GetGenericArguments().Length;
+        public override int GenericArgumentCount => genericArgumentCount;
 
         public override void BuildSuggestionString(StringBuilder output, bool isHighlighted)
         {
