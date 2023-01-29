@@ -322,7 +322,15 @@ namespace AggroBird.Reflection
         private int variableCount = 0;
         private void PushVariable(VariableDeclaration variable)
         {
-            variables.Last().Add(variable);
+            var scope = variables.Last();
+            foreach (var stackvar in scope)
+            {
+                if (stackvar.name == variable.name)
+                {
+                    throw new DebugConsoleException($"A variable named '{variable.name}' already exists within the current scope");
+                }
+            }
+            scope.Add(variable);
             variableCount++;
         }
         private VariableDeclaration[] ExportVariables()
