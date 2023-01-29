@@ -18,7 +18,7 @@ namespace AggroBird.DebugConsole.Editor
             return !isEditorWindow || editorWindowPosition.Overlaps(position);
         }
 
-        [MenuItem("Window/Analysis/Debug Console Settings", priority = 51)]
+        [MenuItem("Window/Analysis/Debug Console Settings", priority = 50)]
         public static void ShowWindow()
         {
             GetWindow<SettingsWindow>("Debug Console Settings");
