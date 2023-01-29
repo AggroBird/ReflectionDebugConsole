@@ -1886,14 +1886,16 @@ namespace AggroBird.Reflection
 
     internal class IsCast : Expression
     {
-        public IsCast(Expression lhs, Type type)
+        public IsCast(Expression lhs, Type type, bool not)
         {
             this.lhs = lhs;
             this.type = type;
+            this.not = not;
         }
 
         public readonly Expression lhs;
         public readonly Type type;
+        public readonly bool not;
 
         public override object Execute(ExecutionContext context)
         {
@@ -1901,9 +1903,9 @@ namespace AggroBird.Reflection
             if (val != null)
             {
                 Type lhsType = val.GetType();
-                return type.IsAssignableFrom(lhsType);
+                return type.IsAssignableFrom(lhsType) ^ not;
             }
-            return false;
+            return not;
         }
         public override Type ResultType => typeof(bool);
     }

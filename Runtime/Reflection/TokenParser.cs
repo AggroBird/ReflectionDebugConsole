@@ -36,7 +36,17 @@ namespace AggroBird.Reflection
         {
             TokenType next = Peek();
             if (next == TokenType.Eol) throw new UnexpectedEndOfExpressionException();
-            if (next != expected) throw new DebugConsoleException($"Unexpected token '{Token.Stringify(next)}' (expected '{Token.Stringify(expected)}')");
+            if (next != expected)
+            {
+                if (next == TokenType.Identifier)
+                {
+                    throw new DebugConsoleException($"Unexpected token '{Consume()}' (expected '{Token.Stringify(expected)}')");
+                }
+                else
+                {
+                    throw new DebugConsoleException($"Unexpected token '{Token.Stringify(next)}' (expected '{Token.Stringify(expected)}')");
+                }
+            }
             if (next <= TokenType.Eol) return Token.Empty;
             return Consume();
         }

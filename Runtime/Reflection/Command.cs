@@ -47,19 +47,14 @@ namespace AggroBird.Reflection
             styledTokens = generateSuggestionInfo ? new List<StyledToken>() : null;
         }
 
-        private bool expectSemicolon = false;
-
         private void ParseBlock()
         {
             TokenType next = Peek();
             if (next == TokenType.Semicolon)
             {
-                expectSemicolon = false;
                 Advance();
                 return;
             }
-
-            if (expectSemicolon) throw new DebugConsoleException("Expected ';' at the end of expression");
 
             switch (next)
             {
@@ -131,11 +126,18 @@ namespace AggroBird.Reflection
                     Advance();
                     Consume(TokenType.LParen);
                     PushScope();
-                    Expression init = ParseOptionalExpression(true, true);
-                    Expression condition = ParseOptionalExpression(false, true);
-                    if (condition != null) Expression.CheckConvertibleBool(condition, out condition);
-                    Expression step = ParseOptionalExpression(false, false);
-                    Consume(TokenType.RParen);
+                    Expression init = Match(TokenType.Semicolon) ? null : ParseRootExpression(true);
+                    Expression condition = Match(TokenType.Semicolon) ? null : ParseNext();
+                    if (condition != null)
+                    {
+                        Expression.CheckConvertibleBool(condition, out condition);
+                        Consume(TokenType.Semicolon);
+                    }
+                    Expression step = Match(TokenType.RParen) ? null : ParseRootExpression(false);
+                    if (step != null)
+                    {
+                        Consume(TokenType.RParen);
+                    }
                     ForBlock forBlock = new ForBlock(init, condition, step, maxIterationCount);
                     stack.Last().expressions.Add(forBlock);
                     PushBlock(forBlock);
@@ -215,7 +217,7 @@ namespace AggroBird.Reflection
 
                 default:
                 {
-                    stack.Last().expressions.Add(ParseRootExpression());
+                    stack.Last().expressions.Add(ParseRootExpression(true));
                 }
                 break;
             }
@@ -229,15 +231,15 @@ namespace AggroBird.Reflection
                 {
                     ParseBlock();
                 }
-                if (expectSemicolon) throw new UnexpectedEndOfExpressionException();
             }
             else
             {
-                parent.expressions.Add(ParseRootExpression());
+                parent.expressions.Add(ParseRootExpression(true));
             }
         }
-        private Expression ParseRootExpression()
+        private Expression ParseRootExpression(bool requireSemicolon)
         {
+            Expression result;
             if (Match(TokenType.Var))
             {
                 Token name = Consume(TokenType.Identifier);
@@ -250,11 +252,11 @@ namespace AggroBird.Reflection
                 VariableDeclaration declaration = new VariableAssignment(rhs.ResultType, name.ToString(), rhs);
                 variables.Last().Add(declaration);
                 variableCount++;
-                return declaration;
+                result = declaration;
             }
             else
             {
-                Expression result = ParseNext();
+                result = ParseNext();
                 if (Peek() == TokenType.Identifier && result is Typename typename)
                 {
                     Token name = Consume();
@@ -277,31 +279,13 @@ namespace AggroBird.Reflection
                     }
                     variables.Last().Add(declaration);
                     variableCount++;
-                    return declaration;
+                    result = declaration;
                 }
-                expectSemicolon = !Match(TokenType.Semicolon);
-                return result;
             }
-        }
-        private Expression ParseOptionalExpression(bool allowDeclaration, bool requireSemicolon)
-        {
-            TokenType next = Peek();
-            Expression result;
-            switch (next)
+            if (requireSemicolon && Peek() != TokenType.Eol)
             {
-                case TokenType.RParen:
-                case TokenType.RBrace:
-                case TokenType.RBracket:
-                case TokenType.Semicolon:
-                case TokenType.Comma:
-                    result = null;
-                    break;
-
-                default:
-                    result = allowDeclaration ? ParseRootExpression() : ParseNext();
-                    break;
+                Consume(TokenType.Semicolon);
             }
-            if (requireSemicolon) Consume(TokenType.Semicolon);
             return result;
         }
 
@@ -808,6 +792,25 @@ namespace AggroBird.Reflection
 
                 throw new UnexpectedTokenException(next);
             }
+            else if (token.type == TokenType.Is)
+            {
+                bool not = Match(TokenType.Not);
+                Expression rhs = ParseNext(GetGrammar(token.type).AssociativePrecedence);
+                if (rhs is Typename typename)
+                {
+                    return new IsCast(lhs, typename.type, not);
+                }
+                throw new DebugConsoleException("Type expected");
+            }
+            else if (token.type == TokenType.As)
+            {
+                Expression rhs = ParseNext(GetGrammar(token.type).AssociativePrecedence);
+                if (rhs is Typename typename)
+                {
+                    return new AsCast(lhs, typename.type);
+                }
+                throw new DebugConsoleException("Type expected");
+            }
             else
             {
                 TokenInfo info = TokenUtility.GetTokenInfo(token.type);
@@ -833,23 +836,6 @@ namespace AggroBird.Reflection
                             Expression.CheckConvertibleBool(lhs, out lhs);
                             Expression.CheckConvertibleBool(rhs, out rhs);
                             return new LogicalOr(lhs, rhs);
-
-                        case TokenType.Is:
-                        {
-                            if (rhs is Typename typename)
-                            {
-                                return new IsCast(lhs, typename.type);
-                            }
-                            throw new DebugConsoleException("Type expected");
-                        }
-                        case TokenType.As:
-                        {
-                            if (rhs is Typename typename)
-                            {
-                                return new AsCast(lhs, typename.type);
-                            }
-                            throw new DebugConsoleException("Type expected");
-                        }
 
                         default:
                             TokenType op = token.type;

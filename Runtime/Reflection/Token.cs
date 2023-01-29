@@ -227,6 +227,9 @@ namespace AggroBird.Reflection
         [TokenInfo("in", TokenFamily.Keyword)]
         In,
 
+        [TokenInfo("not", TokenFamily.Keyword)]
+        Not,
+
         // Names
         [TokenInfo(TokenFamily.Identifier)]
         Identifier,

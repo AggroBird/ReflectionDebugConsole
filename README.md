@@ -80,12 +80,12 @@ for(int i = 0; i < 5; i++) { UnityEngine.Debug.Log(i); }
 
 The environment supports basic generic types and methods:
 ```csharp
-UnityEngine.Object.FindObjectOfType<UnityEngine.GameObject>().name
+UnityEngine.Object.FindObjectOfType<UnityEngine.GameObject>().name;
 ```
 
 The environment supports type casting operators is and as:
 ```csharp
-5 is int ? "Integer" : "Not an integer"
+5 is int ? "Integer" : "Not an integer";
 ```
 
 ## Macros and Keybinds
