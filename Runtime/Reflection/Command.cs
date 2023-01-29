@@ -84,8 +84,6 @@ namespace AggroBird.Reflection
 
                 case TokenType.If:
                 {
-                    AddStyledToken(CurrentToken.str, Style.Keyword);
-
                     Advance();
                     Consume(TokenType.LParen);
                     PushScope();
@@ -99,14 +97,10 @@ namespace AggroBird.Reflection
                     Pop();
 
                 ParseNextIf:
-                    if (Match(TokenType.Else, out Token elseToken))
+                    if (Match(TokenType.Else))
                     {
-                        AddStyledToken(elseToken.str, Style.Keyword);
-
-                        if (Match(TokenType.If, out Token ifToken))
+                        if (Match(TokenType.If))
                         {
-                            AddStyledToken(ifToken.str, Style.Keyword);
-
                             Consume(TokenType.LParen);
                             PushScope();
                             condition = ParseNext();
@@ -134,8 +128,6 @@ namespace AggroBird.Reflection
 
                 case TokenType.For:
                 {
-                    AddStyledToken(CurrentToken.str, Style.Keyword);
-
                     Advance();
                     Consume(TokenType.LParen);
                     PushScope();
@@ -154,8 +146,6 @@ namespace AggroBird.Reflection
 
                 case TokenType.While:
                 {
-                    AddStyledToken(CurrentToken.str, Style.Keyword);
-
                     Advance();
                     Consume(TokenType.LParen);
                     PushScope();
@@ -172,17 +162,11 @@ namespace AggroBird.Reflection
 
                 case TokenType.Foreach:
                 {
-                    AddStyledToken(CurrentToken.str, Style.Keyword);
-
                     Advance();
                     Consume(TokenType.LParen);
                     PushScope();
                     Type iterType = null;
-                    if (Match(TokenType.Var, out Token varToken))
-                    {
-                        AddStyledToken(varToken.str, Style.Keyword);
-                    }
-                    else
+                    if (!Match(TokenType.Var))
                     {
                         Expression type = ParseNext();
                         if (type is Typename typename && !typename.type.Equals(typeof(void)))
@@ -198,8 +182,7 @@ namespace AggroBird.Reflection
                     Token name = Consume(TokenType.Identifier);
                     AddStyledToken(name.str, Style.Variable);
 
-                    Token inToken = Consume(TokenType.In);
-                    AddStyledToken(inToken.str, Style.Keyword);
+                    Consume(TokenType.In);
 
                     Expression collection = ParseNext();
                     Consume(TokenType.RParen);
@@ -255,11 +238,11 @@ namespace AggroBird.Reflection
         }
         private Expression ParseRootExpression()
         {
-            if (Match(TokenType.Var, out Token varToken))
+            if (Match(TokenType.Var))
             {
-                AddStyledToken(varToken.str, Style.Keyword);
                 Token name = Consume(TokenType.Identifier);
                 AddStyledToken(name.str, Style.Variable);
+
                 Consume(TokenType.Assign);
 
                 Expression rhs = ParseNext();
@@ -276,6 +259,7 @@ namespace AggroBird.Reflection
                 {
                     Token name = Consume();
                     AddStyledToken(name.str, Style.Variable);
+
                     VariableDeclaration declaration;
                     if (Peek() == TokenType.Assign)
                     {
@@ -534,7 +518,6 @@ namespace AggroBird.Reflection
         {
             if (identifier.IsNamespace)
             {
-                AddStyledToken(token.str, Style.Default);
                 result = new Namespace(identifier);
                 return true;
             }
@@ -710,13 +693,9 @@ namespace AggroBird.Reflection
                 {
                     throw new UnexpectedTokenException(next);
                 }
-                else if (isKeyword)
-                {
-                    AddStyledToken(next.str, Style.Keyword);
-                }
 
+                string query = next.str.ToString();
                 {
-                    string query = next.str.ToString();
                     if (lhs is Namespace ns)
                     {
                         if (GenerateSuggestionInfoAtToken(next))
@@ -825,20 +804,15 @@ namespace AggroBird.Reflection
                             return new EventMember(lhs, eventInfo);
                         }
                     }
-
-                    throw new UnexpectedTokenException(next);
                 }
+
+                throw new UnexpectedTokenException(next);
             }
             else
             {
                 TokenInfo info = TokenUtility.GetTokenInfo(token.type);
                 if (info.IsInfix)
                 {
-                    if (info.family == TokenFamily.Keyword)
-                    {
-                        AddStyledToken(token.str, Style.Keyword);
-                    }
-
                     Expression rhs = ParseNext(GetGrammar(token.type).AssociativePrecedence);
                     switch (token.type)
                     {
@@ -1111,17 +1085,13 @@ namespace AggroBird.Reflection
             switch (token.type)
             {
                 case TokenType.StringLiteral:
-                    AddStyledToken(token.str, Style.String);
                     return new BoxedObject(FormatStringLiteral(token.str));
 
                 case TokenType.CharLiteral:
-                    AddStyledToken(token.str, Style.String);
                     return new BoxedObject(FormatCharLiteral(token.str));
 
                 case TokenType.NumberLiteral:
                 {
-                    AddStyledToken(token.str, Style.Number);
-
                     string value = token.str.ToString();
 
                     int numBase = 10;
@@ -1339,8 +1309,6 @@ namespace AggroBird.Reflection
         }
         protected override Expression KeywordCallback(Token token)
         {
-            AddStyledToken(token.str, Style.Keyword);
-
             if (GenerateSuggestionInfoAtToken(token))
             {
                 SuggestionInfo = new IdentifierList(token.str, token.str.Offset, token.str.Length, identifierTable, Array.Empty<VariableDeclaration>(), true);

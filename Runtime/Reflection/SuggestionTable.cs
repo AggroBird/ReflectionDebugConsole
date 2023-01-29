@@ -917,16 +917,27 @@ namespace AggroBird.Reflection
             containsErrors = false;
 
             CommandParser commandParser = null;
+            ArrayView<Token> tokens;
             try
             {
-                ArrayView<Token> tokens = new Lexer(input).ToArray();
+                tokens = new Lexer(input).ToArray();
                 commandParser = new CommandParser(tokens, identifierTable, safeMode, 0, cursorPosition);
             }
-            catch { }
+            catch
+            {
+                tokens = ArrayView<Token>.Empty;
+            }
 
             if (commandParser != null)
             {
-                try { commandParser.Parse(); } catch { containsErrors = true; }
+                try
+                {
+                    commandParser.Parse();
+                }
+                catch
+                {
+                    containsErrors = true;
+                }
 
                 SuggestionInfo suggestionInfo = commandParser.SuggestionInfo;
                 if (suggestionInfo != null)
@@ -936,7 +947,39 @@ namespace AggroBird.Reflection
                     insertOffset = suggestionInfo.insertOffset;
                     insertLength = suggestionInfo.insertLength;
                 }
-                styledOutput = new StyledCommand(input, commandParser.GetStyledTokens());
+
+                StyledToken[] commandTokens = commandParser.GetStyledTokens();
+                List<StyledToken> styledTokens = new List<StyledToken>();
+                for (int i = 0, j = 0; i < tokens.Length; i++)
+                {
+                    if (j < commandTokens.Length && commandTokens[j].str.Offset == tokens[i].str.Offset)
+                    {
+                        styledTokens.Add(commandTokens[j++]);
+                    }
+                    else
+                    {
+                        Style style;
+                        if (tokens[i].Family == TokenFamily.Keyword)
+                        {
+                            style = Style.Keyword;
+                        }
+                        else
+                        {
+                            style = tokens[i].type switch
+                            {
+                                TokenType.StringLiteral => Style.String,
+                                TokenType.CharLiteral => Style.String,
+                                TokenType.NumberLiteral => Style.Number,
+                                _ => Style.Default,
+                            };
+                        }
+                        if (style != Style.Default)
+                        {
+                            styledTokens.Add(new StyledToken(tokens[i].str, style));
+                        }
+                    }
+                }
+                styledOutput = new StyledCommand(input, styledTokens.ToArray());
             }
         }
 
