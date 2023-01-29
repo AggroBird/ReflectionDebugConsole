@@ -81,13 +81,12 @@ namespace AggroBird.Reflection
                 {
                     Advance();
                     Consume(TokenType.LParen);
-                    PushScope();
                     Expression condition = ParseNext();
                     Expression.CheckConvertibleBool(condition, out condition);
                     Consume(TokenType.RParen);
                     IfBlock ifBlock = new IfBlock(condition);
                     stack.Last().expressions.Add(ifBlock);
-                    PushBlock(ifBlock);
+                    Push(ifBlock);
                     ParseOptionalBlock(ifBlock);
                     Pop();
 
@@ -97,12 +96,11 @@ namespace AggroBird.Reflection
                         if (Match(TokenType.If))
                         {
                             Consume(TokenType.LParen);
-                            PushScope();
                             condition = ParseNext();
                             Expression.CheckConvertibleBool(condition, out condition);
                             Consume(TokenType.RParen);
                             ElseIfBlock elseIfBlock = new ElseIfBlock(condition);
-                            PushBlock(elseIfBlock);
+                            Push(elseIfBlock);
                             ParseOptionalBlock(elseIfBlock);
                             Pop();
                             ifBlock.AddSubBlock(elseIfBlock);
@@ -204,8 +202,7 @@ namespace AggroBird.Reflection
 
                     // Create iter variable
                     VariableDeclaration declaration = new VariableDeclaration(iterType, name.ToString());
-                    variables.Last().Add(declaration);
-                    variableCount++;
+                    PushVariable(declaration);
 
                     ForeachBlock foreachBlock = new ForeachBlock(collection, enumeratorInfo, declaration, maxIterationCount);
                     stack.Last().expressions.Add(foreachBlock);
@@ -250,8 +247,7 @@ namespace AggroBird.Reflection
                 Expression rhs = ParseNext();
                 if (rhs.ResultType == typeof(void)) throw new DebugConsoleException("Cannot assign void to an implicitly-typed variable");
                 VariableDeclaration declaration = new VariableAssignment(rhs.ResultType, name.ToString(), rhs);
-                variables.Last().Add(declaration);
-                variableCount++;
+                PushVariable(declaration);
                 result = declaration;
             }
             else
@@ -277,8 +273,7 @@ namespace AggroBird.Reflection
                     {
                         declaration = new VariableDeclaration(typename.type, name.ToString());
                     }
-                    variables.Last().Add(declaration);
-                    variableCount++;
+                    PushVariable(declaration);
                     result = declaration;
                 }
             }
@@ -325,6 +320,11 @@ namespace AggroBird.Reflection
         private List<Block> stack = new List<Block>();
         private List<List<VariableDeclaration>> variables = new List<List<VariableDeclaration>>();
         private int variableCount = 0;
+        private void PushVariable(VariableDeclaration variable)
+        {
+            variables.Last().Add(variable);
+            variableCount++;
+        }
         private VariableDeclaration[] ExportVariables()
         {
             if (variableCount == 0) return Array.Empty<VariableDeclaration>();
@@ -798,7 +798,15 @@ namespace AggroBird.Reflection
                 Expression rhs = ParseNext(GetGrammar(token.type).AssociativePrecedence);
                 if (rhs is Typename typename)
                 {
-                    return new IsCast(lhs, typename.type, not);
+                    VariableDeclaration result = null;
+                    if (Match(TokenType.Identifier, out Token name))
+                    {
+                        AddStyledToken(name.str, Style.Variable);
+
+                        result = new VariableDeclaration(typename.type, name.ToString());
+                        PushVariable(result);
+                    }
+                    return new IsCast(lhs, typename.type, not, result);
                 }
                 throw new DebugConsoleException("Type expected");
             }

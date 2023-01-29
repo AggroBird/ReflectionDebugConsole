@@ -1886,24 +1886,34 @@ namespace AggroBird.Reflection
 
     internal class IsCast : Expression
     {
-        public IsCast(Expression lhs, Type type, bool not)
+        public IsCast(Expression lhs, Type type, bool not, VariableDeclaration result)
         {
             this.lhs = lhs;
             this.type = type;
             this.not = not;
+            this.result = result;
+            hasResult = result != null;
         }
 
         public readonly Expression lhs;
         public readonly Type type;
         public readonly bool not;
+        public readonly VariableDeclaration result;
+        private readonly bool hasResult;
 
         public override object Execute(ExecutionContext context)
         {
+            if (hasResult) result.Execute(context);
+
             object val = lhs.Execute(context);
             if (val != null)
             {
-                Type lhsType = val.GetType();
-                return type.IsAssignableFrom(lhsType) ^ not;
+                bool isAssignable = type.IsAssignableFrom(val.GetType());
+                if (isAssignable && hasResult)
+                {
+                    result.Value.UpdateValue(val);
+                }
+                return isAssignable ^ not;
             }
             return not;
         }
@@ -1926,8 +1936,7 @@ namespace AggroBird.Reflection
             object val = lhs.Execute(context);
             if (val != null)
             {
-                Type lhsType = val.GetType();
-                if (type.IsAssignableFrom(lhsType))
+                if (type.IsAssignableFrom(val.GetType()))
                 {
                     return val;
                 }
