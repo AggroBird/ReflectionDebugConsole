@@ -1,8 +1,8 @@
 # Reflection Debug Console
 
-Repository for maintaining the debug console plugin that I use in client projects. This plugin is continuously under development and is not optimized for production. Use at your own risk.
+![alt text](https://github.com/AggroBird/ReflectionDebugConsole/blob/main/Documentation~/example.gif?raw=true "Example Image")
 
-![alt text](https://github.com/AggroBird/ReflectionDebugConsole/blob/main/Documentation~/example.png?raw=true "Debug Console")
+Repository for maintaining the debug console plugin that I use in client projects. This plugin is continuously under development and is not optimized for production. Use at your own risk.
 
 ## Feature Overview
 
@@ -29,6 +29,8 @@ By default, the console will only scan exposed public classes and members. Searc
 The settings can be accessed in the editor through Window > Analysis > Debug Console Settings.
 
 ## Syntax and Usage
+
+![alt text](https://github.com/AggroBird/ReflectionDebugConsole/blob/main/Documentation~/screenshot.png?raw=true "Screenshot")
 
 The console supports most basic C# syntax, including:
 
