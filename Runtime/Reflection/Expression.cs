@@ -69,6 +69,23 @@ namespace AggroBird.Reflection
         {
             return !fieldInfo.IsInitOnly && !fieldInfo.IsLiteral;
         }
+
+        public static bool HasCustomAttribute<T>(this MemberInfo memberInfo) where T : Attribute
+        {
+            return memberInfo.GetCustomAttribute<T>() != null;
+        }
+        public static bool HasCustomAttribute<T>(this MemberInfo memberInfo, bool inherit) where T : Attribute
+        {
+            return memberInfo.GetCustomAttribute<T>(inherit) != null;
+        }
+        public static bool HasCustomAttribute<T>(this ParameterInfo parameterInfo) where T : Attribute
+        {
+            return parameterInfo.GetCustomAttribute<T>() != null;
+        }
+        public static bool HasCustomAttribute<T>(this ParameterInfo parameterInfo, bool inherit) where T : Attribute
+        {
+            return parameterInfo.GetCustomAttribute<T>(inherit) != null;
+        }
     }
 
     internal sealed class ArraySubscriptPropertyInfo : PropertyInfo
@@ -269,7 +286,7 @@ namespace AggroBird.Reflection
 
         public static BindingFlags MakeBindingFlags(bool isStatic, bool safeMode)
         {
-            BindingFlags result = BindingFlags.Public | BindingFlags.FlattenHierarchy | (isStatic ? BindingFlags.Static : BindingFlags.Instance);
+            BindingFlags result = (isStatic ? BindingFlags.Static : (BindingFlags.Instance | BindingFlags.FlattenHierarchy)) | BindingFlags.Public;
             if (!safeMode) result |= BindingFlags.NonPublic;
             return result;
         }
@@ -542,7 +559,7 @@ namespace AggroBird.Reflection
             }
 
             // Skip compiler generated members
-            if (!includeSpecial && member.GetCustomAttribute<CompilerGeneratedAttribute>() != null)
+            if (!includeSpecial && member.HasCustomAttribute<CompilerGeneratedAttribute>())
             {
                 return false;
             }
@@ -725,7 +742,7 @@ namespace AggroBird.Reflection
 
         public static bool HasVariableParameterCount(ParameterInfo[] param)
         {
-            return param.Length > 0 && param[param.Length - 1].GetCustomAttribute<ParamArrayAttribute>(true) != null;
+            return param.Length > 0 && param[param.Length - 1].HasCustomAttribute<ParamArrayAttribute>(true);
         }
         public static bool HasVariableParameterCount(MethodBase method) => HasVariableParameterCount(method.GetParameters());
 
@@ -875,7 +892,7 @@ namespace AggroBird.Reflection
             {
                 int lastParamIndex = actualParamCount - 1;
                 ParameterInfo lastParam = parameters[lastParamIndex];
-                if (lastParam.GetCustomAttribute<ParamArrayAttribute>(true) != null)
+                if (lastParam.HasCustomAttribute<ParamArrayAttribute>(true))
                 {
                     if (actualArgCount >= actualParamCount)
                     {
@@ -926,7 +943,7 @@ namespace AggroBird.Reflection
 
                 int lastParamIndex = actualParamCount - 1;
                 ParameterInfo lastParam = param[lastParamIndex];
-                if (lastParam.GetCustomAttribute<ParamArrayAttribute>(true) != null)
+                if (lastParam.HasCustomAttribute<ParamArrayAttribute>(true))
                 {
                     Type paramType = lastParam.ParameterType.GetElementType();
                     int optionalArgCount = args.Length - lastParamIndex;
