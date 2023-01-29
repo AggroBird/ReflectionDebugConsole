@@ -1102,15 +1102,30 @@ namespace AggroBird.Reflection
         {
             this.lhs = lhs;
             fields.Add(fieldInfo);
+            isAssignable = IsAssignable(fieldInfo);
         }
         public FieldMember(FieldInfo fieldInfo)
         {
             fields.Add(fieldInfo);
+            isAssignable = IsAssignable(fieldInfo);
         }
 
         public readonly Expression lhs;
-        public readonly List<FieldInfo> fields = new List<FieldInfo>();
+        private readonly List<FieldInfo> fields = new List<FieldInfo>();
         private FieldInfo TargetField => fields.Last();
+
+        private bool isAssignable;
+
+        private static bool IsAssignable(FieldInfo fieldInfo)
+        {
+            return !fieldInfo.IsInitOnly && !fieldInfo.IsLiteral;
+        }
+
+        public void AddField(FieldInfo field)
+        {
+            fields.Add(field);
+            isAssignable &= IsAssignable(field);
+        }
 
         public override bool IsConstant => TargetField.IsLiteral;
 
@@ -1127,7 +1142,7 @@ namespace AggroBird.Reflection
         }
         public override Type ResultType => TargetField.FieldType;
 
-        public override bool Assignable => !TargetField.IsInitOnly && !TargetField.IsLiteral;
+        public override bool Assignable => isAssignable;
         public override object SetValue(ExecutionContext context, object val, bool returnInitialValue)
         {
             object root = lhs.SafeExecute(context);

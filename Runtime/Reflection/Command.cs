@@ -780,7 +780,7 @@ namespace AggroBird.Reflection
                             // Field
                             if (lhs is FieldMember append)
                             {
-                                append.fields.Add(fieldInfo);
+                                append.AddField(fieldInfo);
                                 return append;
                             }
                             return new FieldMember(lhs, fieldInfo);
