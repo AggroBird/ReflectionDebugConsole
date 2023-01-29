@@ -67,7 +67,7 @@ namespace AggroBird.DebugConsole
             DebugConsole.settings = settings;
         }
 
-        private static ConsoleGUI GetInstance()
+        private static ConsoleGUI GetGUI()
         {
             Initialize();
 
@@ -432,6 +432,8 @@ namespace AggroBird.DebugConsole
 
             private void OnDestroy()
             {
+                gui?.Close();
+
 #if INCLUDE_DEBUG_SERVER
                 StopDebugServer();
 #endif
@@ -540,7 +542,7 @@ namespace AggroBird.DebugConsole
                     GameObject gameObject = GameObject.Find(GameObjectName);
                     if (!gameObject) gameObject = new GameObject(GameObjectName);
                     instance = gameObject.AddComponent<Instance>();
-                    gameObject.hideFlags |= HideFlags.NotEditable | HideFlags.HideInHierarchy | HideFlags.HideInInspector;
+                    //gameObject.hideFlags |= HideFlags.NotEditable | HideFlags.HideInHierarchy | HideFlags.HideInInspector;
                     UnityObject.DontDestroyOnLoad(gameObject);
                 }
                 else
@@ -700,8 +702,8 @@ namespace AggroBird.DebugConsole
         }
 
 
-        public static void Open() => GetInstance()?.Open();
-        public static void Close() => GetInstance()?.Close();
+        public static void Open() => GetGUI()?.Open();
+        public static void Close() => GetGUI()?.Close();
 
         public static bool Execute(string cmd)
         {
@@ -712,8 +714,8 @@ namespace AggroBird.DebugConsole
             return ExecuteCommand(cmd, out result, true);
         }
 
-        public static bool IsOpen => Application.isPlaying && GetInstance().IsOpen;
-        public static bool HasFocus => Application.isPlaying && GetInstance().HasFocus;
+        public static bool IsOpen => Application.isPlaying && GetGUI().IsOpen;
+        public static bool HasFocus => Application.isPlaying && GetGUI().HasFocus;
 
         public static void Reload()
         {
