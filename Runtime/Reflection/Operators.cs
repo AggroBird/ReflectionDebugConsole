@@ -8,60 +8,98 @@ using System.Reflection;
 
 namespace AggroBird.Reflection
 {
-    internal struct UnaryOperatorFunction
-    {
-        private delegate object SingleOperatorDelegate(ExecutionContext context, Expression arg);
-
-        public static UnaryOperatorFunction MakeOperator<RetType>(Func<ExecutionContext, Expression, RetType> func)
-        {
-            return new UnaryOperatorFunction((ExecutionContext context, Expression arg) => { return func(context, arg); }, typeof(RetType));
-        }
-
-        private UnaryOperatorFunction(SingleOperatorDelegate func, Type returnType)
-        {
-            this.func = func;
-            this.returnType = returnType;
-        }
-
-        private readonly SingleOperatorDelegate func;
-        private readonly Type returnType;
-
-        public Type ReturnType => returnType;
-
-        public object Invoke(ExecutionContext context, Expression arg)
-        {
-            return func(context, arg);
-        }
-    }
-
-    internal struct InfixOperatorFunction
-    {
-        private delegate object InfixOperatorDelegate(ExecutionContext context, Expression lhs, Expression rhs);
-
-        public static InfixOperatorFunction MakeOperator<RetType>(Func<ExecutionContext, Expression, Expression, RetType> func)
-        {
-            return new InfixOperatorFunction((ExecutionContext context, Expression lhs, Expression rhs) => { return func(context, lhs, rhs); }, typeof(RetType));
-        }
-
-        private InfixOperatorFunction(InfixOperatorDelegate func, Type returnType)
-        {
-            this.func = func;
-            this.returnType = returnType;
-        }
-
-        private readonly InfixOperatorDelegate func;
-        private readonly Type returnType;
-
-        public Type ReturnType => returnType;
-
-        public object Invoke(ExecutionContext context, Expression lhs, Expression rhs)
-        {
-            return func(context, lhs, rhs);
-        }
-    }
-
     internal static class Operators
     {
+        private readonly struct UnaryFunc
+        {
+            private delegate object SingleOperatorDelegate(ExecutionContext context, Expression arg);
+
+            public static UnaryFunc MakeOperator<RetType>(Func<ExecutionContext, Expression, RetType> func)
+            {
+                return new UnaryFunc((ExecutionContext context, Expression arg) => func(context, arg), typeof(RetType));
+            }
+
+            private UnaryFunc(SingleOperatorDelegate func, Type returnType)
+            {
+                this.func = func;
+                this.returnType = returnType;
+            }
+
+            private readonly SingleOperatorDelegate func;
+            private readonly Type returnType;
+
+            public Type ReturnType => returnType;
+
+            public object Invoke(ExecutionContext context, Expression arg)
+            {
+                return func(context, arg);
+            }
+        }
+
+        private readonly struct InfixFunc
+        {
+            private delegate object InfixOperatorDelegate(ExecutionContext context, Expression lhs, Expression rhs);
+
+            public static InfixFunc MakeOperator<RetType>(Func<ExecutionContext, Expression, Expression, RetType> func)
+            {
+                return new InfixFunc((ExecutionContext context, Expression lhs, Expression rhs) => func(context, lhs, rhs), typeof(RetType));
+            }
+
+            private InfixFunc(InfixOperatorDelegate func, Type returnType)
+            {
+                this.func = func;
+                this.returnType = returnType;
+            }
+
+            private readonly InfixOperatorDelegate func;
+            private readonly Type returnType;
+
+            public Type ReturnType => returnType;
+
+            public object Invoke(ExecutionContext context, Expression lhs, Expression rhs)
+            {
+                return func(context, lhs, rhs);
+            }
+        }
+
+        private class UnaryOperator : Expression
+        {
+            public UnaryOperator(Expression arg, UnaryFunc func)
+            {
+                this.arg = arg;
+                this.func = func;
+            }
+
+            public readonly Expression arg;
+            public readonly UnaryFunc func;
+
+            public override bool IsConstant => arg.IsConstant;
+
+
+            public override object Execute(ExecutionContext context) => func.Invoke(context, arg);
+            public override Type ResultType => func.ReturnType;
+        }
+
+        private class InfixOperator : Expression
+        {
+            public InfixOperator(Expression lhs, Expression rhs, InfixFunc func)
+            {
+                this.lhs = lhs;
+                this.rhs = rhs;
+                this.func = func;
+            }
+
+            public readonly Expression lhs;
+            public readonly Expression rhs;
+            public readonly InfixFunc func;
+
+            public override bool IsConstant => lhs.IsConstant && rhs.IsConstant;
+
+
+            public override object Execute(ExecutionContext context) => func.Invoke(context, lhs, rhs);
+            public override Type ResultType => func.ReturnType;
+        }
+
         public static bool IsArithmetic(TypeCode type)
         {
             switch (type)
@@ -190,7 +228,259 @@ namespace AggroBird.Reflection
         }
 
 
-        private static Expression MakeOperator(Expression arg, UnaryOperatorFunction func)
+        private const string OpImplicit = "op_Implicit";
+        private const string OpExplicit = "op_Explicit";
+
+        public static bool ToBool(object val)
+        {
+            Type srcType = val.GetType();
+            if (srcType == typeof(bool)) return (bool)val;
+            throw new InvalidCastException(srcType, typeof(bool));
+        }
+        public static char ToChar(object val)
+        {
+            Type srcType = val.GetType();
+            unchecked
+            {
+                switch (Type.GetTypeCode(srcType))
+                {
+                    case TypeCode.Char: return (char)val;
+                    case TypeCode.SByte: return (char)(sbyte)val;
+                    case TypeCode.Byte: return (char)(byte)val;
+                    case TypeCode.Int16: return (char)(short)val;
+                    case TypeCode.UInt16: return (char)(ushort)val;
+                    case TypeCode.Int32: return (char)(int)val;
+                    case TypeCode.UInt32: return (char)(uint)val;
+                    case TypeCode.Int64: return (char)(long)val;
+                    case TypeCode.UInt64: return (char)(ulong)val;
+                    case TypeCode.Single: return (char)(float)val;
+                    case TypeCode.Double: return (char)(double)val;
+                }
+            }
+            throw new InvalidCastException(srcType, typeof(double));
+        }
+        public static sbyte ToSByte(object val)
+        {
+            Type srcType = val.GetType();
+            unchecked
+            {
+                switch (Type.GetTypeCode(srcType))
+                {
+                    case TypeCode.Char: return (sbyte)(char)val;
+                    case TypeCode.SByte: return (sbyte)val;
+                    case TypeCode.Byte: return (sbyte)(byte)val;
+                    case TypeCode.Int16: return (sbyte)(short)val;
+                    case TypeCode.UInt16: return (sbyte)(ushort)val;
+                    case TypeCode.Int32: return (sbyte)(int)val;
+                    case TypeCode.UInt32: return (sbyte)(uint)val;
+                    case TypeCode.Int64: return (sbyte)(long)val;
+                    case TypeCode.UInt64: return (sbyte)(ulong)val;
+                    case TypeCode.Single: return (sbyte)(float)val;
+                    case TypeCode.Double: return (sbyte)(double)val;
+                }
+            }
+            throw new InvalidCastException(srcType, typeof(sbyte));
+        }
+        public static byte ToByte(object val)
+        {
+            Type srcType = val.GetType();
+            unchecked
+            {
+                switch (Type.GetTypeCode(srcType))
+                {
+                    case TypeCode.Char: return (byte)(char)val;
+                    case TypeCode.SByte: return (byte)(sbyte)val;
+                    case TypeCode.Byte: return (byte)val;
+                    case TypeCode.Int16: return (byte)(short)val;
+                    case TypeCode.UInt16: return (byte)(ushort)val;
+                    case TypeCode.Int32: return (byte)(int)val;
+                    case TypeCode.UInt32: return (byte)(uint)val;
+                    case TypeCode.Int64: return (byte)(long)val;
+                    case TypeCode.UInt64: return (byte)(ulong)val;
+                    case TypeCode.Single: return (byte)(float)val;
+                    case TypeCode.Double: return (byte)(double)val;
+                }
+            }
+            throw new InvalidCastException(srcType, typeof(byte));
+        }
+        public static short ToInt16(object val)
+        {
+            Type srcType = val.GetType();
+            unchecked
+            {
+                switch (Type.GetTypeCode(srcType))
+                {
+                    case TypeCode.Char: return (short)(char)val;
+                    case TypeCode.SByte: return (sbyte)val;
+                    case TypeCode.Byte: return (byte)val;
+                    case TypeCode.Int16: return (short)val;
+                    case TypeCode.UInt16: return (short)(ushort)val;
+                    case TypeCode.Int32: return (short)(int)val;
+                    case TypeCode.UInt32: return (short)(uint)val;
+                    case TypeCode.Int64: return (short)(long)val;
+                    case TypeCode.UInt64: return (short)(ulong)val;
+                    case TypeCode.Single: return (short)(float)val;
+                    case TypeCode.Double: return (short)(double)val;
+                }
+            }
+            throw new InvalidCastException(srcType, typeof(short));
+        }
+        public static ushort ToUInt16(object val)
+        {
+            Type srcType = val.GetType();
+            unchecked
+            {
+                switch (Type.GetTypeCode(srcType))
+                {
+                    case TypeCode.Char: return (char)val;
+                    case TypeCode.SByte: return (ushort)(sbyte)val;
+                    case TypeCode.Byte: return (byte)val;
+                    case TypeCode.Int16: return (ushort)(short)val;
+                    case TypeCode.UInt16: return (ushort)val;
+                    case TypeCode.Int32: return (ushort)(int)val;
+                    case TypeCode.UInt32: return (ushort)(uint)val;
+                    case TypeCode.Int64: return (ushort)(long)val;
+                    case TypeCode.UInt64: return (ushort)(ulong)val;
+                    case TypeCode.Single: return (ushort)(float)val;
+                    case TypeCode.Double: return (ushort)(double)val;
+                }
+            }
+            throw new InvalidCastException(srcType, typeof(ushort));
+        }
+        public static int ToInt32(object val)
+        {
+            Type srcType = val.GetType();
+            unchecked
+            {
+                switch (Type.GetTypeCode(srcType))
+                {
+                    case TypeCode.Char: return (char)val;
+                    case TypeCode.SByte: return (sbyte)val;
+                    case TypeCode.Byte: return (byte)val;
+                    case TypeCode.Int16: return (short)val;
+                    case TypeCode.UInt16: return (ushort)val;
+                    case TypeCode.Int32: return (int)val;
+                    case TypeCode.UInt32: return (int)(uint)val;
+                    case TypeCode.Int64: return (int)(long)val;
+                    case TypeCode.UInt64: return (int)(ulong)val;
+                    case TypeCode.Single: return (int)(float)val;
+                    case TypeCode.Double: return (int)(double)val;
+                }
+            }
+            throw new InvalidCastException(srcType, typeof(int));
+        }
+        public static uint ToUInt32(object val)
+        {
+            Type srcType = val.GetType();
+            unchecked
+            {
+                switch (Type.GetTypeCode(srcType))
+                {
+                    case TypeCode.Char: return (char)val;
+                    case TypeCode.SByte: return (uint)(sbyte)val;
+                    case TypeCode.Byte: return (byte)val;
+                    case TypeCode.Int16: return (uint)(short)val;
+                    case TypeCode.UInt16: return (ushort)val;
+                    case TypeCode.Int32: return (uint)(int)val;
+                    case TypeCode.UInt32: return (uint)val;
+                    case TypeCode.Int64: return (uint)(long)val;
+                    case TypeCode.UInt64: return (uint)(ulong)val;
+                    case TypeCode.Single: return (uint)(float)val;
+                    case TypeCode.Double: return (uint)(double)val;
+                }
+            }
+            throw new InvalidCastException(srcType, typeof(uint));
+        }
+        public static long ToInt64(object val)
+        {
+            Type srcType = val.GetType();
+            unchecked
+            {
+                switch (Type.GetTypeCode(srcType))
+                {
+                    case TypeCode.Char: return (char)val;
+                    case TypeCode.SByte: return (sbyte)val;
+                    case TypeCode.Byte: return (byte)val;
+                    case TypeCode.Int16: return (short)val;
+                    case TypeCode.UInt16: return (ushort)val;
+                    case TypeCode.Int32: return (int)val;
+                    case TypeCode.UInt32: return (uint)val;
+                    case TypeCode.Int64: return (long)val;
+                    case TypeCode.UInt64: return (long)(ulong)val;
+                    case TypeCode.Single: return (long)(float)val;
+                    case TypeCode.Double: return (long)(double)val;
+                }
+            }
+            throw new InvalidCastException(srcType, typeof(long));
+        }
+        public static ulong ToUInt64(object val)
+        {
+            Type srcType = val.GetType();
+            unchecked
+            {
+                switch (Type.GetTypeCode(srcType))
+                {
+                    case TypeCode.Char: return (char)val;
+                    case TypeCode.SByte: return (ulong)(sbyte)val;
+                    case TypeCode.Byte: return (byte)val;
+                    case TypeCode.Int16: return (ulong)(short)val;
+                    case TypeCode.UInt16: return (ushort)val;
+                    case TypeCode.Int32: return (ulong)(int)val;
+                    case TypeCode.UInt32: return (uint)val;
+                    case TypeCode.Int64: return (ulong)(long)val;
+                    case TypeCode.UInt64: return (ulong)val;
+                    case TypeCode.Single: return (ulong)(float)val;
+                    case TypeCode.Double: return (ulong)(double)val;
+                }
+            }
+            throw new InvalidCastException(srcType, typeof(ulong));
+        }
+        public static float ToSingle(object val)
+        {
+            Type srcType = val.GetType();
+            unchecked
+            {
+                switch (Type.GetTypeCode(srcType))
+                {
+                    case TypeCode.Char: return (char)val;
+                    case TypeCode.SByte: return (sbyte)val;
+                    case TypeCode.Byte: return (byte)val;
+                    case TypeCode.Int16: return (short)val;
+                    case TypeCode.UInt16: return (ushort)val;
+                    case TypeCode.Int32: return (int)val;
+                    case TypeCode.UInt32: return (uint)val;
+                    case TypeCode.Int64: return (long)val;
+                    case TypeCode.UInt64: return (ulong)val;
+                    case TypeCode.Single: return (float)val;
+                    case TypeCode.Double: return (float)(double)val;
+                }
+            }
+            throw new InvalidCastException(srcType, typeof(float));
+        }
+        public static double ToDouble(object val)
+        {
+            Type srcType = val.GetType();
+            unchecked
+            {
+                switch (Type.GetTypeCode(srcType))
+                {
+                    case TypeCode.Char: return (char)val;
+                    case TypeCode.SByte: return (sbyte)val;
+                    case TypeCode.Byte: return (byte)val;
+                    case TypeCode.Int16: return (short)val;
+                    case TypeCode.UInt16: return (ushort)val;
+                    case TypeCode.Int32: return (int)val;
+                    case TypeCode.UInt32: return (uint)val;
+                    case TypeCode.Int64: return (long)val;
+                    case TypeCode.UInt64: return (ulong)val;
+                    case TypeCode.Single: return (float)val;
+                    case TypeCode.Double: return (double)val;
+                }
+            }
+            throw new InvalidCastException(srcType, typeof(double));
+        }
+
+        private static Expression MakeOperator(Expression arg, UnaryFunc func)
         {
             if (arg.IsConstant)
             {
@@ -199,7 +489,7 @@ namespace AggroBird.Reflection
 
             return new UnaryOperator(arg, func);
         }
-        private static Expression MakeOperator(Expression lhs, Expression rhs, InfixOperatorFunction func)
+        private static Expression MakeOperator(Expression lhs, Expression rhs, InfixFunc func)
         {
             if (lhs.IsConstant && rhs.IsConstant)
             {
@@ -220,7 +510,7 @@ namespace AggroBird.Reflection
 
             return MakeOperator(arg, MakeUnary(op, arg.GetTypeCode(), arg));
         }
-        private static UnaryOperatorFunction MakeUnary(TokenType op, TypeCode type, Expression argExpr)
+        private static UnaryFunc MakeUnary(TokenType op, TypeCode type, Expression argExpr)
         {
             if (op != TokenType.Increment && op != TokenType.Decimal)
             {
@@ -241,97 +531,97 @@ namespace AggroBird.Reflection
                 case TypeCode.Boolean:
                     switch (op)
                     {
-                        case TokenType.LogicalNot: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return !Expression.ToBool(arg.Execute(context)); });
+                        case TokenType.LogicalNot: return UnaryFunc.MakeOperator((c, a) => !ToBool(a.Execute(c)));
                     }
                     break;
 
                 case TypeCode.SByte:
                     switch (op)
                     {
-                        case TokenType.Increment: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return (sbyte)(Expression.ToSByte(arg.Execute(context)) + 1); });
-                        case TokenType.Decrement: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return (sbyte)(Expression.ToSByte(arg.Execute(context)) - 1); });
+                        case TokenType.Increment: return UnaryFunc.MakeOperator((c, a) => (sbyte)(ToSByte(a.Execute(c)) + 1));
+                        case TokenType.Decrement: return UnaryFunc.MakeOperator((c, a) => (sbyte)(ToSByte(a.Execute(c)) - 1));
                     }
                     break;
 
                 case TypeCode.Byte:
                     switch (op)
                     {
-                        case TokenType.Increment: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return (byte)(Expression.ToByte(arg.Execute(context)) + 1); });
-                        case TokenType.Decrement: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return (byte)(Expression.ToByte(arg.Execute(context)) - 1); });
+                        case TokenType.Increment: return UnaryFunc.MakeOperator((c, a) => (byte)(ToByte(a.Execute(c)) + 1));
+                        case TokenType.Decrement: return UnaryFunc.MakeOperator((c, a) => (byte)(ToByte(a.Execute(c)) - 1));
                     }
                     break;
 
                 case TypeCode.Int16:
                     switch (op)
                     {
-                        case TokenType.Increment: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return (short)(Expression.ToInt16(arg.Execute(context)) + 1); });
-                        case TokenType.Decrement: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return (short)(Expression.ToInt16(arg.Execute(context)) - 1); });
+                        case TokenType.Increment: return UnaryFunc.MakeOperator((c, a) => (short)(ToInt16(a.Execute(c)) + 1));
+                        case TokenType.Decrement: return UnaryFunc.MakeOperator((c, a) => (short)(ToInt16(a.Execute(c)) - 1));
                     }
                     break;
 
                 case TypeCode.UInt16:
                     switch (op)
                     {
-                        case TokenType.Increment: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return (ushort)(Expression.ToUInt16(arg.Execute(context)) + 1); });
-                        case TokenType.Decrement: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return (ushort)(Expression.ToUInt16(arg.Execute(context)) - 1); });
+                        case TokenType.Increment: return UnaryFunc.MakeOperator((c, a) => (ushort)(ToUInt16(a.Execute(c)) + 1));
+                        case TokenType.Decrement: return UnaryFunc.MakeOperator((c, a) => (ushort)(ToUInt16(a.Execute(c)) - 1));
                     }
                     break;
 
                 case TypeCode.Int32:
                     switch (op)
                     {
-                        case TokenType.BitwiseNot: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return ~Expression.ToInt32(arg.Execute(context)); });
-                        case TokenType.Sub: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return -Expression.ToInt32(arg.Execute(context)); });
-                        case TokenType.Add: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return Expression.ToInt32(arg.Execute(context)); });
-                        case TokenType.Increment: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return Expression.ToInt32(arg.Execute(context)) + 1; });
-                        case TokenType.Decrement: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return Expression.ToInt32(arg.Execute(context)) - 1; });
+                        case TokenType.BitwiseNot: return UnaryFunc.MakeOperator((c, a) => ~ToInt32(a.Execute(c)));
+                        case TokenType.Sub: return UnaryFunc.MakeOperator((c, a) => -ToInt32(a.Execute(c)));
+                        case TokenType.Add: return UnaryFunc.MakeOperator((c, a) => ToInt32(a.Execute(c)));
+                        case TokenType.Increment: return UnaryFunc.MakeOperator((c, a) => ToInt32(a.Execute(c)) + 1);
+                        case TokenType.Decrement: return UnaryFunc.MakeOperator((c, a) => ToInt32(a.Execute(c)) - 1);
                     }
                     break;
                 case TypeCode.UInt32:
                     switch (op)
                     {
-                        case TokenType.BitwiseNot: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return ~Expression.ToUInt32(arg.Execute(context)); });
-                        case TokenType.Sub: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return -Expression.ToUInt32(arg.Execute(context)); });
-                        case TokenType.Add: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return Expression.ToUInt32(arg.Execute(context)); });
-                        case TokenType.Increment: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return Expression.ToUInt32(arg.Execute(context)) + 1; });
-                        case TokenType.Decrement: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return Expression.ToUInt32(arg.Execute(context)) - 1; });
+                        case TokenType.BitwiseNot: return UnaryFunc.MakeOperator((c, a) => ~ToUInt32(a.Execute(c)));
+                        case TokenType.Sub: return UnaryFunc.MakeOperator((c, a) => -ToUInt32(a.Execute(c)));
+                        case TokenType.Add: return UnaryFunc.MakeOperator((c, a) => ToUInt32(a.Execute(c)));
+                        case TokenType.Increment: return UnaryFunc.MakeOperator((c, a) => ToUInt32(a.Execute(c)) + 1);
+                        case TokenType.Decrement: return UnaryFunc.MakeOperator((c, a) => ToUInt32(a.Execute(c)) - 1);
                     }
                     break;
                 case TypeCode.Int64:
                     switch (op)
                     {
-                        case TokenType.BitwiseNot: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return ~Expression.ToInt64(arg.Execute(context)); });
-                        case TokenType.Sub: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return -Expression.ToInt64(arg.Execute(context)); });
-                        case TokenType.Add: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return Expression.ToInt64(arg.Execute(context)); });
-                        case TokenType.Increment: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return Expression.ToInt64(arg.Execute(context)) + 1; });
-                        case TokenType.Decrement: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return Expression.ToInt64(arg.Execute(context)) - 1; });
+                        case TokenType.BitwiseNot: return UnaryFunc.MakeOperator((c, a) => ~ToInt64(a.Execute(c)));
+                        case TokenType.Sub: return UnaryFunc.MakeOperator((c, a) => -ToInt64(a.Execute(c)));
+                        case TokenType.Add: return UnaryFunc.MakeOperator((c, a) => ToInt64(a.Execute(c)));
+                        case TokenType.Increment: return UnaryFunc.MakeOperator((c, a) => ToInt64(a.Execute(c)) + 1);
+                        case TokenType.Decrement: return UnaryFunc.MakeOperator((c, a) => ToInt64(a.Execute(c)) - 1);
                     }
                     break;
                 case TypeCode.UInt64:
                     switch (op)
                     {
-                        case TokenType.BitwiseNot: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return ~Expression.ToUInt64(arg.Execute(context)); });
-                        case TokenType.Add: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return Expression.ToUInt64(arg.Execute(context)); });
-                        case TokenType.Increment: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return Expression.ToUInt64(arg.Execute(context)) + 1; });
-                        case TokenType.Decrement: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return Expression.ToUInt64(arg.Execute(context)) - 1; });
+                        case TokenType.BitwiseNot: return UnaryFunc.MakeOperator((c, a) => ~ToUInt64(a.Execute(c)));
+                        case TokenType.Add: return UnaryFunc.MakeOperator((c, a) => ToUInt64(a.Execute(c)));
+                        case TokenType.Increment: return UnaryFunc.MakeOperator((c, a) => ToUInt64(a.Execute(c)) + 1);
+                        case TokenType.Decrement: return UnaryFunc.MakeOperator((c, a) => ToUInt64(a.Execute(c)) - 1);
                     }
                     break;
                 case TypeCode.Single:
                     switch (op)
                     {
-                        case TokenType.Sub: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return -Expression.ToSingle(arg.Execute(context)); });
-                        case TokenType.Add: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return Expression.ToSingle(arg.Execute(context)); });
-                        case TokenType.Increment: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return Expression.ToSingle(arg.Execute(context)) + 1; });
-                        case TokenType.Decrement: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return Expression.ToSingle(arg.Execute(context)) - 1; });
+                        case TokenType.Sub: return UnaryFunc.MakeOperator((c, a) => -ToSingle(a.Execute(c)));
+                        case TokenType.Add: return UnaryFunc.MakeOperator((c, a) => ToSingle(a.Execute(c)));
+                        case TokenType.Increment: return UnaryFunc.MakeOperator((c, a) => ToSingle(a.Execute(c)) + 1);
+                        case TokenType.Decrement: return UnaryFunc.MakeOperator((c, a) => ToSingle(a.Execute(c)) - 1);
                     }
                     break;
                 case TypeCode.Double:
                     switch (op)
                     {
-                        case TokenType.Sub: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return -Expression.ToDouble(arg.Execute(context)); });
-                        case TokenType.Add: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return Expression.ToDouble(arg.Execute(context)); });
-                        case TokenType.Increment: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return Expression.ToDouble(arg.Execute(context)) + 1; });
-                        case TokenType.Decrement: return UnaryOperatorFunction.MakeOperator((ExecutionContext context, Expression arg) => { return Expression.ToDouble(arg.Execute(context)) - 1; });
+                        case TokenType.Sub: return UnaryFunc.MakeOperator((c, a) => -ToDouble(a.Execute(c)));
+                        case TokenType.Add: return UnaryFunc.MakeOperator((c, a) => ToDouble(a.Execute(c)));
+                        case TokenType.Increment: return UnaryFunc.MakeOperator((c, a) => ToDouble(a.Execute(c)) + 1);
+                        case TokenType.Decrement: return UnaryFunc.MakeOperator((c, a) => ToDouble(a.Execute(c)) - 1);
                     }
                     break;
             }
@@ -360,153 +650,337 @@ namespace AggroBird.Reflection
             }
             else if (op == TokenType.Add && (lhsType == TypeCode.String || rhsType == TypeCode.String))
             {
-                return MakeOperator(lhsExpr, rhsExpr, InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Stringify(lhs.Execute(context)) + Stringify(rhs.Execute(context)); }));
+                return MakeOperator(lhsExpr, rhsExpr, InfixFunc.MakeOperator((c, l, r) => Stringify(l.Execute(c)) + Stringify(r.Execute(c))));
             }
             else if (!lhsExpr.ResultType.IsValueType && !rhsExpr.ResultType.IsValueType)
             {
                 switch (op)
                 {
-                    case TokenType.Eq: return MakeOperator(lhsExpr, rhsExpr, InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return ReferenceEquals(lhs.Execute(context), rhs.Execute(context)); }));
-                    case TokenType.Ne: return MakeOperator(lhsExpr, rhsExpr, InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return !ReferenceEquals(lhs.Execute(context), rhs.Execute(context)); }));
+                    case TokenType.Eq: return MakeOperator(lhsExpr, rhsExpr, InfixFunc.MakeOperator((c, l, r) => ReferenceEquals(l.Execute(c), r.Execute(c))));
+                    case TokenType.Ne: return MakeOperator(lhsExpr, rhsExpr, InfixFunc.MakeOperator((c, l, r) => !ReferenceEquals(l.Execute(c), r.Execute(c))));
                 }
             }
 
             throw new DebugConsoleException($"Operator '{info.str}' cannot be applied to operands of type '{lhsExpr.ResultType}' and '{rhsExpr.ResultType}'");
         }
-        private static InfixOperatorFunction MakeInfix(TokenType op, TypeCode type, Expression lhsExpr, Expression rhsExpr)
+        private static InfixFunc MakeInfix(TokenType op, TypeCode type, Expression lhsExpr, Expression rhsExpr)
         {
             switch (type)
             {
                 case TypeCode.Boolean:
                     switch (op)
                     {
-                        case TokenType.BitwiseAnd: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToBool(lhs.Execute(context)) & Expression.ToBool(rhs.Execute(context)); });
-                        case TokenType.BitwiseXor: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToBool(lhs.Execute(context)) ^ Expression.ToBool(rhs.Execute(context)); });
-                        case TokenType.BitwiseOr: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToBool(lhs.Execute(context)) | Expression.ToBool(rhs.Execute(context)); });
-                        case TokenType.Eq: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToBool(lhs.Execute(context)) == Expression.ToBool(rhs.Execute(context)); });
-                        case TokenType.Ne: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToBool(lhs.Execute(context)) != Expression.ToBool(rhs.Execute(context)); });
+                        case TokenType.BitwiseAnd: return InfixFunc.MakeOperator((c, l, r) => ToBool(l.Execute(c)) & ToBool(r.Execute(c)));
+                        case TokenType.BitwiseXor: return InfixFunc.MakeOperator((c, l, r) => ToBool(l.Execute(c)) ^ ToBool(r.Execute(c)));
+                        case TokenType.BitwiseOr: return InfixFunc.MakeOperator((c, l, r) => ToBool(l.Execute(c)) | ToBool(r.Execute(c)));
+                        case TokenType.Eq: return InfixFunc.MakeOperator((c, l, r) => ToBool(l.Execute(c)) == ToBool(r.Execute(c)));
+                        case TokenType.Ne: return InfixFunc.MakeOperator((c, l, r) => ToBool(l.Execute(c)) != ToBool(r.Execute(c)));
                     }
                     break;
 
                 case TypeCode.Int32:
                     switch (op)
                     {
-                        case TokenType.Mul: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt32(lhs.Execute(context)) * Expression.ToInt32(rhs.Execute(context)); });
-                        case TokenType.Div: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt32(lhs.Execute(context)) / Expression.ToInt32(rhs.Execute(context)); });
-                        case TokenType.Mod: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt32(lhs.Execute(context)) % Expression.ToInt32(rhs.Execute(context)); });
-                        case TokenType.Add: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt32(lhs.Execute(context)) + Expression.ToInt32(rhs.Execute(context)); });
-                        case TokenType.Sub: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt32(lhs.Execute(context)) - Expression.ToInt32(rhs.Execute(context)); });
-                        case TokenType.Lsh: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt32(lhs.Execute(context)) << Expression.ToInt32(rhs.Execute(context)); });
-                        case TokenType.Rsh: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt32(lhs.Execute(context)) >> Expression.ToInt32(rhs.Execute(context)); });
-                        case TokenType.Lt: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt32(lhs.Execute(context)) < Expression.ToInt32(rhs.Execute(context)); });
-                        case TokenType.Gt: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt32(lhs.Execute(context)) > Expression.ToInt32(rhs.Execute(context)); });
-                        case TokenType.Le: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt32(lhs.Execute(context)) <= Expression.ToInt32(rhs.Execute(context)); });
-                        case TokenType.Ge: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt32(lhs.Execute(context)) >= Expression.ToInt32(rhs.Execute(context)); });
-                        case TokenType.Eq: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt32(lhs.Execute(context)) == Expression.ToInt32(rhs.Execute(context)); });
-                        case TokenType.Ne: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt32(lhs.Execute(context)) != Expression.ToInt32(rhs.Execute(context)); });
-                        case TokenType.BitwiseAnd: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt32(lhs.Execute(context)) & Expression.ToInt32(rhs.Execute(context)); });
-                        case TokenType.BitwiseXor: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt32(lhs.Execute(context)) ^ Expression.ToInt32(rhs.Execute(context)); });
-                        case TokenType.BitwiseOr: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt32(lhs.Execute(context)) | Expression.ToInt32(rhs.Execute(context)); });
+                        case TokenType.Mul: return InfixFunc.MakeOperator((c, l, r) => ToInt32(l.Execute(c)) * ToInt32(r.Execute(c)));
+                        case TokenType.Div: return InfixFunc.MakeOperator((c, l, r) => ToInt32(l.Execute(c)) / ToInt32(r.Execute(c)));
+                        case TokenType.Mod: return InfixFunc.MakeOperator((c, l, r) => ToInt32(l.Execute(c)) % ToInt32(r.Execute(c)));
+                        case TokenType.Add: return InfixFunc.MakeOperator((c, l, r) => ToInt32(l.Execute(c)) + ToInt32(r.Execute(c)));
+                        case TokenType.Sub: return InfixFunc.MakeOperator((c, l, r) => ToInt32(l.Execute(c)) - ToInt32(r.Execute(c)));
+                        case TokenType.Lsh: return InfixFunc.MakeOperator((c, l, r) => ToInt32(l.Execute(c)) << ToInt32(r.Execute(c)));
+                        case TokenType.Rsh: return InfixFunc.MakeOperator((c, l, r) => ToInt32(l.Execute(c)) >> ToInt32(r.Execute(c)));
+                        case TokenType.Lt: return InfixFunc.MakeOperator((c, l, r) => ToInt32(l.Execute(c)) < ToInt32(r.Execute(c)));
+                        case TokenType.Gt: return InfixFunc.MakeOperator((c, l, r) => ToInt32(l.Execute(c)) > ToInt32(r.Execute(c)));
+                        case TokenType.Le: return InfixFunc.MakeOperator((c, l, r) => ToInt32(l.Execute(c)) <= ToInt32(r.Execute(c)));
+                        case TokenType.Ge: return InfixFunc.MakeOperator((c, l, r) => ToInt32(l.Execute(c)) >= ToInt32(r.Execute(c)));
+                        case TokenType.Eq: return InfixFunc.MakeOperator((c, l, r) => ToInt32(l.Execute(c)) == ToInt32(r.Execute(c)));
+                        case TokenType.Ne: return InfixFunc.MakeOperator((c, l, r) => ToInt32(l.Execute(c)) != ToInt32(r.Execute(c)));
+                        case TokenType.BitwiseAnd: return InfixFunc.MakeOperator((c, l, r) => ToInt32(l.Execute(c)) & ToInt32(r.Execute(c)));
+                        case TokenType.BitwiseXor: return InfixFunc.MakeOperator((c, l, r) => ToInt32(l.Execute(c)) ^ ToInt32(r.Execute(c)));
+                        case TokenType.BitwiseOr: return InfixFunc.MakeOperator((c, l, r) => ToInt32(l.Execute(c)) | ToInt32(r.Execute(c)));
                     }
                     break;
                 case TypeCode.UInt32:
                     switch (op)
                     {
-                        case TokenType.Mul: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt32(lhs.Execute(context)) * Expression.ToUInt32(rhs.Execute(context)); });
-                        case TokenType.Div: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt32(lhs.Execute(context)) / Expression.ToUInt32(rhs.Execute(context)); });
-                        case TokenType.Mod: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt32(lhs.Execute(context)) % Expression.ToUInt32(rhs.Execute(context)); });
-                        case TokenType.Add: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt32(lhs.Execute(context)) + Expression.ToUInt32(rhs.Execute(context)); });
-                        case TokenType.Sub: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt32(lhs.Execute(context)) - Expression.ToUInt32(rhs.Execute(context)); });
-                        case TokenType.Lsh: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt32(lhs.Execute(context)) << Expression.ToInt32(rhs.Execute(context)); });
-                        case TokenType.Rsh: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt32(lhs.Execute(context)) >> Expression.ToInt32(rhs.Execute(context)); });
-                        case TokenType.Lt: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt32(lhs.Execute(context)) < Expression.ToUInt32(rhs.Execute(context)); });
-                        case TokenType.Gt: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt32(lhs.Execute(context)) > Expression.ToUInt32(rhs.Execute(context)); });
-                        case TokenType.Le: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt32(lhs.Execute(context)) <= Expression.ToUInt32(rhs.Execute(context)); });
-                        case TokenType.Ge: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt32(lhs.Execute(context)) >= Expression.ToUInt32(rhs.Execute(context)); });
-                        case TokenType.Eq: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt32(lhs.Execute(context)) == Expression.ToUInt32(rhs.Execute(context)); });
-                        case TokenType.Ne: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt32(lhs.Execute(context)) != Expression.ToUInt32(rhs.Execute(context)); });
-                        case TokenType.BitwiseAnd: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt32(lhs.Execute(context)) & Expression.ToUInt32(rhs.Execute(context)); });
-                        case TokenType.BitwiseXor: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt32(lhs.Execute(context)) ^ Expression.ToUInt32(rhs.Execute(context)); });
-                        case TokenType.BitwiseOr: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt32(lhs.Execute(context)) | Expression.ToUInt32(rhs.Execute(context)); });
+                        case TokenType.Mul: return InfixFunc.MakeOperator((c, l, r) => ToUInt32(l.Execute(c)) * ToUInt32(r.Execute(c)));
+                        case TokenType.Div: return InfixFunc.MakeOperator((c, l, r) => ToUInt32(l.Execute(c)) / ToUInt32(r.Execute(c)));
+                        case TokenType.Mod: return InfixFunc.MakeOperator((c, l, r) => ToUInt32(l.Execute(c)) % ToUInt32(r.Execute(c)));
+                        case TokenType.Add: return InfixFunc.MakeOperator((c, l, r) => ToUInt32(l.Execute(c)) + ToUInt32(r.Execute(c)));
+                        case TokenType.Sub: return InfixFunc.MakeOperator((c, l, r) => ToUInt32(l.Execute(c)) - ToUInt32(r.Execute(c)));
+                        case TokenType.Lsh: return InfixFunc.MakeOperator((c, l, r) => ToUInt32(l.Execute(c)) << ToInt32(r.Execute(c)));
+                        case TokenType.Rsh: return InfixFunc.MakeOperator((c, l, r) => ToUInt32(l.Execute(c)) >> ToInt32(r.Execute(c)));
+                        case TokenType.Lt: return InfixFunc.MakeOperator((c, l, r) => ToUInt32(l.Execute(c)) < ToUInt32(r.Execute(c)));
+                        case TokenType.Gt: return InfixFunc.MakeOperator((c, l, r) => ToUInt32(l.Execute(c)) > ToUInt32(r.Execute(c)));
+                        case TokenType.Le: return InfixFunc.MakeOperator((c, l, r) => ToUInt32(l.Execute(c)) <= ToUInt32(r.Execute(c)));
+                        case TokenType.Ge: return InfixFunc.MakeOperator((c, l, r) => ToUInt32(l.Execute(c)) >= ToUInt32(r.Execute(c)));
+                        case TokenType.Eq: return InfixFunc.MakeOperator((c, l, r) => ToUInt32(l.Execute(c)) == ToUInt32(r.Execute(c)));
+                        case TokenType.Ne: return InfixFunc.MakeOperator((c, l, r) => ToUInt32(l.Execute(c)) != ToUInt32(r.Execute(c)));
+                        case TokenType.BitwiseAnd: return InfixFunc.MakeOperator((c, l, r) => ToUInt32(l.Execute(c)) & ToUInt32(r.Execute(c)));
+                        case TokenType.BitwiseXor: return InfixFunc.MakeOperator((c, l, r) => ToUInt32(l.Execute(c)) ^ ToUInt32(r.Execute(c)));
+                        case TokenType.BitwiseOr: return InfixFunc.MakeOperator((c, l, r) => ToUInt32(l.Execute(c)) | ToUInt32(r.Execute(c)));
                     }
                     break;
                 case TypeCode.Int64:
                     switch (op)
                     {
-                        case TokenType.Mul: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt64(lhs.Execute(context)) * Expression.ToInt64(rhs.Execute(context)); });
-                        case TokenType.Div: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt64(lhs.Execute(context)) / Expression.ToInt64(rhs.Execute(context)); });
-                        case TokenType.Mod: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt64(lhs.Execute(context)) % Expression.ToInt64(rhs.Execute(context)); });
-                        case TokenType.Add: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt64(lhs.Execute(context)) + Expression.ToInt64(rhs.Execute(context)); });
-                        case TokenType.Sub: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt64(lhs.Execute(context)) - Expression.ToInt64(rhs.Execute(context)); });
-                        case TokenType.Lsh: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt64(lhs.Execute(context)) << Expression.ToInt32(rhs.Execute(context)); });
-                        case TokenType.Rsh: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt64(lhs.Execute(context)) >> Expression.ToInt32(rhs.Execute(context)); });
-                        case TokenType.Lt: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt64(lhs.Execute(context)) < Expression.ToInt64(rhs.Execute(context)); });
-                        case TokenType.Gt: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt64(lhs.Execute(context)) > Expression.ToInt64(rhs.Execute(context)); });
-                        case TokenType.Le: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt64(lhs.Execute(context)) <= Expression.ToInt64(rhs.Execute(context)); });
-                        case TokenType.Ge: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt64(lhs.Execute(context)) >= Expression.ToInt64(rhs.Execute(context)); });
-                        case TokenType.Eq: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt64(lhs.Execute(context)) == Expression.ToInt64(rhs.Execute(context)); });
-                        case TokenType.Ne: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt64(lhs.Execute(context)) != Expression.ToInt64(rhs.Execute(context)); });
-                        case TokenType.BitwiseAnd: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt64(lhs.Execute(context)) & Expression.ToInt64(rhs.Execute(context)); });
-                        case TokenType.BitwiseXor: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt64(lhs.Execute(context)) ^ Expression.ToInt64(rhs.Execute(context)); });
-                        case TokenType.BitwiseOr: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToInt64(lhs.Execute(context)) | Expression.ToInt64(rhs.Execute(context)); });
+                        case TokenType.Mul: return InfixFunc.MakeOperator((c, l, r) => ToInt64(l.Execute(c)) * ToInt64(r.Execute(c)));
+                        case TokenType.Div: return InfixFunc.MakeOperator((c, l, r) => ToInt64(l.Execute(c)) / ToInt64(r.Execute(c)));
+                        case TokenType.Mod: return InfixFunc.MakeOperator((c, l, r) => ToInt64(l.Execute(c)) % ToInt64(r.Execute(c)));
+                        case TokenType.Add: return InfixFunc.MakeOperator((c, l, r) => ToInt64(l.Execute(c)) + ToInt64(r.Execute(c)));
+                        case TokenType.Sub: return InfixFunc.MakeOperator((c, l, r) => ToInt64(l.Execute(c)) - ToInt64(r.Execute(c)));
+                        case TokenType.Lsh: return InfixFunc.MakeOperator((c, l, r) => ToInt64(l.Execute(c)) << ToInt32(r.Execute(c)));
+                        case TokenType.Rsh: return InfixFunc.MakeOperator((c, l, r) => ToInt64(l.Execute(c)) >> ToInt32(r.Execute(c)));
+                        case TokenType.Lt: return InfixFunc.MakeOperator((c, l, r) => ToInt64(l.Execute(c)) < ToInt64(r.Execute(c)));
+                        case TokenType.Gt: return InfixFunc.MakeOperator((c, l, r) => ToInt64(l.Execute(c)) > ToInt64(r.Execute(c)));
+                        case TokenType.Le: return InfixFunc.MakeOperator((c, l, r) => ToInt64(l.Execute(c)) <= ToInt64(r.Execute(c)));
+                        case TokenType.Ge: return InfixFunc.MakeOperator((c, l, r) => ToInt64(l.Execute(c)) >= ToInt64(r.Execute(c)));
+                        case TokenType.Eq: return InfixFunc.MakeOperator((c, l, r) => ToInt64(l.Execute(c)) == ToInt64(r.Execute(c)));
+                        case TokenType.Ne: return InfixFunc.MakeOperator((c, l, r) => ToInt64(l.Execute(c)) != ToInt64(r.Execute(c)));
+                        case TokenType.BitwiseAnd: return InfixFunc.MakeOperator((c, l, r) => ToInt64(l.Execute(c)) & ToInt64(r.Execute(c)));
+                        case TokenType.BitwiseXor: return InfixFunc.MakeOperator((c, l, r) => ToInt64(l.Execute(c)) ^ ToInt64(r.Execute(c)));
+                        case TokenType.BitwiseOr: return InfixFunc.MakeOperator((c, l, r) => ToInt64(l.Execute(c)) | ToInt64(r.Execute(c)));
                     }
                     break;
                 case TypeCode.UInt64:
                     switch (op)
                     {
-                        case TokenType.Mul: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt64(lhs.Execute(context)) * Expression.ToUInt64(rhs.Execute(context)); });
-                        case TokenType.Div: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt64(lhs.Execute(context)) / Expression.ToUInt64(rhs.Execute(context)); });
-                        case TokenType.Mod: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt64(lhs.Execute(context)) % Expression.ToUInt64(rhs.Execute(context)); });
-                        case TokenType.Add: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt64(lhs.Execute(context)) + Expression.ToUInt64(rhs.Execute(context)); });
-                        case TokenType.Sub: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt64(lhs.Execute(context)) - Expression.ToUInt64(rhs.Execute(context)); });
-                        case TokenType.Lsh: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt64(lhs.Execute(context)) << Expression.ToInt32(rhs.Execute(context)); });
-                        case TokenType.Rsh: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt64(lhs.Execute(context)) >> Expression.ToInt32(rhs.Execute(context)); });
-                        case TokenType.Lt: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt64(lhs.Execute(context)) < Expression.ToUInt64(rhs.Execute(context)); });
-                        case TokenType.Gt: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt64(lhs.Execute(context)) > Expression.ToUInt64(rhs.Execute(context)); });
-                        case TokenType.Le: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt64(lhs.Execute(context)) <= Expression.ToUInt64(rhs.Execute(context)); });
-                        case TokenType.Ge: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt64(lhs.Execute(context)) >= Expression.ToUInt64(rhs.Execute(context)); });
-                        case TokenType.Eq: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt64(lhs.Execute(context)) == Expression.ToUInt64(rhs.Execute(context)); });
-                        case TokenType.Ne: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt64(lhs.Execute(context)) != Expression.ToUInt64(rhs.Execute(context)); });
-                        case TokenType.BitwiseAnd: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt64(lhs.Execute(context)) & Expression.ToUInt64(rhs.Execute(context)); });
-                        case TokenType.BitwiseXor: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt64(lhs.Execute(context)) ^ Expression.ToUInt64(rhs.Execute(context)); });
-                        case TokenType.BitwiseOr: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToUInt64(lhs.Execute(context)) | Expression.ToUInt64(rhs.Execute(context)); });
+                        case TokenType.Mul: return InfixFunc.MakeOperator((c, l, r) => ToUInt64(l.Execute(c)) * ToUInt64(r.Execute(c)));
+                        case TokenType.Div: return InfixFunc.MakeOperator((c, l, r) => ToUInt64(l.Execute(c)) / ToUInt64(r.Execute(c)));
+                        case TokenType.Mod: return InfixFunc.MakeOperator((c, l, r) => ToUInt64(l.Execute(c)) % ToUInt64(r.Execute(c)));
+                        case TokenType.Add: return InfixFunc.MakeOperator((c, l, r) => ToUInt64(l.Execute(c)) + ToUInt64(r.Execute(c)));
+                        case TokenType.Sub: return InfixFunc.MakeOperator((c, l, r) => ToUInt64(l.Execute(c)) - ToUInt64(r.Execute(c)));
+                        case TokenType.Lsh: return InfixFunc.MakeOperator((c, l, r) => ToUInt64(l.Execute(c)) << ToInt32(r.Execute(c)));
+                        case TokenType.Rsh: return InfixFunc.MakeOperator((c, l, r) => ToUInt64(l.Execute(c)) >> ToInt32(r.Execute(c)));
+                        case TokenType.Lt: return InfixFunc.MakeOperator((c, l, r) => ToUInt64(l.Execute(c)) < ToUInt64(r.Execute(c)));
+                        case TokenType.Gt: return InfixFunc.MakeOperator((c, l, r) => ToUInt64(l.Execute(c)) > ToUInt64(r.Execute(c)));
+                        case TokenType.Le: return InfixFunc.MakeOperator((c, l, r) => ToUInt64(l.Execute(c)) <= ToUInt64(r.Execute(c)));
+                        case TokenType.Ge: return InfixFunc.MakeOperator((c, l, r) => ToUInt64(l.Execute(c)) >= ToUInt64(r.Execute(c)));
+                        case TokenType.Eq: return InfixFunc.MakeOperator((c, l, r) => ToUInt64(l.Execute(c)) == ToUInt64(r.Execute(c)));
+                        case TokenType.Ne: return InfixFunc.MakeOperator((c, l, r) => ToUInt64(l.Execute(c)) != ToUInt64(r.Execute(c)));
+                        case TokenType.BitwiseAnd: return InfixFunc.MakeOperator((c, l, r) => ToUInt64(l.Execute(c)) & ToUInt64(r.Execute(c)));
+                        case TokenType.BitwiseXor: return InfixFunc.MakeOperator((c, l, r) => ToUInt64(l.Execute(c)) ^ ToUInt64(r.Execute(c)));
+                        case TokenType.BitwiseOr: return InfixFunc.MakeOperator((c, l, r) => ToUInt64(l.Execute(c)) | ToUInt64(r.Execute(c)));
                     }
                     break;
                 case TypeCode.Single:
                     switch (op)
                     {
-                        case TokenType.Mul: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToSingle(lhs.Execute(context)) * Expression.ToSingle(rhs.Execute(context)); });
-                        case TokenType.Div: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToSingle(lhs.Execute(context)) / Expression.ToSingle(rhs.Execute(context)); });
-                        case TokenType.Mod: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToSingle(lhs.Execute(context)) % Expression.ToSingle(rhs.Execute(context)); });
-                        case TokenType.Add: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToSingle(lhs.Execute(context)) + Expression.ToSingle(rhs.Execute(context)); });
-                        case TokenType.Sub: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToSingle(lhs.Execute(context)) - Expression.ToSingle(rhs.Execute(context)); });
-                        case TokenType.Lt: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToSingle(lhs.Execute(context)) < Expression.ToSingle(rhs.Execute(context)); });
-                        case TokenType.Gt: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToSingle(lhs.Execute(context)) > Expression.ToSingle(rhs.Execute(context)); });
-                        case TokenType.Le: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToSingle(lhs.Execute(context)) <= Expression.ToSingle(rhs.Execute(context)); });
-                        case TokenType.Ge: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToSingle(lhs.Execute(context)) >= Expression.ToSingle(rhs.Execute(context)); });
-                        case TokenType.Eq: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToSingle(lhs.Execute(context)) == Expression.ToSingle(rhs.Execute(context)); });
-                        case TokenType.Ne: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToSingle(lhs.Execute(context)) != Expression.ToSingle(rhs.Execute(context)); });
+                        case TokenType.Mul: return InfixFunc.MakeOperator((c, l, r) => ToSingle(l.Execute(c)) * ToSingle(r.Execute(c)));
+                        case TokenType.Div: return InfixFunc.MakeOperator((c, l, r) => ToSingle(l.Execute(c)) / ToSingle(r.Execute(c)));
+                        case TokenType.Mod: return InfixFunc.MakeOperator((c, l, r) => ToSingle(l.Execute(c)) % ToSingle(r.Execute(c)));
+                        case TokenType.Add: return InfixFunc.MakeOperator((c, l, r) => ToSingle(l.Execute(c)) + ToSingle(r.Execute(c)));
+                        case TokenType.Sub: return InfixFunc.MakeOperator((c, l, r) => ToSingle(l.Execute(c)) - ToSingle(r.Execute(c)));
+                        case TokenType.Lt: return InfixFunc.MakeOperator((c, l, r) => ToSingle(l.Execute(c)) < ToSingle(r.Execute(c)));
+                        case TokenType.Gt: return InfixFunc.MakeOperator((c, l, r) => ToSingle(l.Execute(c)) > ToSingle(r.Execute(c)));
+                        case TokenType.Le: return InfixFunc.MakeOperator((c, l, r) => ToSingle(l.Execute(c)) <= ToSingle(r.Execute(c)));
+                        case TokenType.Ge: return InfixFunc.MakeOperator((c, l, r) => ToSingle(l.Execute(c)) >= ToSingle(r.Execute(c)));
+                        case TokenType.Eq: return InfixFunc.MakeOperator((c, l, r) => ToSingle(l.Execute(c)) == ToSingle(r.Execute(c)));
+                        case TokenType.Ne: return InfixFunc.MakeOperator((c, l, r) => ToSingle(l.Execute(c)) != ToSingle(r.Execute(c)));
                     }
                     break;
                 case TypeCode.Double:
                     switch (op)
                     {
-                        case TokenType.Mul: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToDouble(lhs.Execute(context)) * Expression.ToDouble(rhs.Execute(context)); });
-                        case TokenType.Div: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToDouble(lhs.Execute(context)) / Expression.ToDouble(rhs.Execute(context)); });
-                        case TokenType.Mod: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToDouble(lhs.Execute(context)) % Expression.ToDouble(rhs.Execute(context)); });
-                        case TokenType.Add: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToDouble(lhs.Execute(context)) + Expression.ToDouble(rhs.Execute(context)); });
-                        case TokenType.Sub: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToDouble(lhs.Execute(context)) - Expression.ToDouble(rhs.Execute(context)); });
-                        case TokenType.Lt: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToDouble(lhs.Execute(context)) < Expression.ToDouble(rhs.Execute(context)); });
-                        case TokenType.Gt: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToDouble(lhs.Execute(context)) > Expression.ToDouble(rhs.Execute(context)); });
-                        case TokenType.Le: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToDouble(lhs.Execute(context)) <= Expression.ToDouble(rhs.Execute(context)); });
-                        case TokenType.Ge: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToDouble(lhs.Execute(context)) >= Expression.ToDouble(rhs.Execute(context)); });
-                        case TokenType.Eq: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToDouble(lhs.Execute(context)) == Expression.ToDouble(rhs.Execute(context)); });
-                        case TokenType.Ne: return InfixOperatorFunction.MakeOperator((ExecutionContext context, Expression lhs, Expression rhs) => { return Expression.ToDouble(lhs.Execute(context)) != Expression.ToDouble(rhs.Execute(context)); });
+                        case TokenType.Mul: return InfixFunc.MakeOperator((c, l, r) => ToDouble(l.Execute(c)) * ToDouble(r.Execute(c)));
+                        case TokenType.Div: return InfixFunc.MakeOperator((c, l, r) => ToDouble(l.Execute(c)) / ToDouble(r.Execute(c)));
+                        case TokenType.Mod: return InfixFunc.MakeOperator((c, l, r) => ToDouble(l.Execute(c)) % ToDouble(r.Execute(c)));
+                        case TokenType.Add: return InfixFunc.MakeOperator((c, l, r) => ToDouble(l.Execute(c)) + ToDouble(r.Execute(c)));
+                        case TokenType.Sub: return InfixFunc.MakeOperator((c, l, r) => ToDouble(l.Execute(c)) - ToDouble(r.Execute(c)));
+                        case TokenType.Lt: return InfixFunc.MakeOperator((c, l, r) => ToDouble(l.Execute(c)) < ToDouble(r.Execute(c)));
+                        case TokenType.Gt: return InfixFunc.MakeOperator((c, l, r) => ToDouble(l.Execute(c)) > ToDouble(r.Execute(c)));
+                        case TokenType.Le: return InfixFunc.MakeOperator((c, l, r) => ToDouble(l.Execute(c)) <= ToDouble(r.Execute(c)));
+                        case TokenType.Ge: return InfixFunc.MakeOperator((c, l, r) => ToDouble(l.Execute(c)) >= ToDouble(r.Execute(c)));
+                        case TokenType.Eq: return InfixFunc.MakeOperator((c, l, r) => ToDouble(l.Execute(c)) == ToDouble(r.Execute(c)));
+                        case TokenType.Ne: return InfixFunc.MakeOperator((c, l, r) => ToDouble(l.Execute(c)) != ToDouble(r.Execute(c)));
                     }
                     break;
             }
 
             throw new DebugConsoleException($"Operator '{TokenUtility.GetTokenInfo(op).str}' cannot be applied to operands of type '{lhsExpr.ResultType}' and '{rhsExpr.ResultType}'");
+        }
+
+        public static bool TryMakeImplicitCastOperator(Expression expr, Type dstType, out Expression castExpr)
+        {
+            if (TryMakeImplicitCast(expr, dstType, out UnaryFunc func))
+            {
+                castExpr = MakeOperator(expr, func);
+                return true;
+            }
+
+            if (TryFindUserCast(OpImplicit, expr.ResultType, dstType, out MethodInfo castMethod))
+            {
+                castExpr = new MethodMember(castMethod, new Expression[] { expr });
+                return true;
+            }
+
+            castExpr = expr;
+            return false;
+        }
+        private static bool TryMakeImplicitCast(Expression expr, Type dstType, out UnaryFunc func)
+        {
+            Type srcType = expr.ResultType;
+
+            TypeCode srcTypeCode = Type.GetTypeCode(srcType);
+            TypeCode dstTypeCode = Type.GetTypeCode(dstType);
+
+            // Only language native implicit casts
+            switch (srcTypeCode)
+            {
+                case TypeCode.Char:
+                    switch (dstTypeCode)
+                    {
+                        case TypeCode.UInt16: func = UnaryFunc.MakeOperator((c, a) => ToUInt16(a.Execute(c))); return true;
+                        case TypeCode.Int32: func = UnaryFunc.MakeOperator((c, a) => ToInt32(a.Execute(c))); return true;
+                        case TypeCode.UInt32: func = UnaryFunc.MakeOperator((c, a) => ToUInt32(a.Execute(c))); return true;
+                        case TypeCode.Int64: func = UnaryFunc.MakeOperator((c, a) => ToInt64(a.Execute(c))); return true;
+                        case TypeCode.UInt64: func = UnaryFunc.MakeOperator((c, a) => ToUInt64(a.Execute(c))); return true;
+                        case TypeCode.Single: func = UnaryFunc.MakeOperator((c, a) => ToSingle(a.Execute(c))); return true;
+                        case TypeCode.Double: func = UnaryFunc.MakeOperator((c, a) => ToDouble(a.Execute(c))); return true;
+                    }
+                    break;
+                case TypeCode.SByte:
+                    switch (dstTypeCode)
+                    {
+                        case TypeCode.Int16: func = UnaryFunc.MakeOperator((c, a) => ToInt16(a.Execute(c))); return true;
+                        case TypeCode.Int32: func = UnaryFunc.MakeOperator((c, a) => ToInt32(a.Execute(c))); return true;
+                        case TypeCode.Int64: func = UnaryFunc.MakeOperator((c, a) => ToInt64(a.Execute(c))); return true;
+                        case TypeCode.Single: func = UnaryFunc.MakeOperator((c, a) => ToSingle(a.Execute(c))); return true;
+                        case TypeCode.Double: func = UnaryFunc.MakeOperator((c, a) => ToDouble(a.Execute(c))); return true;
+                    }
+                    break;
+                case TypeCode.Byte:
+                    switch (dstTypeCode)
+                    {
+                        case TypeCode.Int16: func = UnaryFunc.MakeOperator((c, a) => ToInt16(a.Execute(c))); return true;
+                        case TypeCode.UInt16: func = UnaryFunc.MakeOperator((c, a) => ToUInt16(a.Execute(c))); return true;
+                        case TypeCode.Int32: func = UnaryFunc.MakeOperator((c, a) => ToInt32(a.Execute(c))); return true;
+                        case TypeCode.UInt32: func = UnaryFunc.MakeOperator((c, a) => ToUInt32(a.Execute(c))); return true;
+                        case TypeCode.Int64: func = UnaryFunc.MakeOperator((c, a) => ToInt64(a.Execute(c))); return true;
+                        case TypeCode.UInt64: func = UnaryFunc.MakeOperator((c, a) => ToUInt64(a.Execute(c))); return true;
+                        case TypeCode.Single: func = UnaryFunc.MakeOperator((c, a) => ToSingle(a.Execute(c))); return true;
+                        case TypeCode.Double: func = UnaryFunc.MakeOperator((c, a) => ToDouble(a.Execute(c))); return true;
+                    }
+                    break;
+                case TypeCode.Int16:
+                    switch (dstTypeCode)
+                    {
+                        case TypeCode.Int32: func = UnaryFunc.MakeOperator((c, a) => ToInt32(a.Execute(c))); return true;
+                        case TypeCode.Int64: func = UnaryFunc.MakeOperator((c, a) => ToInt64(a.Execute(c))); return true;
+                        case TypeCode.Single: func = UnaryFunc.MakeOperator((c, a) => ToSingle(a.Execute(c))); return true;
+                        case TypeCode.Double: func = UnaryFunc.MakeOperator((c, a) => ToDouble(a.Execute(c))); return true;
+                    }
+                    break;
+                case TypeCode.UInt16:
+                    switch (dstTypeCode)
+                    {
+                        case TypeCode.Int32: func = UnaryFunc.MakeOperator((c, a) => ToInt32(a.Execute(c))); return true;
+                        case TypeCode.UInt32: func = UnaryFunc.MakeOperator((c, a) => ToUInt32(a.Execute(c))); return true;
+                        case TypeCode.Int64: func = UnaryFunc.MakeOperator((c, a) => ToInt64(a.Execute(c))); return true;
+                        case TypeCode.UInt64: func = UnaryFunc.MakeOperator((c, a) => ToUInt64(a.Execute(c))); return true;
+                        case TypeCode.Single: func = UnaryFunc.MakeOperator((c, a) => ToSingle(a.Execute(c))); return true;
+                        case TypeCode.Double: func = UnaryFunc.MakeOperator((c, a) => ToDouble(a.Execute(c))); return true;
+                    }
+                    break;
+                case TypeCode.Int32:
+                    switch (dstTypeCode)
+                    {
+                        case TypeCode.Int64: func = UnaryFunc.MakeOperator((c, a) => ToInt64(a.Execute(c))); return true;
+                        case TypeCode.Single: func = UnaryFunc.MakeOperator((c, a) => ToSingle(a.Execute(c))); return true;
+                        case TypeCode.Double: func = UnaryFunc.MakeOperator((c, a) => ToDouble(a.Execute(c))); return true;
+                    }
+                    break;
+                case TypeCode.UInt32:
+                    switch (dstTypeCode)
+                    {
+                        case TypeCode.Int64: func = UnaryFunc.MakeOperator((c, a) => ToInt64(a.Execute(c))); return true;
+                        case TypeCode.UInt64: func = UnaryFunc.MakeOperator((c, a) => ToUInt64(a.Execute(c))); return true;
+                        case TypeCode.Single: func = UnaryFunc.MakeOperator((c, a) => ToSingle(a.Execute(c))); return true;
+                        case TypeCode.Double: func = UnaryFunc.MakeOperator((c, a) => ToDouble(a.Execute(c))); return true;
+                    }
+                    break;
+                case TypeCode.Int64:
+                    switch (dstTypeCode)
+                    {
+                        case TypeCode.Single: func = UnaryFunc.MakeOperator((c, a) => ToSingle(a.Execute(c))); return true;
+                        case TypeCode.Double: func = UnaryFunc.MakeOperator((c, a) => ToDouble(a.Execute(c))); return true;
+                    }
+                    break;
+                case TypeCode.UInt64:
+                    switch (dstTypeCode)
+                    {
+                        case TypeCode.Single: func = UnaryFunc.MakeOperator((c, a) => ToSingle(a.Execute(c))); return true;
+                        case TypeCode.Double: func = UnaryFunc.MakeOperator((c, a) => ToDouble(a.Execute(c))); return true;
+                    }
+                    break;
+                case TypeCode.Single:
+                    switch (dstTypeCode)
+                    {
+                        case TypeCode.Double: func = UnaryFunc.MakeOperator((c, a) => ToDouble(a.Execute(c))); return true;
+                    }
+                    break;
+            }
+
+            func = default;
+            return false;
+        }
+
+        public static bool TryMakeExplicitCastOperator(Expression expr, Type dstType, out Expression castExpr)
+        {
+            if (TryMakeExplicitCast(expr, dstType, out UnaryFunc func))
+            {
+                castExpr = MakeOperator(expr, func);
+                return true;
+            }
+
+            if (TryFindUserCast(OpExplicit, expr.ResultType, dstType, out MethodInfo castMethod))
+            {
+                castExpr = new MethodMember(castMethod, new Expression[] { expr });
+                return true;
+            }
+
+            castExpr = expr;
+            return false;
+        }
+        private static bool TryMakeExplicitCast(Expression expr, Type dstType, out UnaryFunc func)
+        {
+            Type srcType = expr.ResultType;
+
+            TypeCode srcTypeCode = Type.GetTypeCode(srcType);
+            TypeCode dstTypeCode = Type.GetTypeCode(dstType);
+
+            // Regular typecast
+            switch (srcTypeCode)
+            {
+                case TypeCode.Char:
+                case TypeCode.SByte:
+                case TypeCode.Byte:
+                case TypeCode.Int16:
+                case TypeCode.UInt16:
+                case TypeCode.Int32:
+                case TypeCode.UInt32:
+                case TypeCode.Int64:
+                case TypeCode.UInt64:
+                case TypeCode.Single:
+                case TypeCode.Double:
+                    switch (dstTypeCode)
+                    {
+                        case TypeCode.Char: func = UnaryFunc.MakeOperator((c, a) => ToChar(a.Execute(c))); return true;
+                        case TypeCode.SByte: func = UnaryFunc.MakeOperator((c, a) => ToSByte(a.Execute(c))); return true;
+                        case TypeCode.Byte: func = UnaryFunc.MakeOperator((c, a) => ToByte(a.Execute(c))); return true;
+                        case TypeCode.Int16: func = UnaryFunc.MakeOperator((c, a) => ToInt16(a.Execute(c))); return true;
+                        case TypeCode.UInt16: func = UnaryFunc.MakeOperator((c, a) => ToUInt16(a.Execute(c))); return true;
+                        case TypeCode.Int32: func = UnaryFunc.MakeOperator((c, a) => ToInt32(a.Execute(c))); return true;
+                        case TypeCode.UInt32: func = UnaryFunc.MakeOperator((c, a) => ToUInt32(a.Execute(c))); return true;
+                        case TypeCode.Int64: func = UnaryFunc.MakeOperator((c, a) => ToInt64(a.Execute(c))); return true;
+                        case TypeCode.UInt64: func = UnaryFunc.MakeOperator((c, a) => ToUInt64(a.Execute(c))); return true;
+                        case TypeCode.Single: func = UnaryFunc.MakeOperator((c, a) => ToSingle(a.Execute(c))); return true;
+                        case TypeCode.Double: func = UnaryFunc.MakeOperator((c, a) => ToDouble(a.Execute(c))); return true;
+                    }
+                    break;
+            }
+
+            func = default;
+            return false;
         }
 
         private static bool TryFindUserOperator(TokenInfo info, Expression arg, out Expression expr)
@@ -577,6 +1051,36 @@ namespace AggroBird.Reflection
             }
 
             expr = null;
+            return false;
+        }
+
+        private static bool TryFindUserCast(string name, Type srcType, Type dstType, out MethodInfo result)
+        {
+            MethodInfo[] srcCasts = srcType.GetMember(name, MemberTypes.Method, BindingFlags.Static | BindingFlags.Public | BindingFlags.FlattenHierarchy) as MethodInfo[];
+            for (int i = 0; i < srcCasts.Length; i++)
+            {
+                MethodInfo castMethod = srcCasts[i];
+                ParameterInfo[] parameters = castMethod.GetParameters();
+                if (parameters.Length == 1 && castMethod.ReturnType.Equals(dstType) && parameters[0].ParameterType.IsAssignableFrom(srcType))
+                {
+                    result = castMethod;
+                    return true;
+                }
+            }
+
+            MethodInfo[] dstCasts = dstType.GetMember(name, MemberTypes.Method, BindingFlags.Static | BindingFlags.Public | BindingFlags.FlattenHierarchy) as MethodInfo[];
+            for (int i = 0; i < dstCasts.Length; i++)
+            {
+                MethodInfo castMethod = dstCasts[i];
+                ParameterInfo[] parameters = castMethod.GetParameters();
+                if (parameters.Length == 1 && castMethod.ReturnType.Equals(dstType) && parameters[0].ParameterType.IsAssignableFrom(srcType))
+                {
+                    result = castMethod;
+                    return true;
+                }
+            }
+
+            result = null;
             return false;
         }
 

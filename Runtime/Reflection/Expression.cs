@@ -198,9 +198,6 @@ namespace AggroBird.Reflection
         public virtual object SetValue(ExecutionContext context, object val, bool returnInitialValue) => throw new DebugConsoleException("Expression is read only");
 
 
-        private class BaseCastAttribute : Attribute { }
-
-
         static Expression()
         {
             Type arrayType = typeof(Array);
@@ -213,30 +210,7 @@ namespace AggroBird.Reflection
             {
                 ArrayGetSetMethods[i] = new GetSetMethods(getMethods[i], setMethods[i], GetArraySubscriptPropertyIndexCount(getMethods[i], false));
             }
-
-            foreach (var member in typeof(Expression).FindMembers(MemberTypes.Method, BindingFlags.Public | BindingFlags.Static, CastMemberFilter, null))
-            {
-                if (member is MethodInfo castMethod)
-                {
-                    switch (Type.GetTypeCode(castMethod.ReturnType))
-                    {
-                        case TypeCode.Char: CastToChar = castMethod; break;
-                        case TypeCode.SByte: CastToSByte = castMethod; break;
-                        case TypeCode.Byte: CastToByte = castMethod; break;
-                        case TypeCode.Int16: CastToInt16 = castMethod; break;
-                        case TypeCode.UInt16: CastToUInt16 = castMethod; break;
-                        case TypeCode.Int32: CastToInt32 = castMethod; break;
-                        case TypeCode.UInt32: CastToUInt32 = castMethod; break;
-                        case TypeCode.Int64: CastToInt64 = castMethod; break;
-                        case TypeCode.UInt64: CastToUInt64 = castMethod; break;
-                        case TypeCode.Single: CastToSingle = castMethod; break;
-                        case TypeCode.Double: CastToDouble = castMethod; break;
-                    }
-                }
-            }
         }
-
-        private static bool CastMemberFilter(MemberInfo m, object filterCriteria) => m.GetCustomAttribute<BaseCastAttribute>() != null;
 
         private static int GetArraySubscriptPropertyIndexCount(MethodInfo method, bool setMethod)
         {
@@ -284,21 +258,6 @@ namespace AggroBird.Reflection
             public readonly int indexCount;
         }
         private static readonly GetSetMethods[] ArrayGetSetMethods;
-
-        private const string OpImplicit = "op_Implicit";
-        private const string OpExplicit = "op_Explicit";
-
-        private static readonly MethodInfo CastToChar;
-        private static readonly MethodInfo CastToSByte;
-        private static readonly MethodInfo CastToByte;
-        private static readonly MethodInfo CastToInt16;
-        private static readonly MethodInfo CastToUInt16;
-        private static readonly MethodInfo CastToInt32;
-        private static readonly MethodInfo CastToUInt32;
-        private static readonly MethodInfo CastToInt64;
-        private static readonly MethodInfo CastToUInt64;
-        private static readonly MethodInfo CastToSingle;
-        private static readonly MethodInfo CastToDouble;
 
         private static int MaxDelegateParameterCount = 16;
 
@@ -879,115 +838,6 @@ namespace AggroBird.Reflection
             return false;
         }
 
-        private static bool IsImplicitConvertableByOperator(Expression expr, Type dstType, out MethodInfo castMethod)
-        {
-            Type srcType = expr.ResultType;
-
-            TypeCode srcTypeCode = Type.GetTypeCode(srcType);
-            TypeCode dstTypeCode = Type.GetTypeCode(dstType);
-
-            // Only language native implicit casts
-            switch (srcTypeCode)
-            {
-                case TypeCode.Char:
-                    switch (dstTypeCode)
-                    {
-                        case TypeCode.UInt16: castMethod = CastToUInt16; return true;
-                        case TypeCode.Int32: castMethod = CastToInt32; return true;
-                        case TypeCode.UInt32: castMethod = CastToUInt32; return true;
-                        case TypeCode.Int64: castMethod = CastToInt64; return true;
-                        case TypeCode.UInt64: castMethod = CastToUInt64; return true;
-                        case TypeCode.Single: castMethod = CastToSingle; return true;
-                        case TypeCode.Double: castMethod = CastToDouble; return true;
-                    }
-                    break;
-                case TypeCode.SByte:
-                    switch (dstTypeCode)
-                    {
-                        case TypeCode.Int16: castMethod = CastToInt16; return true;
-                        case TypeCode.Int32: castMethod = CastToInt32; return true;
-                        case TypeCode.Int64: castMethod = CastToInt64; return true;
-                        case TypeCode.Single: castMethod = CastToSingle; return true;
-                        case TypeCode.Double: castMethod = CastToDouble; return true;
-                    }
-                    break;
-                case TypeCode.Byte:
-                    switch (dstTypeCode)
-                    {
-                        case TypeCode.Int16: castMethod = CastToInt16; return true;
-                        case TypeCode.UInt16: castMethod = CastToUInt16; return true;
-                        case TypeCode.Int32: castMethod = CastToInt32; return true;
-                        case TypeCode.UInt32: castMethod = CastToUInt32; return true;
-                        case TypeCode.Int64: castMethod = CastToInt64; return true;
-                        case TypeCode.UInt64: castMethod = CastToUInt64; return true;
-                        case TypeCode.Single: castMethod = CastToSingle; return true;
-                        case TypeCode.Double: castMethod = CastToDouble; return true;
-                    }
-                    break;
-                case TypeCode.Int16:
-                    switch (dstTypeCode)
-                    {
-                        case TypeCode.Int32: castMethod = CastToInt32; return true;
-                        case TypeCode.Int64: castMethod = CastToInt64; return true;
-                        case TypeCode.Single: castMethod = CastToSingle; return true;
-                        case TypeCode.Double: castMethod = CastToDouble; return true;
-                    }
-                    break;
-                case TypeCode.UInt16:
-                    switch (dstTypeCode)
-                    {
-                        case TypeCode.Int32: castMethod = CastToInt32; return true;
-                        case TypeCode.UInt32: castMethod = CastToUInt32; return true;
-                        case TypeCode.Int64: castMethod = CastToInt64; return true;
-                        case TypeCode.UInt64: castMethod = CastToUInt64; return true;
-                        case TypeCode.Single: castMethod = CastToSingle; return true;
-                        case TypeCode.Double: castMethod = CastToDouble; return true;
-                    }
-                    break;
-                case TypeCode.Int32:
-                    switch (dstTypeCode)
-                    {
-                        case TypeCode.Int64: castMethod = CastToInt64; return true;
-                        case TypeCode.Single: castMethod = CastToSingle; return true;
-                        case TypeCode.Double: castMethod = CastToDouble; return true;
-                    }
-                    break;
-                case TypeCode.UInt32:
-                    switch (dstTypeCode)
-                    {
-                        case TypeCode.Int64: castMethod = CastToInt64; return true;
-                        case TypeCode.UInt64: castMethod = CastToUInt64; return true;
-                        case TypeCode.Single: castMethod = CastToSingle; return true;
-                        case TypeCode.Double: castMethod = CastToDouble; return true;
-                    }
-                    break;
-                case TypeCode.Int64:
-                    switch (dstTypeCode)
-                    {
-                        case TypeCode.Single: castMethod = CastToSingle; return true;
-                        case TypeCode.Double: castMethod = CastToDouble; return true;
-                    }
-                    break;
-                case TypeCode.UInt64:
-                    switch (dstTypeCode)
-                    {
-                        case TypeCode.Single: castMethod = CastToSingle; return true;
-                        case TypeCode.Double: castMethod = CastToDouble; return true;
-                    }
-                    break;
-                case TypeCode.Single:
-                    switch (dstTypeCode)
-                    {
-                        case TypeCode.Double: castMethod = CastToDouble; return true;
-                    }
-                    break;
-            }
-
-            if (FindValidCastOperator(OpImplicit, srcType, dstType, out castMethod)) return true;
-
-            castMethod = null;
-            return false;
-        }
         public static bool IsImplicitConvertable(Expression expr, Type dstType, out Expression castExpr)
         {
             // Delegate conversion
@@ -1012,59 +862,14 @@ namespace AggroBird.Reflection
             }
 
             // Find cast operator
-            if (IsImplicitConvertableByOperator(expr, dstType, out MethodInfo castMethod))
+            if (Operators.TryMakeImplicitCastOperator(expr, dstType, out castExpr))
             {
-                castExpr = new MethodMember(castMethod, new Expression[] { expr });
                 return true;
             }
 
             return false;
         }
 
-        private static bool IsExplicitConvertableByOperator(Expression expr, Type dstType, out MethodInfo castMethod)
-        {
-            Type srcType = expr.ResultType;
-
-            TypeCode srcTypeCode = Type.GetTypeCode(srcType);
-            TypeCode dstTypeCode = Type.GetTypeCode(dstType);
-
-            // Regular typecast
-            switch (srcTypeCode)
-            {
-                case TypeCode.Char:
-                case TypeCode.SByte:
-                case TypeCode.Byte:
-                case TypeCode.Int16:
-                case TypeCode.UInt16:
-                case TypeCode.Int32:
-                case TypeCode.UInt32:
-                case TypeCode.Int64:
-                case TypeCode.UInt64:
-                case TypeCode.Single:
-                case TypeCode.Double:
-                    switch (dstTypeCode)
-                    {
-                        case TypeCode.Char: castMethod = CastToChar; return true;
-                        case TypeCode.SByte: castMethod = CastToSByte; return true;
-                        case TypeCode.Byte: castMethod = CastToByte; return true;
-                        case TypeCode.Int16: castMethod = CastToInt16; return true;
-                        case TypeCode.UInt16: castMethod = CastToUInt16; return true;
-                        case TypeCode.Int32: castMethod = CastToInt32; return true;
-                        case TypeCode.UInt32: castMethod = CastToUInt32; return true;
-                        case TypeCode.Int64: castMethod = CastToInt64; return true;
-                        case TypeCode.UInt64: castMethod = CastToUInt64; return true;
-                        case TypeCode.Single: castMethod = CastToSingle; return true;
-                        case TypeCode.Double: castMethod = CastToDouble; return true;
-                    }
-                    break;
-            }
-
-            if (FindValidCastOperator(OpImplicit, srcType, dstType, out castMethod)) return true;
-            if (FindValidCastOperator(OpExplicit, srcType, dstType, out castMethod)) return true;
-
-            castMethod = null;
-            return false;
-        }
         public static bool IsExplicitConvertable(Expression expr, Type dstType, out Expression castExpr)
         {
             // Delegate conversion
@@ -1097,9 +902,8 @@ namespace AggroBird.Reflection
             }
 
             // Find cast operator
-            if (IsExplicitConvertableByOperator(expr, dstType, out MethodInfo castMethod))
+            if (Operators.TryMakeExplicitCastOperator(expr, dstType, out castExpr))
             {
-                castExpr = new MethodMember(castMethod, new Expression[] { expr });
                 return true;
             }
 
@@ -1224,36 +1028,6 @@ namespace AggroBird.Reflection
             }
         }
 
-        private static bool FindValidCastOperator(string name, Type srcType, Type dstType, out MethodInfo result)
-        {
-            MethodInfo[] srcCasts = srcType.GetMember(name, MemberTypes.Method, BindingFlags.Static | BindingFlags.Public | BindingFlags.FlattenHierarchy) as MethodInfo[];
-            for (int i = 0; i < srcCasts.Length; i++)
-            {
-                MethodInfo castMethod = srcCasts[i];
-                ParameterInfo[] parameters = castMethod.GetParameters();
-                if (parameters.Length == 1 && castMethod.ReturnType.Equals(dstType) && parameters[0].ParameterType.IsAssignableFrom(srcType))
-                {
-                    result = castMethod;
-                    return true;
-                }
-            }
-
-            MethodInfo[] dstCasts = dstType.GetMember(name, MemberTypes.Method, BindingFlags.Static | BindingFlags.Public | BindingFlags.FlattenHierarchy) as MethodInfo[];
-            for (int i = 0; i < dstCasts.Length; i++)
-            {
-                MethodInfo castMethod = dstCasts[i];
-                ParameterInfo[] parameters = castMethod.GetParameters();
-                if (parameters.Length == 1 && castMethod.ReturnType.Equals(dstType) && parameters[0].ParameterType.IsAssignableFrom(srcType))
-                {
-                    result = castMethod;
-                    return true;
-                }
-            }
-
-            result = null;
-            return false;
-        }
-
         public static T[] ExtractConstantValues<T>(Expression[] args)
         {
             T[] result = new T[args.Length];
@@ -1301,267 +1075,6 @@ namespace AggroBird.Reflection
                 return "struct ";
             else
                 return string.Empty;
-        }
-
-        [BaseCast]
-        public static bool ToBool(object val)
-        {
-            Type srcType = val.GetType();
-            if (srcType == typeof(bool)) return (bool)val;
-            throw new InvalidCastException(srcType, typeof(bool));
-        }
-        [BaseCast]
-        public static char ToChar(object val)
-        {
-            Type srcType = val.GetType();
-            unchecked
-            {
-                switch (Type.GetTypeCode(srcType))
-                {
-                    case TypeCode.Char: return (char)val;
-                    case TypeCode.SByte: return (char)(sbyte)val;
-                    case TypeCode.Byte: return (char)(byte)val;
-                    case TypeCode.Int16: return (char)(short)val;
-                    case TypeCode.UInt16: return (char)(ushort)val;
-                    case TypeCode.Int32: return (char)(int)val;
-                    case TypeCode.UInt32: return (char)(uint)val;
-                    case TypeCode.Int64: return (char)(long)val;
-                    case TypeCode.UInt64: return (char)(ulong)val;
-                    case TypeCode.Single: return (char)(float)val;
-                    case TypeCode.Double: return (char)(double)val;
-                }
-            }
-            throw new InvalidCastException(srcType, typeof(double));
-        }
-        [BaseCast]
-        public static sbyte ToSByte(object val)
-        {
-            Type srcType = val.GetType();
-            unchecked
-            {
-                switch (Type.GetTypeCode(srcType))
-                {
-                    case TypeCode.Char: return (sbyte)(char)val;
-                    case TypeCode.SByte: return (sbyte)val;
-                    case TypeCode.Byte: return (sbyte)(byte)val;
-                    case TypeCode.Int16: return (sbyte)(short)val;
-                    case TypeCode.UInt16: return (sbyte)(ushort)val;
-                    case TypeCode.Int32: return (sbyte)(int)val;
-                    case TypeCode.UInt32: return (sbyte)(uint)val;
-                    case TypeCode.Int64: return (sbyte)(long)val;
-                    case TypeCode.UInt64: return (sbyte)(ulong)val;
-                    case TypeCode.Single: return (sbyte)(float)val;
-                    case TypeCode.Double: return (sbyte)(double)val;
-                }
-            }
-            throw new InvalidCastException(srcType, typeof(sbyte));
-        }
-        [BaseCast]
-        public static byte ToByte(object val)
-        {
-            Type srcType = val.GetType();
-            unchecked
-            {
-                switch (Type.GetTypeCode(srcType))
-                {
-                    case TypeCode.Char: return (byte)(char)val;
-                    case TypeCode.SByte: return (byte)(sbyte)val;
-                    case TypeCode.Byte: return (byte)val;
-                    case TypeCode.Int16: return (byte)(short)val;
-                    case TypeCode.UInt16: return (byte)(ushort)val;
-                    case TypeCode.Int32: return (byte)(int)val;
-                    case TypeCode.UInt32: return (byte)(uint)val;
-                    case TypeCode.Int64: return (byte)(long)val;
-                    case TypeCode.UInt64: return (byte)(ulong)val;
-                    case TypeCode.Single: return (byte)(float)val;
-                    case TypeCode.Double: return (byte)(double)val;
-                }
-            }
-            throw new InvalidCastException(srcType, typeof(byte));
-        }
-        [BaseCast]
-        public static short ToInt16(object val)
-        {
-            Type srcType = val.GetType();
-            unchecked
-            {
-                switch (Type.GetTypeCode(srcType))
-                {
-                    case TypeCode.Char: return (short)(char)val;
-                    case TypeCode.SByte: return (sbyte)val;
-                    case TypeCode.Byte: return (byte)val;
-                    case TypeCode.Int16: return (short)val;
-                    case TypeCode.UInt16: return (short)(ushort)val;
-                    case TypeCode.Int32: return (short)(int)val;
-                    case TypeCode.UInt32: return (short)(uint)val;
-                    case TypeCode.Int64: return (short)(long)val;
-                    case TypeCode.UInt64: return (short)(ulong)val;
-                    case TypeCode.Single: return (short)(float)val;
-                    case TypeCode.Double: return (short)(double)val;
-                }
-            }
-            throw new InvalidCastException(srcType, typeof(short));
-        }
-        [BaseCast]
-        public static ushort ToUInt16(object val)
-        {
-            Type srcType = val.GetType();
-            unchecked
-            {
-                switch (Type.GetTypeCode(srcType))
-                {
-                    case TypeCode.Char: return (char)val;
-                    case TypeCode.SByte: return (ushort)(sbyte)val;
-                    case TypeCode.Byte: return (byte)val;
-                    case TypeCode.Int16: return (ushort)(short)val;
-                    case TypeCode.UInt16: return (ushort)val;
-                    case TypeCode.Int32: return (ushort)(int)val;
-                    case TypeCode.UInt32: return (ushort)(uint)val;
-                    case TypeCode.Int64: return (ushort)(long)val;
-                    case TypeCode.UInt64: return (ushort)(ulong)val;
-                    case TypeCode.Single: return (ushort)(float)val;
-                    case TypeCode.Double: return (ushort)(double)val;
-                }
-            }
-            throw new InvalidCastException(srcType, typeof(ushort));
-        }
-        [BaseCast]
-        public static int ToInt32(object val)
-        {
-            Type srcType = val.GetType();
-            unchecked
-            {
-                switch (Type.GetTypeCode(srcType))
-                {
-                    case TypeCode.Char: return (char)val;
-                    case TypeCode.SByte: return (sbyte)val;
-                    case TypeCode.Byte: return (byte)val;
-                    case TypeCode.Int16: return (short)val;
-                    case TypeCode.UInt16: return (ushort)val;
-                    case TypeCode.Int32: return (int)val;
-                    case TypeCode.UInt32: return (int)(uint)val;
-                    case TypeCode.Int64: return (int)(long)val;
-                    case TypeCode.UInt64: return (int)(ulong)val;
-                    case TypeCode.Single: return (int)(float)val;
-                    case TypeCode.Double: return (int)(double)val;
-                }
-            }
-            throw new InvalidCastException(srcType, typeof(int));
-        }
-        [BaseCast]
-        public static uint ToUInt32(object val)
-        {
-            Type srcType = val.GetType();
-            unchecked
-            {
-                switch (Type.GetTypeCode(srcType))
-                {
-                    case TypeCode.Char: return (char)val;
-                    case TypeCode.SByte: return (uint)(sbyte)val;
-                    case TypeCode.Byte: return (byte)val;
-                    case TypeCode.Int16: return (uint)(short)val;
-                    case TypeCode.UInt16: return (ushort)val;
-                    case TypeCode.Int32: return (uint)(int)val;
-                    case TypeCode.UInt32: return (uint)val;
-                    case TypeCode.Int64: return (uint)(long)val;
-                    case TypeCode.UInt64: return (uint)(ulong)val;
-                    case TypeCode.Single: return (uint)(float)val;
-                    case TypeCode.Double: return (uint)(double)val;
-                }
-            }
-            throw new InvalidCastException(srcType, typeof(uint));
-        }
-        [BaseCast]
-        public static long ToInt64(object val)
-        {
-            Type srcType = val.GetType();
-            unchecked
-            {
-                switch (Type.GetTypeCode(srcType))
-                {
-                    case TypeCode.Char: return (char)val;
-                    case TypeCode.SByte: return (sbyte)val;
-                    case TypeCode.Byte: return (byte)val;
-                    case TypeCode.Int16: return (short)val;
-                    case TypeCode.UInt16: return (ushort)val;
-                    case TypeCode.Int32: return (int)val;
-                    case TypeCode.UInt32: return (uint)val;
-                    case TypeCode.Int64: return (long)val;
-                    case TypeCode.UInt64: return (long)(ulong)val;
-                    case TypeCode.Single: return (long)(float)val;
-                    case TypeCode.Double: return (long)(double)val;
-                }
-            }
-            throw new InvalidCastException(srcType, typeof(long));
-        }
-        [BaseCast]
-        public static ulong ToUInt64(object val)
-        {
-            Type srcType = val.GetType();
-            unchecked
-            {
-                switch (Type.GetTypeCode(srcType))
-                {
-                    case TypeCode.Char: return (char)val;
-                    case TypeCode.SByte: return (ulong)(sbyte)val;
-                    case TypeCode.Byte: return (byte)val;
-                    case TypeCode.Int16: return (ulong)(short)val;
-                    case TypeCode.UInt16: return (ushort)val;
-                    case TypeCode.Int32: return (ulong)(int)val;
-                    case TypeCode.UInt32: return (uint)val;
-                    case TypeCode.Int64: return (ulong)(long)val;
-                    case TypeCode.UInt64: return (ulong)val;
-                    case TypeCode.Single: return (ulong)(float)val;
-                    case TypeCode.Double: return (ulong)(double)val;
-                }
-            }
-            throw new InvalidCastException(srcType, typeof(ulong));
-        }
-        [BaseCast]
-        public static float ToSingle(object val)
-        {
-            Type srcType = val.GetType();
-            unchecked
-            {
-                switch (Type.GetTypeCode(srcType))
-                {
-                    case TypeCode.Char: return (char)val;
-                    case TypeCode.SByte: return (sbyte)val;
-                    case TypeCode.Byte: return (byte)val;
-                    case TypeCode.Int16: return (short)val;
-                    case TypeCode.UInt16: return (ushort)val;
-                    case TypeCode.Int32: return (int)val;
-                    case TypeCode.UInt32: return (uint)val;
-                    case TypeCode.Int64: return (long)val;
-                    case TypeCode.UInt64: return (ulong)val;
-                    case TypeCode.Single: return (float)val;
-                    case TypeCode.Double: return (float)(double)val;
-                }
-            }
-            throw new InvalidCastException(srcType, typeof(float));
-        }
-        [BaseCast]
-        public static double ToDouble(object val)
-        {
-            Type srcType = val.GetType();
-            unchecked
-            {
-                switch (Type.GetTypeCode(srcType))
-                {
-                    case TypeCode.Char: return (char)val;
-                    case TypeCode.SByte: return (sbyte)val;
-                    case TypeCode.Byte: return (byte)val;
-                    case TypeCode.Int16: return (short)val;
-                    case TypeCode.UInt16: return (ushort)val;
-                    case TypeCode.Int32: return (int)val;
-                    case TypeCode.UInt32: return (uint)val;
-                    case TypeCode.Int64: return (long)val;
-                    case TypeCode.UInt64: return (ulong)val;
-                    case TypeCode.Single: return (float)val;
-                    case TypeCode.Double: return (double)val;
-                }
-            }
-            throw new InvalidCastException(srcType, typeof(double));
         }
     }
 
@@ -2144,44 +1657,6 @@ namespace AggroBird.Reflection
     }
 
     // Operators
-    internal class UnaryOperator : Expression
-    {
-        public UnaryOperator(Expression arg, UnaryOperatorFunction func)
-        {
-            this.arg = arg;
-            this.func = func;
-        }
-
-        public readonly Expression arg;
-        public readonly UnaryOperatorFunction func;
-
-        public override bool IsConstant => arg.IsConstant;
-
-
-        public override object Execute(ExecutionContext context) => func.Invoke(context, arg);
-        public override Type ResultType => func.ReturnType;
-    }
-
-    internal class InfixOperator : Expression
-    {
-        public InfixOperator(Expression lhs, Expression rhs, InfixOperatorFunction func)
-        {
-            this.lhs = lhs;
-            this.rhs = rhs;
-            this.func = func;
-        }
-
-        public readonly Expression lhs;
-        public readonly Expression rhs;
-        public readonly InfixOperatorFunction func;
-
-        public override bool IsConstant => lhs.IsConstant && rhs.IsConstant;
-
-
-        public override object Execute(ExecutionContext context) => func.Invoke(context, lhs, rhs);
-        public override Type ResultType => func.ReturnType;
-    }
-
     internal class LogicalAnd : Expression
     {
         public LogicalAnd(Expression lhs, Expression rhs)
