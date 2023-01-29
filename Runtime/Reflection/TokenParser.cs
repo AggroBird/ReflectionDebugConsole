@@ -12,7 +12,7 @@ namespace AggroBird.Reflection
         }
 
         public readonly ArrayView<Token> tokens;
-        protected int position = 0;
+        private int position = 0;
         public int Position => position;
         public Token CurrentToken => tokens[position];
 

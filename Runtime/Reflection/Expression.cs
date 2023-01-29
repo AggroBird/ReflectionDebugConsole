@@ -148,6 +148,7 @@ namespace AggroBird.Reflection
     {
         public abstract string Name { get; }
         public abstract Type[] GetGenericArguments();
+        public virtual int ParameterCount => 0;
     }
 
     internal class GenericMethod : Generic
@@ -161,6 +162,7 @@ namespace AggroBird.Reflection
 
         public override string Name => methodInfo.Name;
         public override Type[] GetGenericArguments() => methodInfo.GetGenericArguments();
+        public override int ParameterCount => methodInfo.GetParameters().Length;
     }
 
     internal class GenericType : Generic

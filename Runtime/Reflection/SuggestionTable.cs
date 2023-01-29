@@ -69,7 +69,7 @@ namespace AggroBird.Reflection
         }
     }
 
-    internal abstract class Suggestion
+    internal abstract class Suggestion : IComparable<Suggestion>
     {
         public Suggestion(IReadOnlyList<string> usingNamespaces)
         {
@@ -77,6 +77,23 @@ namespace AggroBird.Reflection
         }
 
         public abstract string Text { get; }
+        public virtual int GenericArgumentCount => 0;
+        public virtual int ParameterCount => 0;
+        public int CompareTo(Suggestion suggestion)
+        {
+            int textCompare = Text.CompareTo(suggestion.Text);
+            if (textCompare == 0)
+            {
+                int genericArgumentCompare = GenericArgumentCount.CompareTo(suggestion.GenericArgumentCount);
+                if (genericArgumentCompare == 0)
+                {
+                    return ParameterCount.CompareTo(suggestion.ParameterCount);
+                }
+                return genericArgumentCompare;
+            }
+            return textCompare;
+        }
+
         public abstract void BuildSuggestionString(StringBuilder output, bool isHighlighted);
 
         protected readonly IReadOnlyList<string> usingNamespaces;
@@ -328,6 +345,9 @@ namespace AggroBird.Reflection
 
 
         public override string Text => memberInfo.Name;
+        public override int GenericArgumentCount => (memberInfo is MethodBase method) ? method.GetGenericArguments().Length : 0;
+        public override int ParameterCount => (memberInfo is MethodBase method) ? method.GetParameters().Length : 0;
+
         public override void BuildSuggestionString(StringBuilder output, bool isHighlighted)
         {
             int len = isHighlighted ? int.MaxValue : highlightLength;
@@ -379,10 +399,10 @@ namespace AggroBird.Reflection
                 break;
                 case Type typeInfo:
                 {
-                    output.Append(GetPrefix(typeInfo));
-                    FormatTypeName(output, typeInfo, highlight: len);
+                    throw new NotImplementedException();
+                    //output.Append(GetPrefix(typeInfo));
+                    //FormatTypeName(output, typeInfo, highlight: len);
                 }
-                break;
                 default:
                 {
                     output.Append(Highlight(memberInfo.Name, len));
@@ -407,6 +427,9 @@ namespace AggroBird.Reflection
 
 
         public override string Text => overload.Name;
+        public override int GenericArgumentCount => overload.GetGenericArguments().Length;
+        public override int ParameterCount => overload.GetParameters().Length;
+
         public override void BuildSuggestionString(StringBuilder output, bool isHighlighted)
         {
             if (overload is ConstructorInfo constructor)
@@ -448,6 +471,9 @@ namespace AggroBird.Reflection
 
 
         public override string Text => name;
+        public override int GenericArgumentCount => generic.GetGenericArguments().Length;
+        public override int ParameterCount => generic.ParameterCount;
+
         public override void BuildSuggestionString(StringBuilder output, bool isHighlighted)
         {
             if (generic is GenericType genericType)
@@ -536,6 +562,8 @@ namespace AggroBird.Reflection
         private readonly string name;
 
         public override string Text => name;
+        public override int GenericArgumentCount => type.GetGenericArguments().Length;
+
         public override void BuildSuggestionString(StringBuilder output, bool isHighlighted)
         {
             int len = isHighlighted ? int.MaxValue : highlightLength;
@@ -654,7 +682,7 @@ namespace AggroBird.Reflection
                 if (result.Count > 0)
                 {
                     // Sort alphabetically (GetMembers result may not be sorted)
-                    result.Sort((lhs, rhs) => lhs.Text.CompareTo(rhs.Text));
+                    result.Sort();
                     return result.ToArray();
                 }
             }
@@ -722,7 +750,7 @@ namespace AggroBird.Reflection
                 if (suggestions.Count > 0)
                 {
                     List<Suggestion> result = new List<Suggestion>(suggestions.Values);
-                    result.Sort((lhs, rhs) => lhs.Text.CompareTo(rhs.Text));
+                    result.Sort();
                     return result.ToArray();
                 }
             }
@@ -763,7 +791,7 @@ namespace AggroBird.Reflection
 
             if (result.Count > 0)
             {
-                result.Sort((lhs, rhs) => lhs.Text.CompareTo(rhs.Text));
+                result.Sort();
                 return result.ToArray();
             }
 
@@ -800,7 +828,7 @@ namespace AggroBird.Reflection
 
             if (result.Count > 0)
             {
-                result.Sort((lhs, rhs) => lhs.Text.CompareTo(rhs.Text));
+                result.Sort();
                 return result.ToArray();
             }
 
@@ -842,7 +870,7 @@ namespace AggroBird.Reflection
 
             if (result.Count > 0)
             {
-                result.Sort((lhs, rhs) => lhs.Text.CompareTo(rhs.Text));
+                result.Sort();
                 return result.ToArray();
             }
 

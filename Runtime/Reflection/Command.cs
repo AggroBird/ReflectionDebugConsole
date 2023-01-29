@@ -389,9 +389,9 @@ namespace AggroBird.Reflection
                 {
                     return true;
                 }
-                else if (position > 0 && tokens[position - 1] == token)
+                else if (Position > 0 && tokens[Position - 1] == token)
                 {
-                    return tokens[position].str.Offset == cursorPosition;
+                    return tokens[Position].str.Offset == cursorPosition;
                 }
             }
             return false;
@@ -703,7 +703,18 @@ namespace AggroBird.Reflection
                     }
                 }
 
-                Token next = Consume(TokenType.Identifier);
+                Token next = Consume();
+                // Allow for keyword text to show up in suggestion table
+                bool isKeyword = next.Family == TokenFamily.Keyword;
+                if (next.type != TokenType.Identifier && !isKeyword)
+                {
+                    throw new UnexpectedTokenException(next);
+                }
+                else if (isKeyword)
+                {
+                    AddStyledToken(next.str, Style.Keyword);
+                }
+
                 {
                     string query = next.str.ToString();
                     if (lhs is Namespace ns)
@@ -712,6 +723,8 @@ namespace AggroBird.Reflection
                         {
                             SuggestionInfo = new IdentifierList(next.str, next.str.Offset, next.str.Length, ns.identifier, Array.Empty<VariableDeclaration>(), false);
                         }
+
+                        if (isKeyword) throw new UnexpectedTokenException(next);
 
                         if (ns.identifier.TryFindIdentifier(query, out Identifier identifier) && Identify(next, identifier, out Expression result))
                         {
@@ -724,6 +737,8 @@ namespace AggroBird.Reflection
                         {
                             SuggestionInfo = new MemberList(next.str, next.str.Offset, next.str.Length, typename.type, true);
                         }
+
+                        if (isKeyword) throw new UnexpectedTokenException(next);
 
                         MemberInfo[] members = Expression.FilterMembers(typename.type.GetMember(query, MakeStaticBindingFlags()));
                         if (members == null || members.Length == 0)
@@ -774,6 +789,8 @@ namespace AggroBird.Reflection
                             SuggestionInfo = new MemberList(next.str, next.str.Offset, next.str.Length, lhs.ResultType, false);
                         }
 
+                        if (isKeyword) throw new UnexpectedTokenException(next);
+
                         MemberInfo[] members = Expression.FilterMembers(lhs.ResultType.GetMember(query, MakeInstanceBindingFlags()));
                         if (lhs.ResultType == typeof(void)) throw new VoidTypeException();
                         if (members == null || members.Length == 0)
@@ -808,7 +825,8 @@ namespace AggroBird.Reflection
                             return new EventMember(lhs, eventInfo);
                         }
                     }
-                    throw new UnknownIdentifierException(next.str);
+
+                    throw new UnexpectedTokenException(next);
                 }
             }
             else
