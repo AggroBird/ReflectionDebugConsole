@@ -33,49 +33,59 @@ The settings can be accessed in the editor through Window > Analysis > Debug Con
 The console supports most basic C# syntax, including:
 
 Invoking methods (including variable number parameter):
-```
+```csharp
 UnityEngine.Debug.Log("Foo");
 ```
 By default, the command’s return value is displayed in the console (if not void).
 
 Getting and setting fields and properties:
-```
+```csharp
 UnityEngine.Time.timeScale = 2.0;
 ```
 This can only be done with top level commands. Assignment cannot be nested as it has no return value.
 
 Getting elements of an array:
-```
+```csharp
 UnityEngine.Object.FindObjectsOfType(typeof(Camera))[0].ToString();
 ```
 
 Constructing new objects:
-```
+```csharp
 Game.player.transform.position = UnityEngine.Vector3(1, 2, 3);
 ```
 
-Multiple commands can be chained together within one execution by separating them with a semicolon. For singular commands, the semicolon is optional.
-```
+Multiple commands can be chained together within one execution by separating them with a semicolon. For singular commands, the semicolon is optional:
+```csharp
 EditorApplication.isPlaying = true; EditorApplication.isPaused = true;
 ```
 
 The debug console try to pick the best matching overload when multiple are available, but not as strict as the C# language, so make sure to avoid ambiguity in debug commands.
 
-The environment supports all C# basetypes and build-in operators between them.
-```
+The environment supports all C# basetypes and build-in operators between them:
+```csharp
 UnityEngine.Debug.Log(5 + 5);
 ```
 
-Additionally, variables may be declared within the commands and referenced in subsequent commands.
-```
+Additionally, variables may be declared within the commands and referenced in subsequent commands:
+```csharp
 int val = 5; UnityEngine.Debug.Log(val);
 ```
 
-The environment supports very basic control-flow, including for-loops and if-statements.
-```
+The environment supports very basic control-flow, including for-loops and if-statements:
+```csharp
 if(UnityEngine.Application.platform == UnityEngine.RuntimePlatform.WindowsEditor) { UnityEngine.Debug.Log("Running on editor"); }
 
 for(int i = 0; i < 5; i++) { UnityEngine.Debug.Log(i); }
+```
+
+The environment supports basic generic types and methods:
+```csharp
+UnityEngine.Object.FindObjectOfType<UnityEngine.GameObject>().name
+```
+
+The environment supports type casting operators is and as:
+```csharp
+5 is int ? "Integer" : "Not an integer"
 ```
 
 ## Macros and Keybinds
