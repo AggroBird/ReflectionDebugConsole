@@ -44,7 +44,6 @@ Getting and setting fields and properties:
 ```csharp
 UnityEngine.Time.timeScale = 2.0;
 ```
-This can only be done with top level commands. Assignment cannot be nested as it has no return value.
 
 Getting elements of an array:
 ```csharp
@@ -61,7 +60,7 @@ Multiple commands can be chained together within one execution by separating the
 EditorApplication.isPlaying = true; EditorApplication.isPaused = true;
 ```
 
-The debug console try to pick the best matching overload when multiple are available, but not as strict as the C# language, so make sure to avoid ambiguity in debug commands.
+The debug console try to pick the best matching overload when multiple are available, but not as strict as the C# compiler, so make sure to avoid ambiguity in debug commands.
 
 The environment supports all C# basetypes and build-in operators between them:
 ```csharp
