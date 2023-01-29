@@ -611,7 +611,7 @@ namespace AggroBird.Reflection
 
                 if (info.IsIncrement)
                 {
-                    if (!rhs.Assignable)
+                    if (!rhs.IsAssignable)
                     {
                         throw new DebugConsoleException("The right-hand side of an increment or decrement must be an assignable variable");
                     }
@@ -637,7 +637,7 @@ namespace AggroBird.Reflection
             {
                 if (info.IsIncrement)
                 {
-                    if (!lhs.Assignable)
+                    if (!lhs.IsAssignable)
                     {
                         throw new DebugConsoleException("The left-hand side of an increment or decrement must be an assignable variable");
                     }
@@ -836,7 +836,7 @@ namespace AggroBird.Reflection
                     switch (token.type)
                     {
                         case TokenType.Assign:
-                            if (lhs.Assignable)
+                            if (lhs.IsAssignable)
                             {
                                 Expression.CheckImplicitConvertible(rhs, lhs.ResultType, out rhs);
                                 return new Assignment(lhs, rhs);
@@ -875,7 +875,7 @@ namespace AggroBird.Reflection
                                     }
                                 }
 
-                                if (!lhs.Assignable)
+                                if (!lhs.IsAssignable)
                                 {
                                     throw new DebugConsoleException("The left-hand side of an assignment must be an assignable variable");
                                 }

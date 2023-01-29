@@ -64,6 +64,11 @@ namespace AggroBird.Reflection
             if (obj == null) throw new NullResultException();
             return obj;
         }
+
+        public static bool IsAssignable(this FieldInfo fieldInfo)
+        {
+            return !fieldInfo.IsInitOnly && !fieldInfo.IsLiteral;
+        }
     }
 
     internal sealed class ArraySubscriptPropertyInfo : PropertyInfo
@@ -196,8 +201,8 @@ namespace AggroBird.Reflection
 
         public virtual bool IsConstant => false;
 
-        public virtual bool Assignable => false;
-        public virtual object SetValue(ExecutionContext context, object val, bool returnInitialValue) => throw new DebugConsoleException("Expression is read only");
+        public virtual bool IsAssignable => false;
+        public virtual object Assign(ExecutionContext context, object val, bool returnInitialValue = false) => throw new DebugConsoleException("Expression is read only");
 
 
         static Expression()
@@ -1095,6 +1100,44 @@ namespace AggroBird.Reflection
         public override Type ResultType => typeof(object);
     }
 
+    internal struct ModifyScope : IDisposable
+    {
+        public ModifyScope(Expression expr, ExecutionContext context)
+        {
+            this.expr = expr;
+            this.context = context;
+            val = null;
+        }
+
+        private readonly Expression expr;
+        private readonly ExecutionContext context;
+        private object val;
+
+        public void Dispose()
+        {
+            if (expr is FieldMember fieldMember)
+            {
+                if (fieldMember.IsFieldOfValueType && fieldMember.IsAssignable)
+                {
+                    fieldMember.Assign(context, val);
+                }
+            }
+            else if (expr is Subscript subscript)
+            {
+                if (subscript.property.DeclaringType.IsArray && subscript.property.DeclaringType.GetElementType().IsValueType)
+                {
+                    subscript.Assign(context, val);
+                }
+            }
+        }
+
+        public object SafeExecute()
+        {
+            val = expr.SafeExecute(context);
+            return val;
+        }
+    }
+
     // Fields
     internal class FieldMember : Expression
     {
@@ -1102,32 +1145,32 @@ namespace AggroBird.Reflection
         {
             this.lhs = lhs;
             fields.Add(fieldInfo);
-            isAssignable = IsAssignable(fieldInfo);
+            isAssignable = fieldInfo.IsAssignable();
         }
         public FieldMember(FieldInfo fieldInfo)
         {
             fields.Add(fieldInfo);
-            isAssignable = IsAssignable(fieldInfo);
+            isAssignable = fieldInfo.IsAssignable();
         }
 
         public readonly Expression lhs;
         private readonly List<FieldInfo> fields = new List<FieldInfo>();
-        private FieldInfo TargetField => fields.Last();
+        public FieldInfo TargetField => fields.Last();
 
         private bool isAssignable;
 
-        private static bool IsAssignable(FieldInfo fieldInfo)
+        public void AddField(FieldInfo fieldInfo)
         {
-            return !fieldInfo.IsInitOnly && !fieldInfo.IsLiteral;
-        }
-
-        public void AddField(FieldInfo field)
-        {
-            fields.Add(field);
-            isAssignable &= IsAssignable(field);
+            fields.Add(fieldInfo);
+            isAssignable &= fieldInfo.IsAssignable();
         }
 
         public override bool IsConstant => TargetField.IsLiteral;
+
+        // Indicates whether this is a field of a value type.
+        // Reflection does not provide references to those, so we will have to 
+        // write back the value after modificiation.
+        public bool IsFieldOfValueType => fields.Count > 1 && fields.Last().DeclaringType.IsValueType;
 
 
         public override object Execute(ExecutionContext context)
@@ -1142,48 +1185,55 @@ namespace AggroBird.Reflection
         }
         public override Type ResultType => TargetField.FieldType;
 
-        public override bool Assignable => isAssignable;
-        public override object SetValue(ExecutionContext context, object val, bool returnInitialValue)
+        public override bool IsAssignable => isAssignable;
+        public override object Assign(ExecutionContext context, object val, bool returnInitialValue = false)
         {
-            object root = lhs.SafeExecute(context);
-
-            // Build a list of all objects
-            object current = root;
-            List<object> objects = new List<object>();
-            for (int i = 0; i < fields.Count - 1; i++)
+            using (ModifyScope scope = new ModifyScope(lhs, context))
             {
-                FieldInfo field = fields[i];
-                if (!field.IsStatic && current == null) throw new NullResultException();
-                objects.Add(current);
-                current = field.GetValue(current);
-            }
-
-            // Set final field
-            FieldInfo target = fields.Last();
-            if (!target.IsStatic && current == null) throw new NullResultException();
-            object result = returnInitialValue ? target.GetValue(current) : null;
-            target.SetValue(current, val);
-
-            // Write values back (in case any of them were valuetypes)
-            for (int i = fields.Count - 2; i >= 0; i--)
-            {
-                fields[i].SetValue(objects[i], current);
-                current = objects[i];
-            }
-
-            if (returnInitialValue)
-            {
-                return result;
-            }
-            else
-            {
-                // Return the current value
-                current = root;
-                for (int i = 0; i < fields.Count; i++)
+                object root = scope.SafeExecute();
+                if (IsFieldOfValueType)
                 {
-                    current = fields[i].GetValue(current);
+                    // If this is a field of a valuetype, we must write back the values
+                    object current = root;
+                    List<object> objects = new List<object>();
+                    for (int i = 0; i < fields.Count - 1; i++)
+                    {
+                        FieldInfo field = fields[i];
+                        if (!field.IsStatic && current == null) throw new NullResultException();
+                        objects.Add(current);
+                        current = field.GetValue(current);
+                    }
+
+                    FieldInfo target = fields.Last();
+                    if (!target.IsStatic && current == null) throw new NullResultException();
+                    object result = returnInitialValue ? target.GetValue(current) : val;
+                    target.SetValue(current, val);
+
+                    for (int i = fields.Count - 2; i >= 0; i--)
+                    {
+                        fields[i].SetValue(objects[i], current);
+                        current = objects[i];
+                    }
+
+                    return result;
                 }
-                return current;
+                else
+                {
+                    object current = root;
+                    for (int i = 0; i < fields.Count - 1; i++)
+                    {
+                        FieldInfo field = fields[i];
+                        if (!field.IsStatic && current == null) throw new NullResultException();
+                        current = field.GetValue(current);
+                    }
+
+                    FieldInfo target = fields.Last();
+                    if (!target.IsStatic && current == null) throw new NullResultException();
+                    object result = returnInitialValue ? target.GetValue(current) : val;
+                    target.SetValue(current, val);
+
+                    return result;
+                }
             }
         }
     }
@@ -1207,25 +1257,31 @@ namespace AggroBird.Reflection
 
         public override object Execute(ExecutionContext context)
         {
-            if (!propertyInfo.CanRead) throw new DebugConsoleException($"Property '{propertyInfo}' is not readable");
-            return propertyInfo.GetValue(lhs.SafeExecute(context));
+            using (ModifyScope scope = new ModifyScope(lhs, context))
+            {
+                if (!propertyInfo.CanRead) throw new DebugConsoleException($"Property '{propertyInfo}' is not readable");
+                return propertyInfo.GetValue(scope.SafeExecute());
+            }
         }
         public override Type ResultType => propertyInfo.PropertyType;
 
-        public override bool Assignable => propertyInfo.CanWrite;
-        public override object SetValue(ExecutionContext context, object val, bool returnInitialValue)
+        public override bool IsAssignable => propertyInfo.CanWrite;
+        public override object Assign(ExecutionContext context, object val, bool returnInitialValue = false)
         {
-            object obj = lhs.SafeExecute(context);
-            if (returnInitialValue)
+            using (ModifyScope scope = new ModifyScope(lhs, context))
             {
-                object result = propertyInfo.GetValue(obj);
-                propertyInfo.SetValue(obj, val);
-                return result;
-            }
-            else
-            {
-                propertyInfo.SetValue(obj, val);
-                return propertyInfo.GetValue(obj);
+                object obj = scope.SafeExecute();
+                if (returnInitialValue)
+                {
+                    object result = propertyInfo.GetValue(obj);
+                    propertyInfo.SetValue(obj, val);
+                    return result;
+                }
+                else
+                {
+                    propertyInfo.SetValue(obj, val);
+                    return val;
+                }
             }
         }
     }
@@ -1257,11 +1313,17 @@ namespace AggroBird.Reflection
 
         public void AddEventHandler(ExecutionContext context, Delegate handler)
         {
-            eventInfo.AddEventHandler(lhs.SafeExecute(context), handler);
+            using (ModifyScope scope = new ModifyScope(lhs, context))
+            {
+                eventInfo.AddEventHandler(scope.SafeExecute(), handler);
+            }
         }
         public void RemoveEventHandler(ExecutionContext context, Delegate handler)
         {
-            eventInfo.RemoveEventHandler(lhs.SafeExecute(context), handler);
+            using (ModifyScope scope = new ModifyScope(lhs, context))
+            {
+                eventInfo.RemoveEventHandler(scope.SafeExecute(), handler);
+            }
         }
 
         public override object Execute(ExecutionContext context)
@@ -1316,9 +1378,11 @@ namespace AggroBird.Reflection
 
         public override object Execute(ExecutionContext context)
         {
-            object result = InvokeMethod(context, method, lhs.SafeExecute(context), args);
-            if (method.ReturnType == typeof(void)) return VoidResult.Empty;
-            return result;
+            using (ModifyScope scope = new ModifyScope(lhs, context))
+            {
+                object result = InvokeMethod(context, method, scope.SafeExecute(), args);
+                return method.ReturnType == typeof(void) ? VoidResult.Empty : result;
+            }
         }
         public override Type ResultType => method.ReturnType;
     }
@@ -1361,24 +1425,30 @@ namespace AggroBird.Reflection
 
         public override object Execute(ExecutionContext context)
         {
-            return InvokeMethod(context, property.GetMethod, lhs.SafeExecute(context), args);
+            using (ModifyScope scope = new ModifyScope(lhs, context))
+            {
+                return InvokeMethod(context, property.GetMethod, scope.SafeExecute(), args);
+            }
         }
         public override Type ResultType => property.PropertyType;
 
-        public override bool Assignable => property.CanWrite;
-        public override object SetValue(ExecutionContext context, object val, bool returnInitialValue)
+        public override bool IsAssignable => property.CanWrite;
+        public override object Assign(ExecutionContext context, object val, bool returnInitialValue = false)
         {
-            object obj = lhs.SafeExecute(context);
-            if (returnInitialValue)
+            using (ModifyScope scope = new ModifyScope(lhs, context))
             {
-                object result = InvokeMethod(context, property.GetMethod, obj, args);
-                property.SetValue(obj, val, ExpressionUtility.Forward<object>(context, args));
-                return result;
-            }
-            else
-            {
-                property.SetValue(obj, val, ExpressionUtility.Forward<object>(context, args));
-                return InvokeMethod(context, property.GetMethod, obj, args);
+                object obj = scope.SafeExecute();
+                if (returnInitialValue)
+                {
+                    object result = InvokeMethod(context, property.GetMethod, obj, args);
+                    property.SetValue(obj, val, ExpressionUtility.Forward<object>(context, args));
+                    return result;
+                }
+                else
+                {
+                    property.SetValue(obj, val, ExpressionUtility.Forward<object>(context, args));
+                    return val;
+                }
             }
         }
     }
@@ -1674,7 +1744,7 @@ namespace AggroBird.Reflection
 
         public override object Execute(ExecutionContext context)
         {
-            return lhs.SetValue(context, rhs.Execute(context), returnInitialValue);
+            return lhs.Assign(context, rhs.Execute(context), returnInitialValue);
         }
         public override Type ResultType => lhs.ResultType;
     }
@@ -1692,7 +1762,7 @@ namespace AggroBird.Reflection
 
         public override object Execute(ExecutionContext context)
         {
-            return lhs.SetValue(context, Delegate.Combine(lhs.Execute(context) as Delegate, rhs.Execute(context) as Delegate), false);
+            return lhs.Assign(context, Delegate.Combine(lhs.Execute(context) as Delegate, rhs.Execute(context) as Delegate));
         }
         public override Type ResultType => lhs.ResultType;
     }
@@ -1710,7 +1780,7 @@ namespace AggroBird.Reflection
 
         public override object Execute(ExecutionContext context)
         {
-            return lhs.SetValue(context, Delegate.Remove(lhs.Execute(context) as Delegate, rhs.Execute(context) as Delegate), false);
+            return lhs.Assign(context, Delegate.Remove(lhs.Execute(context) as Delegate, rhs.Execute(context) as Delegate));
         }
         public override Type ResultType => lhs.ResultType;
     }
@@ -2154,8 +2224,8 @@ namespace AggroBird.Reflection
         }
         public override Type ResultType => type;
 
-        public override bool Assignable => true;
-        public override object SetValue(ExecutionContext context, object val, bool returnInitialValue)
+        public override bool IsAssignable => true;
+        public override object Assign(ExecutionContext context, object val, bool returnInitialValue = false)
         {
             if (returnInitialValue)
             {
@@ -2166,7 +2236,7 @@ namespace AggroBird.Reflection
             else
             {
                 Value = val;
-                return Value;
+                return val;
             }
         }
     }
