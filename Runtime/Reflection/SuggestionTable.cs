@@ -186,7 +186,15 @@ namespace AggroBird.Reflection
             return $"{Styles.Open(Style.Keyword)}{result}{Styles.Close}";
         }
 
-        protected void FormatTypeName(StringBuilder output, Type type, bool includeNamespace = true, bool includeGenericArguments = true, int highlight = 0)
+        protected enum TypeNameFlags
+        {
+            None = 0,
+            Namespace = 1,
+            DeclaringType = 2,
+            GenericArguments = 4,
+            All = 255,
+        }
+        protected void FormatTypeName(StringBuilder output, Type type, TypeNameFlags flags = TypeNameFlags.All, int highlight = 0)
         {
             if (type.IsGenericParameter)
             {
@@ -214,7 +222,8 @@ namespace AggroBird.Reflection
                 return;
             }
 
-            if (includeNamespace)
+            // Namespace
+            if ((flags & TypeNameFlags.Namespace) != TypeNameFlags.None)
             {
                 string typeNamespace = type.Namespace;
                 if (!string.IsNullOrEmpty(typeNamespace))
@@ -253,6 +262,17 @@ namespace AggroBird.Reflection
                 }
             }
 
+            // Declaring type
+            if ((flags & TypeNameFlags.DeclaringType) != TypeNameFlags.None)
+            {
+                Type declaringType = type.DeclaringType;
+                if (declaringType != null)
+                {
+                    FormatTypeName(output, declaringType, ~TypeNameFlags.Namespace);
+                    output.Append('.');
+                }
+            }
+
             string typeName = type.Name;
 
             // Split generic
@@ -271,7 +291,7 @@ namespace AggroBird.Reflection
 
             output.Append(Highlight(typeName, highlight, Styles.GetTypeColor(type)));
 
-            if (includeGenericArguments && type.IsGenericType)
+            if ((flags & TypeNameFlags.GenericArguments) != TypeNameFlags.None && type.IsGenericType)
             {
                 Type[] genericArgs = type.GetGenericArguments();
                 int parentArgumentCount = type.DeclaringType == null ? 0 : type.DeclaringType.GetGenericArguments().Length;
@@ -449,7 +469,7 @@ namespace AggroBird.Reflection
         {
             if (overload is ConstructorInfo constructor)
             {
-                FormatTypeName(output, constructor.DeclaringType, includeNamespace: false);
+                FormatTypeName(output, constructor.DeclaringType, TypeNameFlags.GenericArguments);
             }
             else if (overload is MethodInfo method)
             {
@@ -594,7 +614,7 @@ namespace AggroBird.Reflection
         {
             int len = isHighlighted ? int.MaxValue : highlightLength;
             output.Append(GetPrefix(type));
-            FormatTypeName(output, type, includeNamespace: false, highlight: len);
+            FormatTypeName(output, type, TypeNameFlags.GenericArguments, highlight: len);
         }
     }
 
