@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace AggroBird.DebugConsole
+namespace AggroBird.ReflectionDebugConsole
 {
     [Serializable]
     internal sealed class ListObject<T>

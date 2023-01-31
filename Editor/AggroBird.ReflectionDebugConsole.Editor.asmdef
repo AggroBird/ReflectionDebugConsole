@@ -1,6 +1,6 @@
 {
-    "name": "AggroBird.DebugConsole.Editor",
-    "rootNamespace": "AggroBird.DebugConsole.Editor",
+    "name": "AggroBird.ReflectionDebugConsole.Editor",
+    "rootNamespace": "AggroBird.ReflectionDebugConsole.Editor",
     "references": [
         "GUID:91bad8fd29d8943418494004d9789b84"
     ],

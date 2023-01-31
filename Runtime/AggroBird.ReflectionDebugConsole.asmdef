@@ -1,6 +1,6 @@
 {
-    "name": "AggroBird.DebugConsole",
-    "rootNamespace": "AggroBird.DebugConsole",
+    "name": "AggroBird.ReflectionDebugConsole",
+    "rootNamespace": "AggroBird.ReflectionDebugConsole",
     "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],

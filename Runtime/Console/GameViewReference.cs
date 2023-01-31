@@ -6,7 +6,7 @@ using System;
 using System.Reflection;
 using UnityEngine;
 
-namespace AggroBird.DebugConsole
+namespace AggroBird.ReflectionDebugConsole
 {
     internal sealed class GameViewReference
     {

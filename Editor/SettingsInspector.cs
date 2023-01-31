@@ -6,7 +6,7 @@ using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 
-namespace AggroBird.DebugConsole.Editor
+namespace AggroBird.ReflectionDebugConsole.Editor
 {
     [CustomPropertyDrawer(typeof(KeyBind))]
     internal sealed class KeyBindPropertyDrawer : PropertyDrawer

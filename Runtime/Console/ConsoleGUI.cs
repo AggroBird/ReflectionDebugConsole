@@ -9,7 +9,7 @@ using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
 
-namespace AggroBird.DebugConsole
+namespace AggroBird.ReflectionDebugConsole
 {
     internal sealed class ConsoleGUI
     {

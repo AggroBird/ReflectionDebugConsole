@@ -5,7 +5,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
 
-namespace AggroBird.DebugConsole
+namespace AggroBird.ReflectionDebugConsole
 {
     [Serializable]
     internal sealed class AssemblyTable

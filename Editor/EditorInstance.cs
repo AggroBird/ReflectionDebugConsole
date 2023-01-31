@@ -3,7 +3,7 @@
 using UnityEditor;
 using UnityEngine;
 
-namespace AggroBird.DebugConsole.Editor
+namespace AggroBird.ReflectionDebugConsole.Editor
 {
     internal sealed class EditorInstance : EditorWindow
     {

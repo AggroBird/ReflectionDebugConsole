@@ -12,7 +12,7 @@ using System.Text;
 using System.Threading;
 using UnityEngine;
 
-namespace AggroBird.DebugConsole
+namespace AggroBird.ReflectionDebugConsole
 {
     internal sealed class ThreadLock : IDisposable
     {

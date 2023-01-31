@@ -14,9 +14,9 @@ using System;
 using System.Runtime.CompilerServices;
 using UnityEngine;
 
-[assembly: InternalsVisibleTo("AggroBird.DebugConsole.Editor")]
+[assembly: InternalsVisibleTo("AggroBird.ReflectionDebugConsole.Editor")]
 
-namespace AggroBird.DebugConsole
+namespace AggroBird.ReflectionDebugConsole
 {
     public static class DebugConsole
     {
