@@ -947,6 +947,8 @@ namespace AggroBird.Reflection
                 if (optimal.Length == 0) throw new DebugConsoleException($"No compatible overload found for method '{methodOverload.methodName}'");
                 if (optimal.Length != 1) throw new DebugConsoleException($"Ambiguous overloads for method '{methodOverload.methodName}'");
 
+                args = Expression.ConvertArguments(optimal[0].GetParameters(), args);
+
                 return new MethodMember(methodOverload.lhs, optimal[0], args);
             }
             else if (lhs is Typename typename)
@@ -965,6 +967,8 @@ namespace AggroBird.Reflection
                 if (optimal.Length == 0) throw new DebugConsoleException($"No compatible constructor found for type '{typename.type}'");
                 if (optimal.Length != 1) throw new DebugConsoleException($"Ambiguous constructors for type '{typename.type}'");
 
+                args = Expression.ConvertArguments(optimal[0].GetParameters(), args);
+
                 return new Constructor(typename.type, optimal[0], args);
             }
             else if (lhs.ResultType.IsSubclassOf(typeof(Delegate)))
@@ -976,6 +980,8 @@ namespace AggroBird.Reflection
                 MethodInfo[] optimal = Expression.GetOptimalOverloads(overloads, args);
 
                 if (optimal.Length == 0) throw new DebugConsoleException($"Arguments are not compatible with delegate '{lhs.ResultType}'");
+
+                args = Expression.ConvertArguments(optimal[0].GetParameters(), args);
 
                 return new DelegateInvoke(lhs, overloads[0], args);
             }
@@ -1078,6 +1084,8 @@ namespace AggroBird.Reflection
 
                 if (optimal.Length == 0) throw new DebugConsoleException($"No compatible subscript operator found for type '{lhs.ResultType}'");
                 if (optimal.Length != 1) throw new DebugConsoleException($"Ambiguous subscript operator for type '{lhs.ResultType}'");
+
+                args = Expression.ConvertArguments(optimal[0].GetIndexParameters(), args);
 
                 return new Subscript(lhs, args, optimal[0]);
             }

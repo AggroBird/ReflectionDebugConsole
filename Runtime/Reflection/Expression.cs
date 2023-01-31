@@ -321,7 +321,7 @@ namespace AggroBird.Reflection
                 List<T> compatible = new List<T>();
                 for (int i = 0; i < overloads.Count; i++)
                 {
-                    if (IsCompatibleOverload(overloads[i], args))
+                    if (IsCompatibleOverload(overloads[i].GetParameters(), args))
                     {
                         compatible.Add(overloads[i]);
                     }
@@ -358,7 +358,7 @@ namespace AggroBird.Reflection
                 List<PropertyInfo> compatible = new List<PropertyInfo>();
                 for (int i = 0; i < overloads.Count; i++)
                 {
-                    if (IsCompatibleOverload(overloads[i].GetMethod, args))
+                    if (IsCompatibleOverload(overloads[i].GetIndexParameters(), args))
                     {
                         compatible.Add(overloads[i]);
                     }
@@ -922,51 +922,49 @@ namespace AggroBird.Reflection
             }
             return false;
         }
-        public static bool IsCompatibleOverload(MethodBase method, IReadOnlyList<Expression> args, bool matchParameterCount = true)
-        {
-            return IsCompatibleOverload(method.GetParameters(), args, matchParameterCount);
-        }
 
-        public static object InvokeMethod(ExecutionContext context, MethodInfo method, object target, Expression[] args)
+        public static Expression[] ConvertArguments(ParameterInfo[] parameters, IReadOnlyList<Expression> args)
         {
-            ParameterInfo[] param = method.GetParameters();
-            if (param.Length == 0)
+            if (parameters.Length == 0)
             {
-                return method.Invoke(target, Array.Empty<object>());
+                return Array.Empty<Expression>();
             }
             else
             {
-                int actualParamCount = param.Length;
-                int actualArgCount = args.Length;
+                int actualParamCount = parameters.Length;
+                int actualArgCount = args.Count;
 
-                object[] converted = new object[actualParamCount];
+                Expression[] converted = new Expression[actualParamCount];
 
                 int lastParamIndex = actualParamCount - 1;
-                ParameterInfo lastParam = param[lastParamIndex];
+                ParameterInfo lastParam = parameters[lastParamIndex];
                 if (lastParam.HasCustomAttribute<ParamArrayAttribute>(true))
                 {
                     Type paramType = lastParam.ParameterType.GetElementType();
-                    int optionalArgCount = args.Length - lastParamIndex;
+                    int optionalArgCount = args.Count - lastParamIndex;
                     if (optionalArgCount < 0) optionalArgCount = 0;
-                    Array optionalArray = Activator.CreateInstance(lastParam.ParameterType, optionalArgCount) as Array;
+                    Array optionalArray = Array.CreateInstance(paramType, optionalArgCount);
                     for (int i = 0; i < optionalArgCount; i++)
                     {
-                        optionalArray.SetValue(args[lastParamIndex + i].Forward(context, paramType), i);
+                        IsImplicitConvertable(args[lastParamIndex + i], paramType, out Expression result);
+                        optionalArray.SetValue(result, i);
                     }
                     actualArgCount -= optionalArgCount;
-                    converted[lastParamIndex] = optionalArray;
+                    converted[lastParamIndex] = new BoxedObject(optionalArray);
                     actualParamCount--;
                 }
 
                 for (int i = 0; i < actualArgCount; i++)
                 {
-                    converted[i] = args[i].Forward(context, param[i].ParameterType);
+                    IsImplicitConvertable(args[i], parameters[i].ParameterType, out Expression result);
+                    converted[i] = result;
                 }
                 for (int i = actualArgCount; i < actualParamCount; i++)
                 {
-                    converted[i] = param[i].DefaultValue;
+                    converted[i] = new BoxedObject(parameters[i].DefaultValue);
                 }
-                return method.Invoke(target, converted);
+
+                return converted;
             }
         }
 
@@ -1397,7 +1395,7 @@ namespace AggroBird.Reflection
         {
             using (ModifyScope scope = new ModifyScope(lhs, context))
             {
-                object result = InvokeMethod(context, method, scope.SafeExecute(), args);
+                object result = method.Invoke(lhs.SafeExecute(context), ExpressionUtility.Forward<object>(context, args));
                 return method.ReturnType == typeof(void) ? VoidResult.Empty : result;
             }
         }
@@ -1444,7 +1442,7 @@ namespace AggroBird.Reflection
         {
             using (ModifyScope scope = new ModifyScope(lhs, context))
             {
-                return InvokeMethod(context, property.GetMethod, scope.SafeExecute(), args);
+                return property.GetValue(scope.SafeExecute(), ExpressionUtility.Forward<object>(context, args));
             }
         }
         public override Type ResultType => property.PropertyType;
@@ -1455,15 +1453,16 @@ namespace AggroBird.Reflection
             using (ModifyScope scope = new ModifyScope(lhs, context))
             {
                 object obj = scope.SafeExecute();
+                object[] indices = ExpressionUtility.Forward<object>(context, args);
                 if (returnInitialValue)
                 {
-                    object result = InvokeMethod(context, property.GetMethod, obj, args);
-                    property.SetValue(obj, val, ExpressionUtility.Forward<object>(context, args));
+                    object result = property.GetValue(obj, indices);
+                    property.SetValue(obj, val, indices);
                     return result;
                 }
                 else
                 {
-                    property.SetValue(obj, val, ExpressionUtility.Forward<object>(context, args));
+                    property.SetValue(obj, val, indices);
                     return val;
                 }
             }
@@ -1817,7 +1816,7 @@ namespace AggroBird.Reflection
 
         public override object Execute(ExecutionContext context)
         {
-            object result = InvokeMethod(context, invoke, lhs.SafeExecute(context), args);
+            object result = invoke.Invoke(lhs.SafeExecute(context), ExpressionUtility.Forward<object>(context, args));
             if (invoke.ReturnType == typeof(void)) return VoidResult.Empty;
             return result;
         }

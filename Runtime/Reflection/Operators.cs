@@ -993,7 +993,7 @@ namespace AggroBird.Reflection
 
                 foreach (MemberInfo member in arg.ResultType.GetMember(info.unaryOperatorName, MemberTypes.Method, BindingFlags.Public | BindingFlags.Static))
                 {
-                    if (member is MethodInfo method && Expression.IsCompatibleOverload(method, args))
+                    if (member is MethodInfo method && Expression.IsCompatibleOverload(method.GetParameters(), args))
                     {
                         overloads.Add(method);
                     }
@@ -1022,7 +1022,7 @@ namespace AggroBird.Reflection
 
                 foreach (MemberInfo member in lhs.ResultType.GetMember(info.infixOperatorName, MemberTypes.Method, BindingFlags.Public | BindingFlags.Static))
                 {
-                    if (member is MethodInfo method && Expression.IsCompatibleOverload(method, args))
+                    if (member is MethodInfo method && Expression.IsCompatibleOverload(method.GetParameters(), args))
                     {
                         overloads.Add(method);
                     }
@@ -1033,7 +1033,7 @@ namespace AggroBird.Reflection
                 {
                     foreach (MemberInfo member in rhs.ResultType.GetMember(info.infixOperatorName, MemberTypes.Method, BindingFlags.Public | BindingFlags.Static))
                     {
-                        if (member is MethodInfo method && Expression.IsCompatibleOverload(method, args))
+                        if (member is MethodInfo method && Expression.IsCompatibleOverload(method.GetParameters(), args))
                         {
                             overloads.Add(method);
                         }
