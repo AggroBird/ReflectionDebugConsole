@@ -503,7 +503,7 @@ namespace AggroBird.Reflection
                 if (compatible.Count > 1) throw new DebugConsoleException($"Identifier '{token}' is ambiguous between types '{compatible[0]}' and '{compatible[1]}'");
             }
 
-            result = compatible[0].IsGenericTypeDefinition ? new GenericTypename(compatible[0]) : new Typename(compatible[0]);
+            result = compatible[0].IsGenericTypeDefinition ? (Expression)new GenericTypename(compatible[0]) : (Expression)new Typename(compatible[0]);
             return true;
         }
         private bool Identify(Token token, Identifier identifier, out Expression result)
@@ -1020,7 +1020,7 @@ namespace AggroBird.Reflection
                         ParseArrayInitializer(initializer, typename.type);
 
                         int[] lengths = new int[rank];
-                        Array.Fill(lengths, -1);
+                        for(int i = 0; i < rank; i++) lengths[i] = -1;
 
                         initializer.ValidateInitializerLength(lengths);
 
