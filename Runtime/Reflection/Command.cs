@@ -527,7 +527,7 @@ namespace AggroBird.Reflection
                 List<GenericMethod> generics = new List<GenericMethod>();
                 for (int i = 0; i < members.Length; i++)
                 {
-                    if (members[i] is not MethodInfo method)
+                    if (!(members[i] is MethodInfo method))
                     {
                         throw new DebugConsoleException($"Ambigious member '{methodName}' for type '{members[i].DeclaringType}'");
                     }
@@ -557,7 +557,7 @@ namespace AggroBird.Reflection
             {
                 for (int i = 0; i < members.Length; i++)
                 {
-                    if (members[i] is not MethodInfo method)
+                    if (!(members[i] is MethodInfo method))
                     {
                         throw new DebugConsoleException($"Ambigious member '{methodName}' for type '{members[i].DeclaringType}'");
                     }
@@ -1595,7 +1595,7 @@ namespace AggroBird.Reflection
             while (true)
             {
                 Expression arg = ParseNext();
-                if (arg is not Typename typename)
+                if (!(arg is Typename typename))
                 {
                     throw new DebugConsoleException("Type expected for generic parameter");
                 }
