@@ -894,19 +894,28 @@ namespace AggroBird.Reflection
                 ParameterInfo lastParam = parameters[lastParamIndex];
                 if (lastParam.HasCustomAttribute<ParamArrayAttribute>(true))
                 {
-                    if (actualArgCount >= actualParamCount)
+                    Type arrayType = lastParam.ParameterType;
+                    // Ensure we are not denying an actual array as a params arguments
+                    if (actualArgCount == actualParamCount && IsImplicitConvertable(args[lastParamIndex], arrayType, out _))
                     {
-                        Type paramType = lastParam.ParameterType.GetElementType();
-                        int optionalArgCount = args.Count - lastParamIndex;
-                        for (int i = 0; i < optionalArgCount; i++)
+                        actualArgCount--;
+                    }
+                    else
+                    {
+                        if (actualArgCount >= actualParamCount)
                         {
-                            var expr = args[lastParamIndex + i];
-                            if (!IsImplicitConvertable(expr, paramType, out _))
+                            Type paramType = arrayType.GetElementType();
+                            int optionalArgCount = args.Count - lastParamIndex;
+                            for (int i = 0; i < optionalArgCount; i++)
                             {
-                                return false;
+                                var expr = args[lastParamIndex + i];
+                                if (!IsImplicitConvertable(expr, paramType, out _))
+                                {
+                                    return false;
+                                }
                             }
+                            actualArgCount -= optionalArgCount;
                         }
-                        actualArgCount -= optionalArgCount;
                     }
                     actualParamCount--;
                 }
@@ -940,24 +949,31 @@ namespace AggroBird.Reflection
                 ParameterInfo lastParam = parameters[lastParamIndex];
                 if (lastParam.HasCustomAttribute<ParamArrayAttribute>(true))
                 {
-                    Type paramType = lastParam.ParameterType.GetElementType();
-                    int optionalArgCount = args.Count - lastParamIndex;
-                    if (optionalArgCount < 0) optionalArgCount = 0;
-                    Array optionalArray = Array.CreateInstance(paramType, optionalArgCount);
-                    for (int i = 0; i < optionalArgCount; i++)
+                    Type arrayType = lastParam.ParameterType;
+                    if (actualArgCount == actualParamCount && IsImplicitConvertable(args[lastParamIndex], arrayType, out Expression arrayCast))
                     {
-                        IsImplicitConvertable(args[lastParamIndex + i], paramType, out Expression result);
-                        optionalArray.SetValue(result, i);
+                        converted[lastParamIndex] = arrayCast;
+                        actualArgCount--;
                     }
-                    actualArgCount -= optionalArgCount;
-                    converted[lastParamIndex] = new BoxedObject(optionalArray);
+                    else
+                    {
+                        Type paramType = arrayType.GetElementType();
+                        int optionalArgCount = args.Count - lastParamIndex;
+                        if (optionalArgCount < 0) optionalArgCount = 0;
+                        Expression[] optionalArray = new Expression[optionalArgCount];
+                        for (int i = 0; i < optionalArgCount; i++)
+                        {
+                            IsImplicitConvertable(args[lastParamIndex + i], paramType, out optionalArray[i]);
+                        }
+                        actualArgCount -= optionalArgCount;
+                        converted[lastParamIndex] = new ExpressionParameterPack(optionalArray, arrayType);
+                    }
                     actualParamCount--;
                 }
 
                 for (int i = 0; i < actualArgCount; i++)
                 {
-                    IsImplicitConvertable(args[i], parameters[i].ParameterType, out Expression result);
-                    converted[i] = result;
+                    IsImplicitConvertable(args[i], parameters[i].ParameterType, out converted[i]);
                 }
                 for (int i = actualArgCount; i < actualParamCount; i++)
                 {
@@ -1015,6 +1031,29 @@ namespace AggroBird.Reflection
                 return "struct ";
             else
                 return string.Empty;
+        }
+    }
+
+    internal class ExpressionParameterPack : Expression
+    {
+        public ExpressionParameterPack(Expression[] args, Type arrayType)
+        {
+            this.args = args;
+            this.arrayType = arrayType;
+        }
+
+        public readonly Expression[] args;
+        public readonly Type arrayType;
+
+        public override Type ResultType => arrayType;
+        public override object Execute(ExecutionContext context)
+        {
+            Array result = Array.CreateInstance(arrayType.GetElementType(), args.Length);
+            for (int i = 0; i < result.Length; i++)
+            {
+                result.SetValue(args[i].Execute(context), i);
+            }
+            return result;
         }
     }
 
