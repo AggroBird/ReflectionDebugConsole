@@ -1,25 +1,20 @@
 // Copyright, AggrobirdGK
 
 #if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
-
 using AggroBird.Reflection;
 using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
+#endif
+
 using UnityEngine;
 
 namespace AggroBird.ReflectionDebugConsole
 {
     public sealed class DebugConsoleGUI
     {
-        private const int CaptureFrameCount = 2;
-        private const string ScanningAssembliesText = "Scanning assemblies...";
-
-        private static readonly Color32 foregroundColor = new Color32(255, 255, 255, 255);
-        private static readonly Color32 backgroundColor = new Color32(30, 30, 30, 255);
-
-
+#if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
         public DebugConsoleGUI()
         {
             isDocked = true;
@@ -31,10 +26,35 @@ namespace AggroBird.ReflectionDebugConsole
             if (isDocked) Open();
         }
 
-        internal readonly bool isDocked;
+        public void Open()
+        {
+            if (!IsOpen)
+            {
+                IsOpen = true;
 
-        internal bool IsOpen { get; private set; }
+                ResetState();
+            }
+        }
+        public void Close()
+        {
+            if (IsOpen)
+            {
+                if (!isDocked)
+                {
+                    IsOpen = false;
+
+                    GUI.FocusControl(null);
+                }
+
+                ResetState();
+            }
+        }
+
+        public bool IsOpen { get; private set; }
         public bool HasFocus { get; private set; }
+
+
+        private readonly bool isDocked;
 
         // Capture counters
         private int consoleFocusFrameCount = 0;
@@ -99,32 +119,14 @@ namespace AggroBird.ReflectionDebugConsole
         private Texture2D whiteTexture = default;
         private Texture2D blackTexture = default;
 
+        private const int CaptureFrameCount = 2;
+        private const string ScanningAssembliesText = "Scanning assemblies...";
+
+        private static readonly Color32 foregroundColor = new Color32(255, 255, 255, 255);
+        private static readonly Color32 backgroundColor = new Color32(30, 30, 30, 255);
+
         private HashSet<KeyCode> currentKeyPresses = new HashSet<KeyCode>();
 
-
-        public void Open()
-        {
-            if (!IsOpen)
-            {
-                IsOpen = true;
-
-                ResetState();
-            }
-        }
-        public void Close()
-        {
-            if (IsOpen)
-            {
-                if (!isDocked)
-                {
-                    IsOpen = false;
-
-                    GUI.FocusControl(null);
-                }
-
-                ResetState();
-            }
-        }
 
         private void ResetState(bool clearInput = true)
         {
@@ -754,6 +756,16 @@ namespace AggroBird.ReflectionDebugConsole
             texture.Apply();
             return texture;
         }
+#else
+        public DebugConsoleGUI() { }
+
+        public void Open() { }
+        public void Close() { }
+
+        public bool IsOpen { get; private set; }
+        public bool HasFocus { get; private set; }
+
+        public void DrawGUI(Rect position, int fontSize, float scaleFactor = 1, bool useTouchScreenKeyboard = false) { }
+#endif
     }
 }
-#endif

@@ -30,6 +30,10 @@ namespace AggroBird.ReflectionDebugConsole
         internal static readonly string GameObjectName = $"{UniqueKey}.{InstanceKey}";
         internal const string LogPrefix = "[DebugConsole]";
 
+        public delegate void OnConsoleFocusChange(bool isFocused);
+        public static event OnConsoleFocusChange onConsoleFocusChange = default;
+
+#if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
         internal static void Log(object msg)
         {
             Debug.Log($"{LogPrefix} {msg}");
@@ -43,10 +47,6 @@ namespace AggroBird.ReflectionDebugConsole
             Debug.LogError($"{LogPrefix} {msg}");
         }
 
-        public delegate void OnConsoleFocusChange(bool isFocused);
-        public static event OnConsoleFocusChange onConsoleFocusChange = default;
-
-#if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
         private static Instance instance;
         private static DebugConsoleGUI gui = new DebugConsoleGUI(false);
         private static Settings settings = null;
