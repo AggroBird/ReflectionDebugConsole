@@ -126,8 +126,8 @@ namespace AggroBird.Reflection
         public int ChildCount => children == null ? 0 : children.Count;
         public bool IsNamespace => types == null || types.Count == 0;
 
-        public IReadOnlyCollection<Identifier> Children => children == null ? Array.Empty<Identifier>() : children.Values;
-        public IReadOnlyList<Type> Types => types == null ? Array.Empty<Type>() : types;
+        public IReadOnlyCollection<Identifier> Children => children == null ? (IReadOnlyCollection<Identifier>)Array.Empty<Identifier>() : (IReadOnlyCollection<Identifier>)children.Values;
+        public IReadOnlyList<Type> Types => types == null ? (IReadOnlyList<Type>)Array.Empty<Type>() : (IReadOnlyList<Type>)types;
 
         public string Name { get; private set; }
         public override string ToString() => Name;
