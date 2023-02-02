@@ -47,6 +47,20 @@ namespace AggroBird.ReflectionDebugConsole
         private int historyIndex = -1;
         private int highlightIndex = -1;
         private int highlightOffset = -1;
+        private TouchScreenKeyboard touchScreenKeyboard = null;
+        private bool IsTSKOpen => touchScreenKeyboard != null && touchScreenKeyboard.status == TouchScreenKeyboard.Status.Visible;
+        private string consoleOutputText = string.Empty;
+        private struct OutputLine
+        {
+            public OutputLine(string text, bool isError)
+            {
+                this.text = text;
+                this.isError = isError;
+            }
+            public readonly string text;
+            public readonly bool isError;
+        }
+        private readonly List<OutputLine> consoleOutputLines = new List<OutputLine>();
 
         // Suggestions
         private Task<SuggestionTable> updateSuggestionsTask = null;
@@ -133,7 +147,7 @@ namespace AggroBird.ReflectionDebugConsole
         }
 
 
-        public void UpdateGUI(Vector2 dimensions, int fontSize, float scaleModifier = 1)
+        public void DrawGUI(Rect position, int fontSize, float scaleFactor = 1, bool useTouchScreenKeyboard = false)
         {
             bool isLayout = Event.current != null && Event.current.type == EventType.Layout;
 
@@ -168,7 +182,9 @@ namespace AggroBird.ReflectionDebugConsole
                 }
             }
 
-            if (IsOpen)
+            if (!IsOpen) return;
+
+            GUI.BeginGroup(position);
             {
                 GUI.depth = int.MinValue;
                 GUI.color = Color.white;
@@ -180,7 +196,7 @@ namespace AggroBird.ReflectionDebugConsole
                 }
 
                 // Calculate sizes
-                int scaledFontSize = Mathf.FloorToInt(fontSize * scaleModifier);
+                int scaledFontSize = Mathf.FloorToInt(fontSize * scaleFactor);
                 if (scaledFontSize < 1) scaledFontSize = 1;
                 buttonStyle.fontSize = boxStyle.fontSize = scaledFontSize;
                 float uiScale = (float)scaledFontSize / Settings.DefaultFontSize;
@@ -191,26 +207,44 @@ namespace AggroBird.ReflectionDebugConsole
                 int verticalPadding = padding * 2;
                 float boxHeight = boxStyle.lineHeight + verticalPadding;
                 float buttonWidth = 30 * uiScale;
-                float borderThickness = Mathf.Max(Mathf.Floor(scaleModifier), 1);
-                float y = dimensions.y - boxHeight;
-                float width = dimensions.x - buttonWidth;
+                float borderThickness = Mathf.Max(Mathf.Floor(scaleFactor), 1);
+                Vector2 dimension = position.size;
+                float y = dimension.y - boxHeight;
+                float width = dimension.x - buttonWidth;
 
                 // Update the input text
                 bool guiEnabledState = GUI.enabled;
                 GUI.enabled = isReady;
                 TextEditor editor = null;
                 {
-                    Rect inputArea = new Rect(0, y, width + scaleModifier, boxHeight);
+                    Rect inputArea = new Rect(0, y, width + scaleFactor, boxHeight);
 
                     boxStyle.normal.textColor = backgroundColor;
                     boxStyle.richText = false;
-                    GUI.SetNextControlName(DebugConsole.UniqueKey);
-                    string newInput = GUI.TextField(DrawBackground(inputArea, borderThickness), consoleInput, boxStyle);
+                    string newInput = consoleInput;
+                    if (!useTouchScreenKeyboard)
+                    {
+                        GUI.SetNextControlName(DebugConsole.UniqueKey);
+                        newInput = GUI.TextField(DrawBackground(inputArea, borderThickness), consoleInput, boxStyle);
+                    }
+                    else
+                    {
+                        if (GUI.Button(DrawBackground(inputArea, borderThickness), string.Empty, boxStyle) && !IsTSKOpen)
+                        {
+                            TouchScreenKeyboard.hideInput = true;
+                            touchScreenKeyboard = TouchScreenKeyboard.Open(consoleInput, TouchScreenKeyboardType.Default);
+                        }
 
-                    if (isReady && (newInput != consoleInput || dimensions.y != previousWindowHeight))
+                        if (IsTSKOpen)
+                        {
+                            newInput = touchScreenKeyboard.text;
+                        }
+                    }
+
+                    if (isReady && (newInput != consoleInput || dimension.y != previousWindowHeight))
                     {
                         consoleInput = newInput;
-                        previousWindowHeight = dimensions.y;
+                        previousWindowHeight = dimension.y;
                         highlightIndex = -1;
                         highlightOffset = -1;
                         inputChanged = true;
@@ -218,15 +252,22 @@ namespace AggroBird.ReflectionDebugConsole
                     }
 
                     // Get selection position and update focus
-                    HasFocus = GUI.GetNameOfFocusedControl() == DebugConsole.UniqueKey;
+                    HasFocus = useTouchScreenKeyboard ? IsTSKOpen : GUI.GetNameOfFocusedControl() == DebugConsole.UniqueKey;
                     Vector2 scrollOffset = Vector2.zero;
                     if (HasFocus)
                     {
                         consoleFocusFrameCount = CaptureFrameCount;
 
-                        editor = (TextEditor)GUIUtility.GetStateObject(typeof(TextEditor), GUIUtility.keyboardControl);
-                        cursorPosition = (capturePosition == -1) ? editor.cursorIndex : capturePosition;
-                        scrollOffset = editor.scrollOffset;
+                        if (useTouchScreenKeyboard)
+                        {
+                            cursorPosition = touchScreenKeyboard.selection.start;
+                        }
+                        else
+                        {
+                            editor = (TextEditor)GUIUtility.GetStateObject(typeof(TextEditor), GUIUtility.keyboardControl);
+                            cursorPosition = (capturePosition == -1) ? editor.cursorIndex : capturePosition;
+                            scrollOffset = editor.scrollOffset;
+                        }
                     }
 
                     if (styledInput == null)
@@ -243,7 +284,7 @@ namespace AggroBird.ReflectionDebugConsole
                     GUI.Label(inputArea, isReady ? styledInput : ScanningAssembliesText, boxStyle);
                     GUI.EndClip();
 
-                    if (GUI.Button(DrawBackground(new Rect(width, dimensions.y - boxHeight, buttonWidth, boxHeight), borderThickness), ">", buttonStyle))
+                    if (GUI.Button(DrawBackground(new Rect(width, dimension.y - boxHeight, buttonWidth, boxHeight), borderThickness), ">", buttonStyle))
                     {
                         ExecuteInput();
                         Close();
@@ -251,7 +292,7 @@ namespace AggroBird.ReflectionDebugConsole
                 }
                 GUI.enabled = guiEnabledState;
 
-                float suggestionSpace = dimensions.y - boxHeight;
+                float suggestionSpace = dimension.y - boxHeight;
                 maxSuggestionCount = Mathf.FloorToInt((suggestionSpace - verticalPadding) / boxStyle.lineHeight);
                 if (maxSuggestionCount < 1) maxSuggestionCount = 1;
 
@@ -269,10 +310,11 @@ namespace AggroBird.ReflectionDebugConsole
                         y = 0;
                     }
 
-                    boxHeight += scaleModifier;
+                    boxHeight += scaleFactor;
 
                     boxStyle.richText = true;
-                    GUI.Box(DrawBackground(new Rect(0, y, dimensions.x, boxHeight), borderThickness), suggestionResult.text, boxStyle);
+                    string showText = consoleInput.Length > 0 ? suggestionResult.text : consoleOutputText;
+                    GUI.Box(DrawBackground(new Rect(0, y, dimension.x, boxHeight), borderThickness), showText, boxStyle);
                 }
 
                 // Start a new task if the input has changed and no other tasks are running
@@ -300,7 +342,7 @@ namespace AggroBird.ReflectionDebugConsole
                 }
 
                 // Capture console
-                if (isLayout && consoleCaptureFrameCount > 0)
+                if (isLayout && !useTouchScreenKeyboard && consoleCaptureFrameCount > 0)
                 {
                     if (clearConsole)
                     {
@@ -326,6 +368,7 @@ namespace AggroBird.ReflectionDebugConsole
                     }
                 }
             }
+            GUI.EndGroup();
         }
         private Rect DrawBackground(Rect rect, float borderThickness)
         {
@@ -474,15 +517,43 @@ namespace AggroBird.ReflectionDebugConsole
         {
             if (!string.IsNullOrEmpty(consoleInput))
             {
-                if (DebugConsole.Execute(consoleInput, out object result))
+                if (DebugConsole.Execute(consoleInput, out object result, out Exception exception))
                 {
-                    if (!(result != null && result.GetType() == typeof(VoidResult)))
+                    if (result == null || result.GetType() != typeof(VoidResult))
                     {
+                        if (isDocked) AppendOutputLine(result == null ? "null" : result.ToString(), false);
                         Debug.Log(result);
                     }
                 }
+                else if (exception != null)
+                {
+                    if (isDocked) AppendOutputLine(exception.Message, true);
+                    DebugConsole.HandleException(exception);
+                }
                 SaveToHistory(consoleInput.Trim());
             }
+        }
+        private void AppendOutputLine(string output, bool isError)
+        {
+            consoleOutputLines.Add(new OutputLine(output, isError));
+            int maxLineCount = maxSuggestionCount * 2;
+            if (consoleOutputLines.Count > maxLineCount) consoleOutputLines.RemoveRange(0, consoleOutputLines.Count - maxLineCount);
+            stringBuilder.Clear();
+            foreach (var line in consoleOutputLines)
+            {
+                if (stringBuilder.Length > 0) stringBuilder.Append('\n');
+                if (line.isError)
+                {
+                    stringBuilder.Append(Styles.Open(Style.Error));
+                    stringBuilder.EscapeRTF(line.text);
+                    stringBuilder.Append(Styles.Close);
+                }
+                else
+                {
+                    stringBuilder.EscapeRTF(line.text);
+                }
+            }
+            consoleOutputText = stringBuilder.ToString();
         }
 
         private void SaveToHistory(string cmd)

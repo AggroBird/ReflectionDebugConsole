@@ -32,7 +32,7 @@ namespace AggroBird.ReflectionDebugConsole.Editor
         private void OnGUI()
         {
 #if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
-            gui.UpdateGUI(position.size, Settings.DefaultFontSize);
+            gui.DrawGUI(new Rect(Vector2.zero, position.size), Settings.DefaultFontSize);
 #else
             GUI.Label(new Rect(0, 0, position.width, 20), "Debug Console is disabled");
 #endif

@@ -382,21 +382,18 @@ namespace AggroBird.ReflectionDebugConsole
                     server.Update(out DebugServer.Message[] messages);
                     for (int i = 0; i < messages.Length; i++)
                     {
-                        try
+                        if (ExecuteCommand(messages[i].message, out object result, out Exception exception, isRemoteCommand: true))
                         {
-                            if (ExecuteCommand(messages[i].message, out object result, false, true))
+                            // Send the output to the client
+                            if (!(result != null && result.GetType() == typeof(VoidResult)))
                             {
-                                // Send the output to the client
-                                if (!(result != null && result.GetType() == typeof(VoidResult)))
-                                {
-                                    messages[i].sender.Send(result == null ? "Null" : ClampMaxSize(result.ToString(), DebugClient.MaxPackageSize), 0);
-                                }
+                                messages[i].sender.Send(result == null ? "Null" : ClampMaxSize(result.ToString(), DebugClient.MaxPackageSize), 0);
                             }
                         }
-                        catch (Exception ex)
+                        else if (exception != null)
                         {
                             // Send the exception to the client
-                            messages[i].sender.Send(ClampMaxSize(ex.ToString(), DebugClient.MaxPackageSize), 2);
+                            messages[i].sender.Send(ClampMaxSize(exception.ToString(), DebugClient.MaxPackageSize), 2);
                         }
                     }
                 }
@@ -418,7 +415,7 @@ namespace AggroBird.ReflectionDebugConsole
                 {
                     // Update UI
                     float gameViewScale = Settings.invertScale ? gameViewReference.GetGameViewScale() : 1;
-                    gui.UpdateGUI(new Vector2(Screen.width, Screen.height), Settings.fontSize, scale * gameViewScale);
+                    gui.DrawGUI(new Rect(0, 0, Screen.width, Screen.height), Settings.fontSize, scale * gameViewScale);
 
                     // Update focus callback
                     bool focus = gui.IsOpen && gui.HasFocus;
@@ -542,7 +539,7 @@ namespace AggroBird.ReflectionDebugConsole
                     GameObject gameObject = GameObject.Find(GameObjectName);
                     if (!gameObject) gameObject = new GameObject(GameObjectName);
                     instance = gameObject.AddComponent<Instance>();
-                    //gameObject.hideFlags |= HideFlags.NotEditable | HideFlags.HideInHierarchy | HideFlags.HideInInspector;
+                    gameObject.hideFlags |= HideFlags.NotEditable | HideFlags.HideInHierarchy | HideFlags.HideInInspector;
                     UnityObject.DontDestroyOnLoad(gameObject);
                 }
                 else
@@ -554,9 +551,10 @@ namespace AggroBird.ReflectionDebugConsole
         }
 
 
-        private static bool ExecuteCommand(string cmd, out object result, bool catchExceptions, bool isRemoteCommand = false)
+        private static bool ExecuteCommand(string cmd, out object result, out Exception exception, bool isRemoteCommand = false)
         {
             result = VoidResult.Empty;
+            exception = null;
 
             if (cmd != null)
             {
@@ -670,34 +668,32 @@ namespace AggroBird.ReflectionDebugConsole
                 result = command.Execute();
                 return true;
             }
-            catch (Exception exception)
+            catch (Exception ex)
             {
-                if (catchExceptions)
-                {
-                    HandleException(exception);
-                }
-                else
-                {
-                    throw exception;
-                }
+                exception = ex;
             }
 
             return false;
         }
-        private static void HandleException(Exception ex)
+        internal static void HandleException(Exception exception)
         {
-            if (ex is TargetInvocationException targetInvocationException)
+            if (exception != null)
             {
-                ex = targetInvocationException.InnerException;
-            }
+                if (exception is TargetInvocationException targetInvocationException)
+                {
+                    exception = targetInvocationException.InnerException;
+                }
 
-            if (ex is DebugConsoleException)
-            {
-                Debug.LogError(ex.Message);
-            }
-            else if (ex != null)
-            {
-                Debug.LogException(ex);
+                if (exception is DebugConsoleException)
+                {
+                    // Treat syntax errors as non-exceptions
+                    Debug.LogError(exception.Message);
+                }
+                else if (exception != null)
+                {
+                    // Forward the exception to the unity console
+                    Debug.LogException(exception);
+                }
             }
         }
 
@@ -707,11 +703,23 @@ namespace AggroBird.ReflectionDebugConsole
 
         public static bool Execute(string cmd)
         {
-            return ExecuteCommand(cmd, out _, true);
+            bool success = ExecuteCommand(cmd, out _, out Exception exception);
+            HandleException(exception);
+            return success;
         }
         public static bool Execute(string cmd, out object result)
         {
-            return ExecuteCommand(cmd, out result, true);
+            bool success = ExecuteCommand(cmd, out result, out Exception exception);
+            HandleException(exception);
+            return success;
+        }
+        public static bool Execute(string cmd, out Exception exception)
+        {
+            return ExecuteCommand(cmd, out _, out exception);
+        }
+        public static bool Execute(string cmd, out object result, out Exception exception)
+        {
+            return ExecuteCommand(cmd, out result, out exception);
         }
 
         public static bool IsOpen => Application.isPlaying && GetGUI().IsOpen;
@@ -747,6 +755,17 @@ namespace AggroBird.ReflectionDebugConsole
         public static bool Execute(string cmd, out object result)
         {
             result = null;
+            return false;
+        }
+        public static bool Execute(string cmd, out Exception exception)
+        {
+            exception = null;
+            return false;
+        }
+        public static bool Execute(string cmd, out object result, out Exception exception)
+        {
+            result = null;
+            exception = null;
             return false;
         }
 
