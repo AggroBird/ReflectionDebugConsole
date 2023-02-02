@@ -1482,10 +1482,10 @@ namespace AggroBird.Reflection
 
         public override object Execute(ExecutionContext context)
         {
-            if (type.IsByRefLike)
-            {
-                throw new DebugConsoleException("Unable to create byref-like structures using reflection");
-            }
+            //if (type.IsByRefLike)
+            //{
+            //    throw new DebugConsoleException("Unable to create byref-like structures using reflection");
+            //}
 
             return Activator.CreateInstance(type);
         }
@@ -1508,10 +1508,10 @@ namespace AggroBird.Reflection
 
         public override object Execute(ExecutionContext context)
         {
-            if (type.IsByRefLike)
-            {
-                throw new DebugConsoleException("Unable to create byref-like structures using reflection");
-            }
+            //if (type.IsByRefLike)
+            //{
+            //    throw new DebugConsoleException("Unable to create byref-like structures using reflection");
+            //}
 
             return constructor.Invoke(ExpressionUtility.Forward<object>(context, args));
         }
