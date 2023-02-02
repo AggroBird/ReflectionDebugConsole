@@ -16,7 +16,7 @@ namespace AggroBird.ReflectionDebugConsole.Editor
         }
 
 #if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
-        private ConsoleGUI gui = new ConsoleGUI(true);
+        private DebugConsoleGUI gui = new DebugConsoleGUI(true);
 #endif
 
         private void Awake()

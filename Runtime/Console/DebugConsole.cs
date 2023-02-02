@@ -48,7 +48,7 @@ namespace AggroBird.ReflectionDebugConsole
 
 #if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
         private static Instance instance;
-        private static ConsoleGUI gui = new ConsoleGUI(false);
+        private static DebugConsoleGUI gui = new DebugConsoleGUI(false);
         private static Settings settings = null;
         internal static Settings Settings
         {
@@ -67,7 +67,7 @@ namespace AggroBird.ReflectionDebugConsole
             DebugConsole.settings = settings;
         }
 
-        private static ConsoleGUI GetGUI()
+        private static DebugConsoleGUI GetGUI()
         {
             Initialize();
 

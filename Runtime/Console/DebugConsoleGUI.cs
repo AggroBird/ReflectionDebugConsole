@@ -11,7 +11,7 @@ using UnityEngine;
 
 namespace AggroBird.ReflectionDebugConsole
 {
-    internal sealed class ConsoleGUI
+    public sealed class DebugConsoleGUI
     {
         private const int CaptureFrameCount = 2;
         private const string ScanningAssembliesText = "Scanning assemblies...";
@@ -20,16 +20,20 @@ namespace AggroBird.ReflectionDebugConsole
         private static readonly Color32 backgroundColor = new Color32(30, 30, 30, 255);
 
 
-        public ConsoleGUI(bool isDocked)
+        public DebugConsoleGUI()
+        {
+            isDocked = true;
+        }
+        public DebugConsoleGUI(bool isDocked)
         {
             this.isDocked = isDocked;
 
             if (isDocked) Open();
         }
 
-        public readonly bool isDocked;
+        internal readonly bool isDocked;
 
-        public bool IsOpen { get; private set; }
+        internal bool IsOpen { get; private set; }
         public bool HasFocus { get; private set; }
 
         // Capture counters
@@ -149,6 +153,8 @@ namespace AggroBird.ReflectionDebugConsole
 
         public void DrawGUI(Rect position, int fontSize, float scaleFactor = 1, bool useTouchScreenKeyboard = false)
         {
+            if (Event.current == null) throw new DebugConsoleException("DebugConsoleGUI.DrawGUI can only be called from OnGUI");
+
             bool isLayout = Event.current != null && Event.current.type == EventType.Layout;
 
             bool isReady = DebugConsole.EnsureIdentifierTable();
