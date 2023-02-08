@@ -34,7 +34,7 @@ namespace AggroBird.ReflectionDebugConsole.Editor
 
         }
 
-        private static readonly List<string> keywordBuilder = new();
+        private static readonly List<string> keywordBuilder = new List<string>();
         protected static string[] GetKeywordsFromTypeFields<T>()
         {
             keywordBuilder.Clear();
