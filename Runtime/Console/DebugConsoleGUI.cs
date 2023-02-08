@@ -120,7 +120,6 @@ namespace AggroBird.ReflectionDebugConsole
         private Texture2D blackTexture = default;
 
         private const int CaptureFrameCount = 2;
-        private const string ScanningAssembliesText = "Scanning assemblies...";
 
         private static readonly Color32 foregroundColor = new Color32(255, 255, 255, 255);
         private static readonly Color32 backgroundColor = new Color32(30, 30, 30, 255);
@@ -289,7 +288,7 @@ namespace AggroBird.ReflectionDebugConsole
                     boxStyle.richText = true;
                     inputArea.position = new Vector2(-borderThickness, -borderThickness) - scrollOffset;
                     inputArea.width += scrollOffset.x;
-                    GUI.Label(inputArea, isReady ? styledInput : ScanningAssembliesText, boxStyle);
+                    GUI.Label(inputArea, isReady ? styledInput : "Scanning assemblies...", boxStyle);
                     GUI.EndClip();
 
                     if (GUI.Button(DrawBackground(new Rect(width, dimension.y - boxHeight, buttonWidth, boxHeight), borderThickness), ">", buttonStyle))
@@ -330,7 +329,7 @@ namespace AggroBird.ReflectionDebugConsole
                 {
                     inputChanged = false;
 
-                    if (!string.IsNullOrEmpty(consoleInput))
+                    if (!string.IsNullOrEmpty(consoleInput) && !DebugConsole.IsConsoleCommand(consoleInput))
                     {
                         SuggestionTableBuilder builder = new SuggestionTableBuilder(consoleInput, cursorPosition, DebugConsole.IdentifierTable, DebugConsole.UsingNamespacesString, DebugConsole.Settings.safeMode);
                         if (Application.platform == RuntimePlatform.WebGLPlayer)
@@ -529,8 +528,9 @@ namespace AggroBird.ReflectionDebugConsole
                 {
                     if (result == null || result.GetType() != typeof(VoidResult))
                     {
-                        if (isDocked) AppendOutputLine(result == null ? "null" : result.ToString(), false);
-                        Debug.Log(result);
+                        string asString = result == null ? "null" : result.ToString();
+                        if (isDocked) AppendOutputLine(asString, false);
+                        DebugConsole.Log(asString);
                     }
                 }
                 else if (exception != null)

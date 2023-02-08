@@ -519,6 +519,32 @@ namespace AggroBird.ReflectionDebugConsole
 #endif
 
 
+        internal static bool IsConsoleCommand(string cmd)
+        {
+            for (int i = 0; i < cmd.Length; i++)
+            {
+                switch (cmd[i])
+                {
+                    case '/':
+                        if (i < cmd.Length - 1)
+                        {
+                            char next = cmd[i + 1];
+                            return next >= 'a' && next <= 'z';
+                        }
+                        return false;
+                    case ' ':
+                    case '\t':
+                    case '\n':
+                    case '\r':
+                        break;
+                    default:
+                        return false;
+                }
+            }
+            return false;
+        }
+
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         internal static void Initialize()
         {
@@ -566,9 +592,9 @@ namespace AggroBird.ReflectionDebugConsole
             }
 
             // Handle console commands
-            if (cmd.Length > 1 && cmd[0] == '/' && cmd[1] != ' ')
+            if (IsConsoleCommand(cmd))
             {
-                string[] args = cmd.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                string[] args = cmd.Split(new char[] { ' ', '\t', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
                 switch (args[0])
                 {
 #if UNITY_EDITOR
