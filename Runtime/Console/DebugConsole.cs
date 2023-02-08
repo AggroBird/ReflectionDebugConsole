@@ -507,11 +507,12 @@ namespace AggroBird.ReflectionDebugConsole
 
                 if (client.Poll(out string message, out byte flags))
                 {
+                    message = $"{client.endpoint}: {message}";
                     switch (flags)
                     {
-                        default: Debug.Log(message); break;
-                        case 1: Debug.LogWarning(message); break;
-                        case 2: Debug.LogError(message); break;
+                        default: Log(message); break;
+                        case 1: LogWarning(message); break;
+                        case 2: LogError(message); break;
                     }
                 }
             }
@@ -550,26 +551,51 @@ namespace AggroBird.ReflectionDebugConsole
         }
 
 
+        internal static bool IsSpace(char c)
+        {
+            switch (c)
+            {
+                case ' ':
+                case '\t':
+                case '\n':
+                case '\r':
+                    return true;
+                default:
+                    return false;
+            }
+        }
+        internal static bool IsNullOrSpace(string cmd)
+        {
+            if (cmd != null)
+            {
+                for (int i = 0; i < cmd.Length; i++)
+                {
+                    if (!IsSpace(cmd[i]))
+                    {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
         internal static bool IsConsoleCommand(string cmd)
         {
             for (int i = 0; i < cmd.Length; i++)
             {
-                switch (cmd[i])
+                if (!IsSpace(cmd[i]))
                 {
-                    case '/':
-                        if (i < cmd.Length - 1)
-                        {
-                            char next = cmd[i + 1];
-                            return next >= 'a' && next <= 'z';
-                        }
-                        return false;
-                    case ' ':
-                    case '\t':
-                    case '\n':
-                    case '\r':
-                        break;
-                    default:
-                        return false;
+                    switch (cmd[i])
+                    {
+                        case '/':
+                            if (i < cmd.Length - 1)
+                            {
+                                char next = cmd[i + 1];
+                                return next >= 'a' && next <= 'z';
+                            }
+                            return false;
+                        default:
+                            return false;
+                    }
                 }
             }
             return false;
@@ -653,48 +679,39 @@ namespace AggroBird.ReflectionDebugConsole
             result = VoidResult.Empty;
             exception = null;
 
-            if (cmd != null)
+            if (!IsNullOrSpace(cmd))
             {
-                if (string.IsNullOrEmpty(cmd)) return false;
-            }
-            else
-            {
-                return false;
-            }
-
-            try
-            {
-                // Handle console commands
-                if (IsConsoleCommand(cmd))
+                try
                 {
-                    return HandleConsoleCommand(cmd);
-                }
+                    // Handle console commands
+                    if (IsConsoleCommand(cmd))
+                    {
+                        return HandleConsoleCommand(cmd);
+                    }
 
 #if UNITY_EDITOR
-                // Forward commands to the client if there is one
-                if (!isRemoteCommand && !Application.isPlaying)
-                {
-                    if (client != null)
+                    // Forward commands to the client if there is one
+                    if (client != null && !isRemoteCommand && !Application.isPlaying)
                     {
                         client.Send(cmd);
                         return true;
                     }
-                }
 #endif
 
-                Token[] tokens = new Lexer(cmd).ToArray();
-                CommandParser commandParser = new CommandParser(tokens, IdentifierTable, Settings.safeMode, Settings.maxIterationCount);
-                Command command = commandParser.Parse();
-                result = command.Execute();
-                return true;
-            }
-            catch (TargetInvocationException targetInvocationException)
-            {
-                exception = targetInvocationException.InnerException;
-            }
-            catch (Exception regularException)
-            {
-                exception = regularException;
+                    Token[] tokens = new Lexer(cmd).ToArray();
+                    CommandParser commandParser = new CommandParser(tokens, IdentifierTable, Settings.safeMode, Settings.maxIterationCount);
+                    Command command = commandParser.Parse();
+                    result = command.Execute();
+                    return true;
+                }
+                catch (TargetInvocationException targetInvocationException)
+                {
+                    exception = targetInvocationException.InnerException;
+                }
+                catch (Exception regularException)
+                {
+                    exception = regularException;
+                }
             }
 
             return false;
