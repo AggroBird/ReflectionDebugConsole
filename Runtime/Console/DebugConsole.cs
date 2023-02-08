@@ -518,33 +518,6 @@ namespace AggroBird.ReflectionDebugConsole
         }
 #endif
 
-
-        internal static bool IsConsoleCommand(string cmd)
-        {
-            for (int i = 0; i < cmd.Length; i++)
-            {
-                switch (cmd[i])
-                {
-                    case '/':
-                        if (i < cmd.Length - 1)
-                        {
-                            char next = cmd[i + 1];
-                            return next >= 'a' && next <= 'z';
-                        }
-                        return false;
-                    case ' ':
-                    case '\t':
-                    case '\n':
-                    case '\r':
-                        break;
-                    default:
-                        return false;
-                }
-            }
-            return false;
-        }
-
-
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         internal static void Initialize()
         {
@@ -577,6 +550,104 @@ namespace AggroBird.ReflectionDebugConsole
         }
 
 
+        internal static bool IsConsoleCommand(string cmd)
+        {
+            for (int i = 0; i < cmd.Length; i++)
+            {
+                switch (cmd[i])
+                {
+                    case '/':
+                        if (i < cmd.Length - 1)
+                        {
+                            char next = cmd[i + 1];
+                            return next >= 'a' && next <= 'z';
+                        }
+                        return false;
+                    case ' ':
+                    case '\t':
+                    case '\n':
+                    case '\r':
+                        break;
+                    default:
+                        return false;
+                }
+            }
+            return false;
+        }
+        private static void ValidateConsoleCommandArgCount(string[] args, int requiredCount)
+        {
+            if (args.Length != requiredCount)
+            {
+                throw new DebugConsoleException($"Invalid amount of arguments provided for command '{args[0]}'");
+            }
+        }
+        private static bool HandleConsoleCommand(string cmd)
+        {
+            string[] args = cmd.Split(new char[] { ' ', '\t', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+            switch (args[0])
+            {
+#if UNITY_EDITOR
+                case "/open":
+                {
+                    ValidateConsoleCommandArgCount(args, 2);
+
+                    int portIdx = args[1].LastIndexOf(':');
+                    if (portIdx == -1)
+                    {
+                        OpenConnection(args[1], Settings.serverPort);
+                    }
+                    else
+                    {
+                        if (portIdx == 0 || !int.TryParse(cmd.Substring(portIdx + 1), out int port))
+                        {
+                            LogError($"Invalid ip address format: '{args[1]}'");
+                            return false;
+                        }
+
+                        OpenConnection(cmd, port);
+                    }
+                }
+                break;
+
+                case "/close":
+                {
+                    ValidateConsoleCommandArgCount(args, 1);
+
+                    CloseConnection();
+                }
+                break;
+#endif
+
+                case "/reload":
+                {
+                    ValidateConsoleCommandArgCount(args, 1);
+
+                    Reload();
+                }
+                break;
+
+                case "/scale":
+                {
+                    ValidateConsoleCommandArgCount(args, 2);
+
+                    if (!float.TryParse(args[1], out float setScale))
+                    {
+                        LogError($"Failed to parse scale argument: '{args[1]}'");
+                    }
+
+                    scale = setScale;
+                }
+                break;
+
+                default:
+                    LogError($"Unknown console command: '{args[0]}'");
+                    break;
+            }
+
+            return true;
+        }
+
+
         private static bool ExecuteCommand(string cmd, out object result, out Exception exception, bool isRemoteCommand = false)
         {
             result = VoidResult.Empty;
@@ -591,103 +662,26 @@ namespace AggroBird.ReflectionDebugConsole
                 return false;
             }
 
-            // Handle console commands
-            if (IsConsoleCommand(cmd))
-            {
-                string[] args = cmd.Split(new char[] { ' ', '\t', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-                switch (args[0])
-                {
-#if UNITY_EDITOR
-                    case "/open":
-                    {
-                        if (args.Length != 2)
-                        {
-                            LogError($"Invalid amount of arguments provided for command '{args[0]}'");
-                            return false;
-                        }
-
-                        int portIdx = args[1].LastIndexOf(':');
-                        if (portIdx == -1)
-                        {
-                            OpenConnection(args[1], Settings.serverPort);
-                        }
-                        else
-                        {
-                            if (portIdx == 0 || !int.TryParse(cmd.Substring(portIdx + 1), out int port))
-                            {
-                                LogError($"Invalid ip address format: '{args[1]}'");
-                                return false;
-                            }
-
-                            OpenConnection(cmd, port);
-                        }
-                    }
-                    break;
-
-                    case "/close":
-                    {
-                        if (args.Length != 1)
-                        {
-                            LogError($"Invalid amount of arguments provided for command '{args[0]}'");
-                            return false;
-                        }
-
-                        CloseConnection();
-                    }
-                    break;
-#endif
-
-                    case "/reload":
-                    {
-                        if (args.Length != 1)
-                        {
-                            LogError($"Invalid amount of arguments provided for command '{args[0]}'");
-                            return false;
-                        }
-
-                        Reload();
-                    }
-                    break;
-
-                    case "/scale":
-                    {
-                        if (args.Length != 2)
-                        {
-                            LogError($"Invalid amount of arguments provided for command '{args[0]}'");
-                            return false;
-                        }
-
-                        if (!float.TryParse(args[1], out float setScale))
-                        {
-                            LogError($"Failed to parse scale argument: '{args[1]}'");
-                        }
-
-                        scale = setScale;
-                    }
-                    break;
-
-                    default:
-                        LogError($"Unknown console command: '{args[0]}'");
-                        break;
-                }
-
-                return true;
-            }
-
-#if UNITY_EDITOR
-            // Forward commands to the client if there is one
-            if (!isRemoteCommand && !Application.isPlaying)
-            {
-                if (client != null)
-                {
-                    client.Send(cmd);
-                    return true;
-                }
-            }
-#endif
-
             try
             {
+                // Handle console commands
+                if (IsConsoleCommand(cmd))
+                {
+                    return HandleConsoleCommand(cmd);
+                }
+
+#if UNITY_EDITOR
+                // Forward commands to the client if there is one
+                if (!isRemoteCommand && !Application.isPlaying)
+                {
+                    if (client != null)
+                    {
+                        client.Send(cmd);
+                        return true;
+                    }
+                }
+#endif
+
                 Token[] tokens = new Lexer(cmd).ToArray();
                 CommandParser commandParser = new CommandParser(tokens, IdentifierTable, Settings.safeMode, Settings.maxIterationCount);
                 Command command = commandParser.Parse();
