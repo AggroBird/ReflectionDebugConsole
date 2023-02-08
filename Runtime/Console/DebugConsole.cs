@@ -668,9 +668,13 @@ namespace AggroBird.ReflectionDebugConsole
                 result = command.Execute();
                 return true;
             }
-            catch (Exception ex)
+            catch (TargetInvocationException targetInvocationException)
             {
-                exception = ex;
+                exception = targetInvocationException.InnerException;
+            }
+            catch (Exception regularException)
+            {
+                exception = regularException;
             }
 
             return false;
@@ -679,11 +683,6 @@ namespace AggroBird.ReflectionDebugConsole
         {
             if (exception != null)
             {
-                if (exception is TargetInvocationException targetInvocationException)
-                {
-                    exception = targetInvocationException.InnerException;
-                }
-
                 if (exception is DebugConsoleException)
                 {
                     // Treat syntax errors as non-exceptions
