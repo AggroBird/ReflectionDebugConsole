@@ -38,6 +38,14 @@ namespace AggroBird.ReflectionDebugConsole
         private Mutex mutex;
     }
 
+    internal enum MessageFlags : byte
+    {
+        None,
+        Log,
+        Warning,
+        Error,
+    }
+
     internal class DebugClient
     {
         public enum State
@@ -79,7 +87,7 @@ namespace AggroBird.ReflectionDebugConsole
         private const int HeaderSize = 3;
 
 
-        public void Send(string message, byte flags = 0)
+        public void Send(string message, MessageFlags flags = MessageFlags.None)
         {
             using (new ThreadLock(mutex))
             {
@@ -95,7 +103,7 @@ namespace AggroBird.ReflectionDebugConsole
                     {
                         (byte)(body.Length & 0xFF),
                         (byte)((body.Length >> 8) & 0xFF),
-                        flags,
+                        (byte)flags,
                     };
 
                     socket.Send(header, 0, HeaderSize, 0);
@@ -104,7 +112,7 @@ namespace AggroBird.ReflectionDebugConsole
             }
         }
 
-        public bool Poll(out string message, out byte flags)
+        public bool Poll(out string message, out MessageFlags flags)
         {
             using (new ThreadLock(mutex))
             {
@@ -117,7 +125,7 @@ namespace AggroBird.ReflectionDebugConsole
                         byte[] body = new byte[bodySize];
                         receivedData.CopyTo(HeaderSize, body, 0, bodySize);
                         message = Encoding.UTF8.GetString(body);
-                        flags = receivedData[2];
+                        flags = (MessageFlags)receivedData[2];
                         receivedData.RemoveRange(0, totalSize);
                         return true;
                     }
@@ -235,7 +243,7 @@ namespace AggroBird.ReflectionDebugConsole
 
         public struct Message
         {
-            public Message(DebugClient sender, string message, byte flags)
+            public Message(DebugClient sender, string message, MessageFlags flags)
             {
                 this.sender = sender;
                 this.message = message;
@@ -243,7 +251,7 @@ namespace AggroBird.ReflectionDebugConsole
             }
 
             public readonly DebugClient sender;
-            public readonly byte flags;
+            public readonly MessageFlags flags;
             public readonly string message;
         }
 
@@ -262,7 +270,7 @@ namespace AggroBird.ReflectionDebugConsole
                             DebugConsole.Log($"Connection to endpoint '{connection.endpoint}' lost");
                             goto RemoveAndSwap;
                         }
-                        else if (connection.Poll(out string message, out byte flags))
+                        else if (connection.Poll(out string message, out MessageFlags flags))
                         {
                             switch (connection.state)
                             {

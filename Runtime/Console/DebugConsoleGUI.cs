@@ -526,9 +526,9 @@ namespace AggroBird.ReflectionDebugConsole
             {
                 if (DebugConsole.Execute(consoleInput, out object result, out Exception exception))
                 {
-                    if (result == null || result.GetType() != typeof(VoidResult))
+                    if (result == null || !result.GetType().Equals(typeof(VoidResult)))
                     {
-                        string asString = result == null ? "null" : result.ToString();
+                        string asString = DebugConsole.FormatResult(result);
                         if (isDocked) AppendOutputLine(asString, false);
                         DebugConsole.Log(asString);
                     }

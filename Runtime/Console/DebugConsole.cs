@@ -36,14 +36,32 @@ namespace AggroBird.ReflectionDebugConsole
 #if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
         internal static void Log(object msg)
         {
+#if INCLUDE_DEBUG_SERVER
+            if (instance && instance.CurrentExecutingClient != null)
+            {
+                instance.CurrentExecutingClient.Send(TruncateNetworkMessage(msg), MessageFlags.Log);
+            }
+#endif
             Debug.Log($"{LogPrefix} {msg}");
         }
         internal static void LogWarning(object msg)
         {
+#if INCLUDE_DEBUG_SERVER
+            if (instance && instance.CurrentExecutingClient != null)
+            {
+                instance.CurrentExecutingClient.Send(TruncateNetworkMessage(msg), MessageFlags.Warning);
+            }
+#endif
             Debug.LogWarning($"{LogPrefix} {msg}");
         }
         internal static void LogError(object msg)
         {
+#if INCLUDE_DEBUG_SERVER
+            if (instance && instance.CurrentExecutingClient != null)
+            {
+                instance.CurrentExecutingClient.Send(TruncateNetworkMessage(msg), MessageFlags.Error);
+            }
+#endif
             Debug.LogError($"{LogPrefix} {msg}");
         }
 
@@ -334,6 +352,8 @@ namespace AggroBird.ReflectionDebugConsole
 
 #if INCLUDE_DEBUG_SERVER
             private DebugServer server;
+            private DebugClient currentExecutingClient;
+            public DebugClient CurrentExecutingClient => currentExecutingClient;
 
             public bool IsRunningServer => server != null;
 
@@ -382,33 +402,25 @@ namespace AggroBird.ReflectionDebugConsole
                     server.Update(out DebugServer.Message[] messages);
                     for (int i = 0; i < messages.Length; i++)
                     {
+                        currentExecutingClient = messages[i].sender;
                         if (ExecuteCommand(messages[i].message, out object result, out Exception exception, isRemoteCommand: true))
                         {
                             // Send the output to the client
-                            if (!(result != null && result.GetType() == typeof(VoidResult)))
+                            if (result == null || !result.GetType().Equals(typeof(VoidResult)))
                             {
-                                messages[i].sender.Send(result == null ? "Null" : ClampMaxSize(result.ToString(), DebugClient.MaxPackageSize), 0);
+                                currentExecutingClient.Send(TruncateNetworkMessage(result), MessageFlags.Log);
                             }
                         }
                         else if (exception != null)
                         {
                             // Send the exception to the client
-                            messages[i].sender.Send(ClampMaxSize(exception.ToString(), DebugClient.MaxPackageSize), 2);
+                            currentExecutingClient.Send(TruncateNetworkMessage(exception.ToString()), MessageFlags.Error);
                         }
+                        currentExecutingClient = null;
                     }
                 }
 #endif
             }
-            private static string ClampMaxSize(string msg, int len)
-            {
-                if (msg.Length > len)
-                {
-                    string append = " ...";
-                    return msg.Substring(0, len - append.Length) + append;
-                }
-                return msg;
-            }
-
             private void OnGUI()
             {
                 if (instance == this)
@@ -505,14 +517,14 @@ namespace AggroBird.ReflectionDebugConsole
                     return;
                 }
 
-                if (client.Poll(out string message, out byte flags))
+                if (client.Poll(out string message, out MessageFlags flags))
                 {
                     message = $"{client.endpoint}: {message}";
                     switch (flags)
                     {
                         default: Log(message); break;
-                        case 1: LogWarning(message); break;
-                        case 2: LogError(message); break;
+                        case MessageFlags.Warning: LogWarning(message); break;
+                        case MessageFlags.Error: LogError(message); break;
                     }
                 }
             }
@@ -671,6 +683,29 @@ namespace AggroBird.ReflectionDebugConsole
             }
 
             return true;
+        }
+
+        internal static string FormatResult(object result)
+        {
+            return result == null ? "null" : result.ToString();
+        }
+
+        internal const string TruncatedString = "... <message truncated>";
+        internal static string ClampMaxSize(string msg, int len)
+        {
+            if (msg.Length > len)
+            {
+                return $"{msg.Substring(0, len - TruncatedString.Length)}{TruncatedString}";
+            }
+            return msg;
+        }
+        internal static string TruncateNetworkMessage(string msg)
+        {
+            return ClampMaxSize(msg, DebugClient.MaxPackageSize);
+        }
+        internal static string TruncateNetworkMessage(object msg)
+        {
+            return TruncateNetworkMessage(FormatResult(msg));
         }
 
 
