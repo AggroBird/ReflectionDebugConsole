@@ -206,7 +206,7 @@ namespace AggroBird.ReflectionDebugConsole
                 int scaledFontSize = Mathf.FloorToInt(fontSize * scaleFactor);
                 if (scaledFontSize < 1) scaledFontSize = 1;
                 buttonStyle.fontSize = boxStyle.fontSize = scaledFontSize;
-                float uiScale = (float)scaledFontSize / Settings.DefaultFontSize;
+                float uiScale = (float)scaledFontSize / DebugConsoleSettings.DefaultFontSize;
                 int padding = Mathf.FloorToInt(2 * uiScale);
                 if (padding < 1) padding = 1;
                 boxStyle.padding = new RectOffset(padding, padding, padding, padding);

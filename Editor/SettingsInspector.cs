@@ -37,7 +37,7 @@ namespace AggroBird.ReflectionDebugConsole.Editor
     {
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
         {
-            if (SettingsWindow.IsVisible(position))
+            if (EditorRectUtility.IsVisible(position))
             {
                 EditorGUI.BeginProperty(position, label, property);
 
@@ -220,7 +220,7 @@ namespace AggroBird.ReflectionDebugConsole.Editor
                             }
                         }
 
-                        if (SettingsWindow.IsVisible(position))
+                        if (EditorRectUtility.IsVisible(position))
                         {
                             horizontal = position;
                             EditorGUI.BeginChangeCheck();
@@ -268,14 +268,18 @@ namespace AggroBird.ReflectionDebugConsole.Editor
         }
     }
 
-    [CustomEditor(typeof(Settings))]
+    [CustomEditor(typeof(DebugConsoleSettings))]
     internal sealed class DebugSettingsInspector : UnityEditor.Editor
     {
         public override void OnInspectorGUI()
         {
-            if (GUILayout.Button("Open Debug Console Settings"))
+            if (GUILayout.Button("Open Project Settings"))
             {
-                SettingsWindow.ShowWindow();
+                ProjectSettingsWindow.Open();
+            }
+            if (GUILayout.Button("Open User Preferences"))
+            {
+                UserPrefSettingsWindow.Open();
             }
         }
     }

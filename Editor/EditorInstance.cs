@@ -7,7 +7,7 @@ namespace AggroBird.ReflectionDebugConsole.Editor
 {
     internal sealed class EditorInstance : EditorWindow
     {
-        [MenuItem("Window/Analysis/Debug Console Instance ^#d", priority = 51)]
+        [MenuItem("Window/Analysis/Debug Console Instance ^#d", priority = 52)]
         public static void ShowWindow()
         {
             EditorInstance window = CreateInstance<EditorInstance>();
@@ -32,7 +32,7 @@ namespace AggroBird.ReflectionDebugConsole.Editor
         private void OnGUI()
         {
 #if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
-            gui.DrawGUI(new Rect(Vector2.zero, position.size), Settings.DefaultFontSize);
+            gui.DrawGUI(new Rect(Vector2.zero, position.size), DebugConsoleSettings.DefaultFontSize);
 #else
             GUI.Label(new Rect(0, 0, position.width, 20), "Debug Console is disabled");
 #endif

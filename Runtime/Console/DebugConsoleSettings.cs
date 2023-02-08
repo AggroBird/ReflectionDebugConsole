@@ -50,7 +50,7 @@ namespace AggroBird.ReflectionDebugConsole
         }
     }
 
-    internal sealed class Settings : ScriptableObject
+    internal sealed class DebugConsoleSettings : ScriptableObject
     {
         internal const int DefaultFontSize = 13;
 

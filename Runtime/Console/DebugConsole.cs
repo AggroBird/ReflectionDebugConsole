@@ -67,8 +67,8 @@ namespace AggroBird.ReflectionDebugConsole
 
         private static Instance instance;
         private static DebugConsoleGUI gui = new DebugConsoleGUI(false);
-        private static Settings settings = null;
-        internal static Settings Settings
+        private static DebugConsoleSettings settings = null;
+        internal static DebugConsoleSettings Settings
         {
             get
             {
@@ -80,7 +80,7 @@ namespace AggroBird.ReflectionDebugConsole
                 return settings;
             }
         }
-        internal static void OverrideSettings(Settings settings)
+        internal static void OverrideSettings(DebugConsoleSettings settings)
         {
             DebugConsole.settings = settings;
         }
@@ -92,13 +92,13 @@ namespace AggroBird.ReflectionDebugConsole
             return gui;
         }
 
-        private static Settings LoadSettings()
+        private static DebugConsoleSettings LoadSettings()
         {
-            Settings settings = Resources.Load<Settings>(SettingsFileName);
+            DebugConsoleSettings settings = Resources.Load<DebugConsoleSettings>(SettingsFileName);
 
             if (settings == null)
             {
-                settings = ScriptableObject.CreateInstance<Settings>();
+                settings = ScriptableObject.CreateInstance<DebugConsoleSettings>();
             }
 
             return settings;
