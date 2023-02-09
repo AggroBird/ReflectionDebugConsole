@@ -192,6 +192,7 @@ namespace AggroBird.Reflection
             Namespace = 1,
             DeclaringType = 2,
             GenericArguments = 4,
+            AllowKeywords = 8,
             All = 255,
         }
         protected void FormatTypeName(StringBuilder output, Type type, TypeNameFlags flags = TypeNameFlags.All, int highlight = 0)
@@ -208,10 +209,13 @@ namespace AggroBird.Reflection
                 return;
             }
 
-            if (TokenUtility.TryGetBaseTypeName(type, out string baseTypeName))
+            if ((flags & TypeNameFlags.AllowKeywords) != TypeNameFlags.None)
             {
-                output.Append(Highlight(baseTypeName, highlight, Style.Keyword));
-                return;
+                if (TokenUtility.TryGetBaseTypeName(type, out string baseTypeName))
+                {
+                    output.Append(Highlight(baseTypeName, highlight, Style.Keyword));
+                    return;
+                }
             }
 
             // Format array
