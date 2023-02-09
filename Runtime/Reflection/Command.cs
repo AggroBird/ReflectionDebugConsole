@@ -1326,6 +1326,7 @@ namespace AggroBird.Reflection
                         {
                             // Force to specified format
                             case LiteralType.Float: return new BoxedObject((float)result);
+                            case LiteralType.Double: return new BoxedObject((double)result);
                             case LiteralType.UInt: return new BoxedObject((uint)result);
                             case LiteralType.Long: return new BoxedObject((long)result);
                             case LiteralType.ULong: return new BoxedObject(result);
