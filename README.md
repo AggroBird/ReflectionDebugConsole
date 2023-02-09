@@ -89,6 +89,12 @@ The environment supports type casting operators is and as:
 5 is int ? "Integer" : "Not an integer";
 ```
 
+The environment has limited support for reference parameters:
+```csharp
+int x; int.TryParse("125", x); x;
+```
+All reference types (in/out/ref) are treated as reference by the environment. As such, declaring the reference type is not necessary and variables/fields passed into a reference parameter will automatically be converted.
+
 ## Macros and Keybinds
 
 The console comes with an interface to store frequently called commands as macros. These can be executed with a keybind, eliminating the need to program these keybinds into your project.

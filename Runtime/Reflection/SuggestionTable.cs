@@ -196,6 +196,12 @@ namespace AggroBird.Reflection
         }
         protected void FormatTypeName(StringBuilder output, Type type, TypeNameFlags flags = TypeNameFlags.All, int highlight = 0)
         {
+            // Remove reference
+            if (type.IsByRef)
+            {
+                type = type.GetElementType();
+            }
+
             if (type.IsGenericParameter)
             {
                 output.Append(Highlight(type.Name, highlight, Styles.GetTypeColor(type)));
@@ -289,6 +295,7 @@ namespace AggroBird.Reflection
                 if (split != -1) typeName = typeName.Substring(split + 1);
             }
 
+            // Actual type name
             output.Append(Highlight(typeName, highlight, Styles.GetTypeColor(type)));
 
             if ((flags & TypeNameFlags.GenericArguments) != TypeNameFlags.None && type.IsGenericType)
@@ -308,17 +315,23 @@ namespace AggroBird.Reflection
             }
         }
 
+        protected void FormatParameter(StringBuilder output, ParameterInfo parameter)
+        {
+            if (parameter.HasCustomAttribute<ParamArrayAttribute>(true)) output.Append($"{Styles.Open(Style.Keyword)}params{Styles.Close} ");
+            if (parameter.IsIn) output.Append($"{Styles.Open(Style.Keyword)}in{Styles.Close} ");
+            else if (parameter.IsOut) output.Append($"{Styles.Open(Style.Keyword)}out{Styles.Close} ");
+            else if (parameter.ParameterType.IsByRef) output.Append($"{Styles.Open(Style.Keyword)}ref{Styles.Close} ");
+            FormatTypeName(output, parameter.ParameterType);
+            output.Append($" {Styles.Open(Style.Variable)}{parameter.Name}{Styles.Close}");
+        }
         protected void FormatParameters(StringBuilder output, ParameterInfo[] parameters, int currentParameterIndex = -1)
         {
             if (currentParameterIndex >= parameters.Length) currentParameterIndex = parameters.Length - 1;
-            int varArgParam = Expression.HasVariableParameterCount(parameters) ? parameters.Length - 1 : -1;
             for (int i = 0; i < parameters.Length; i++)
             {
                 if (i > 0) output.Append(", ");
                 if (i == currentParameterIndex) output.Append("<b>");
-                if (i == varArgParam) output.Append($"{Styles.Open(Style.Keyword)}params{Styles.Close} ");
-                FormatTypeName(output, parameters[i].ParameterType);
-                output.Append($" {Styles.Open(Style.Variable)}{parameters[i].Name}{Styles.Close}");
+                FormatParameter(output, parameters[i]);
                 if (parameters[i].HasDefaultValue)
                 {
                     output.Append($" = ");
@@ -410,13 +423,10 @@ namespace AggroBird.Reflection
                     FormatGenericArguments(output, methodInfo.GetGenericArguments());
                     output.Append('(');
                     ParameterInfo[] parameters = methodInfo.GetParameters();
-                    int varArgParam = Expression.HasVariableParameterCount(methodInfo) ? parameters.Length - 1 : -1;
                     for (int i = 0; i < parameters.Length; i++)
                     {
                         if (i > 0) output.Append(", ");
-                        if (i == varArgParam) output.Append($"{Styles.Open(Style.Keyword)}params{Styles.Close} ");
-                        FormatTypeName(output, parameters[i].ParameterType);
-                        output.Append($" {Styles.Open(Style.Variable)}{parameters[i].Name}{Styles.Close}");
+                        FormatParameter(output, parameters[i]);
                         if (parameters[i].HasDefaultValue)
                         {
                             output.Append(" = ");

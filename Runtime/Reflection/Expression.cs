@@ -221,6 +221,8 @@ namespace AggroBird.Reflection
         public virtual bool IsAssignable => false;
         public virtual object Assign(ExecutionContext context, object val, bool returnInitialValue = false) => throw new DebugConsoleException("Expression is read only");
 
+        public virtual bool IsReferenceable => false;
+
 
         static Expression()
         {
@@ -436,6 +438,31 @@ namespace AggroBird.Reflection
             return result;
         }
 
+        private static void WriteBackReferences(ExecutionContext context, ParameterInfo[] parameters, object[] argObj, Expression[] args)
+        {
+            for (int i = 0; i < parameters.Length; i++)
+            {
+                if (parameters[i].ParameterType.IsByRef && !parameters[i].IsIn)
+                {
+                    args[i].Assign(context, argObj[i]);
+                }
+            }
+        }
+        protected static object InvokeMethod(ExecutionContext context, MethodInfo method, Expression obj, Expression[] args)
+        {
+            object[] argObj = ExpressionUtility.Forward<object>(context, args);
+            object result = method.Invoke(obj.SafeExecute(context), argObj);
+            WriteBackReferences(context, method.GetParameters(), argObj, args);
+            return method.ReturnType == typeof(void) ? VoidResult.Empty : result;
+        }
+        protected static object InvokeMethod(ExecutionContext context, ConstructorInfo method, Expression[] args)
+        {
+            object[] argObj = ExpressionUtility.Forward<object>(context, args);
+            object result = method.Invoke(argObj);
+            WriteBackReferences(context, method.GetParameters(), argObj, args);
+            return result;
+        }
+
         private static int GetInheritanceWeight(Type baseType, Type type)
         {
             if (type.Equals(baseType))
@@ -491,7 +518,6 @@ namespace AggroBird.Reflection
 
         private static bool IsSupportedReflectionType(Type type)
         {
-            if (type.IsByRef) return false;
             if (type.IsPointer) return false;
             if (type.IsSubclassOf(typeof(Delegate)))
             {
@@ -523,6 +549,8 @@ namespace AggroBird.Reflection
                 }
                 if (methodBase is MethodInfo methodInfo)
                 {
+                    // No byref return values allowed in reflection
+                    if (methodInfo.ReturnType.IsByRef) return false;
                     if (!IsSupportedReflectionType(methodInfo.ReturnType)) return false;
                 }
             }
@@ -793,6 +821,12 @@ namespace AggroBird.Reflection
 
             // No conversion required
             if (dstType.IsAssignableFrom(srcType))
+            {
+                return true;
+            }
+
+            // Ref
+            if (dstType.IsByRef && expr.IsReferenceable && dstType.GetElementType().Equals(expr.ResultType))
             {
                 return true;
             }
@@ -1220,6 +1254,7 @@ namespace AggroBird.Reflection
         }
 
         public override bool IsConstant => TargetField.IsLiteral;
+        public override bool IsReferenceable => IsAssignable;
 
         // Indicates whether this is a field of a value type.
         // Reflection does not provide references to those, so we will have to 
@@ -1434,8 +1469,7 @@ namespace AggroBird.Reflection
         {
             using (ModifyScope scope = new ModifyScope(lhs, context))
             {
-                object result = method.Invoke(lhs.SafeExecute(context), ExpressionUtility.Forward<object>(context, args));
-                return method.ReturnType == typeof(void) ? VoidResult.Empty : result;
+                return InvokeMethod(context, method, lhs, args);
             }
         }
         public override Type ResultType => method.ReturnType;
@@ -1542,7 +1576,7 @@ namespace AggroBird.Reflection
 
         public override object Execute(ExecutionContext context)
         {
-            return constructor.Invoke(ExpressionUtility.Forward<object>(context, args));
+            return InvokeMethod(context, constructor, args);
         }
         public override Type ResultType => type;
     }
@@ -1845,7 +1879,7 @@ namespace AggroBird.Reflection
 
         public override object Execute(ExecutionContext context)
         {
-            object result = invoke.Invoke(lhs.SafeExecute(context), ExpressionUtility.Forward<object>(context, args));
+            object result = InvokeMethod(context, invoke, lhs, args);
             if (invoke.ReturnType == typeof(void)) return VoidResult.Empty;
             return result;
         }
@@ -2284,6 +2318,8 @@ namespace AggroBird.Reflection
                 return val;
             }
         }
+
+        public override bool IsReferenceable => true;
     }
 }
 #endif
