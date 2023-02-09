@@ -35,6 +35,7 @@ namespace AggroBird.Reflection
             UInt,
             Long,
             ULong,
+            Decimal,
         }
 
         public CommandParser(ArrayView<Token> tokens, Identifier identifierTable, bool safeMode, int maxIterationCount, int cursorPosition = -1) : base(tokens)
@@ -1020,7 +1021,7 @@ namespace AggroBird.Reflection
                         ParseArrayInitializer(initializer, typename.type);
 
                         int[] lengths = new int[rank];
-                        for(int i = 0; i < rank; i++) lengths[i] = -1;
+                        for (int i = 0; i < rank; i++) lengths[i] = -1;
 
                         initializer.ValidateInitializerLength(lengths);
 
@@ -1237,6 +1238,15 @@ namespace AggroBird.Reflection
                                     literalType = LiteralType.UInt;
                                 }
                                 break;
+
+                            case 'm':
+                            case 'M':
+                                // Decimal
+                                if (numBase != 10) goto InvalidLiteral;
+                                idx++;
+                                literalType = LiteralType.Decimal;
+                                break;
+
                         }
 
                         // Ensure we are at the end
@@ -1246,7 +1256,15 @@ namespace AggroBird.Reflection
                     int subLen = value.Length - postFixLength - prefix;
                     if (subLen <= 0) goto InvalidLiteral;
                     string sub = value.Substring(prefix, subLen);
-                    if (isFloat)
+
+                    if (literalType == LiteralType.Decimal)
+                    {
+                        if (decimal.TryParse(sub, out decimal result))
+                        {
+                            return new BoxedObject(result);
+                        }
+                    }
+                    else if (isFloat)
                     {
                         if (double.TryParse(sub, out double result))
                         {
