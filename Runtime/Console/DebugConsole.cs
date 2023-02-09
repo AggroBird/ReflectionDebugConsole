@@ -34,7 +34,7 @@ namespace AggroBird.ReflectionDebugConsole
         public static event OnConsoleFocusChange onConsoleFocusChange = default;
 
 #if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
-        internal static void Log(object msg)
+        public static void Log(object msg)
         {
 #if INCLUDE_DEBUG_SERVER
             if (instance && instance.CurrentExecutingClient != null)
@@ -44,7 +44,7 @@ namespace AggroBird.ReflectionDebugConsole
 #endif
             Debug.Log($"{LogPrefix} {msg}");
         }
-        internal static void LogWarning(object msg)
+        public static void LogWarning(object msg)
         {
 #if INCLUDE_DEBUG_SERVER
             if (instance && instance.CurrentExecutingClient != null)
@@ -54,7 +54,7 @@ namespace AggroBird.ReflectionDebugConsole
 #endif
             Debug.LogWarning($"{LogPrefix} {msg}");
         }
-        internal static void LogError(object msg)
+        public static void LogError(object msg)
         {
 #if INCLUDE_DEBUG_SERVER
             if (instance && instance.CurrentExecutingClient != null)
@@ -500,8 +500,6 @@ namespace AggroBird.ReflectionDebugConsole
             {
                 client.Close();
                 client = null;
-
-                Log($"Connection closed");
             }
 
             UnityEditor.EditorApplication.update -= UpdateConnection;
@@ -519,12 +517,12 @@ namespace AggroBird.ReflectionDebugConsole
 
                 if (client.Poll(out string message, out MessageFlags flags))
                 {
-                    message = $"{client.endpoint}: {message}";
+                    message = $"[{client.endpoint}] {message}";
                     switch (flags)
                     {
-                        default: Log(message); break;
-                        case MessageFlags.Warning: LogWarning(message); break;
-                        case MessageFlags.Error: LogError(message); break;
+                        default: Debug.Log(message); break;
+                        case MessageFlags.Warning: Debug.LogWarning(message); break;
+                        case MessageFlags.Error: Debug.LogError(message); break;
                     }
                 }
             }
@@ -690,22 +688,30 @@ namespace AggroBird.ReflectionDebugConsole
             return result == null ? "null" : result.ToString();
         }
 
-        internal const string TruncatedString = "... <message truncated>";
-        internal static string ClampMaxSize(string msg, int len)
+        private static readonly byte[] TruncatedString = Encoding.UTF8.GetBytes("... <message truncated>");
+        private static readonly byte[] NullMsg = Encoding.UTF8.GetBytes("null");
+        private static byte[] TruncateNetworkMessage(object msg)
         {
-            if (msg.Length > len)
+            if (msg == null) return NullMsg;
+
+            byte[] bytes = Encoding.UTF8.GetBytes(msg.ToString());
+            if (bytes.Length > DebugClient.MaxPackageSize)
             {
-                return $"{msg.Substring(0, len - TruncatedString.Length)}{TruncatedString}";
+                for (int i = DebugClient.MaxPackageSize - 1; i >= 0; i--)
+                {
+                    if (((bytes[i] & 128) == 0) || ((bytes[i] & 64) != 0))
+                    {
+                        if (DebugClient.MaxPackageSize - i >= TruncatedString.Length)
+                        {
+                            byte[] truncated = new byte[i + TruncatedString.Length];
+                            Buffer.BlockCopy(bytes, 0, truncated, 0, i);
+                            Buffer.BlockCopy(TruncatedString, 0, truncated, i, TruncatedString.Length);
+                            return truncated;
+                        }
+                    }
+                }
             }
-            return msg;
-        }
-        internal static string TruncateNetworkMessage(string msg)
-        {
-            return ClampMaxSize(msg, DebugClient.MaxPackageSize);
-        }
-        internal static string TruncateNetworkMessage(object msg)
-        {
-            return TruncateNetworkMessage(FormatResult(msg));
+            return bytes;
         }
 
 
@@ -728,7 +734,7 @@ namespace AggroBird.ReflectionDebugConsole
                     // Forward commands to the client if there is one
                     if (client != null && !isRemoteCommand && !Application.isPlaying)
                     {
-                        client.Send(cmd);
+                        client.Send(Encoding.UTF8.GetBytes(cmd.Trim()));
                         return true;
                     }
 #endif
@@ -813,6 +819,19 @@ namespace AggroBird.ReflectionDebugConsole
         }
 
 #else
+        public static void Log(object msg)
+        {
+            Debug.Log($"{LogPrefix} {msg}");
+        }
+        public static void LogWarning(object msg)
+        {
+            Debug.LogWarning($"{LogPrefix} {msg}");
+        }
+        public static void LogError(object msg)
+        {
+            Debug.LogError($"{LogPrefix} {msg}");
+        }
+
         public static void Open() { }
         public static void Close() { }
 

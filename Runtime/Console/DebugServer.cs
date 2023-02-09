@@ -48,6 +48,11 @@ namespace AggroBird.ReflectionDebugConsole
 
     internal class DebugClient
     {
+        private static void Log(object msg)
+        {
+            Debug.Log($"[DebugClient] {msg}");
+        }
+
         public enum State
         {
             Disconnected,
@@ -61,7 +66,7 @@ namespace AggroBird.ReflectionDebugConsole
             socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
             endpoint = new IPEndPoint(IPAddress.Parse(address), port);
             this.authKey = string.IsNullOrEmpty(authKey) ? string.Empty : authKey;
-            DebugConsole.Log($"Connecting to endpoint '{endpoint}'...");
+            Log($"Connecting to endpoint '{endpoint}'...");
             state = State.Connecting;
             socket.BeginConnect(endpoint, new AsyncCallback(ConnectCallback), socket);
         }
@@ -87,27 +92,26 @@ namespace AggroBird.ReflectionDebugConsole
         private const int HeaderSize = 3;
 
 
-        public void Send(string message, MessageFlags flags = MessageFlags.None)
+        public void Send(byte[] message, MessageFlags flags = MessageFlags.None)
         {
             using (new ThreadLock(mutex))
             {
                 if (state == State.Connected)
                 {
-                    byte[] body = Encoding.UTF8.GetBytes(message);
-                    if (body.Length > MaxPackageSize)
+                    if (message.Length > MaxPackageSize)
                     {
-                        throw new DebugConsoleException($"Message size exceeds supported maximum ({body.Length}/{MaxPackageSize})");
+                        throw new DebugConsoleException($"Message size exceeds supported maximum ({message.Length}/{MaxPackageSize})");
                     }
 
                     byte[] header = new byte[HeaderSize]
                     {
-                        (byte)(body.Length & 0xFF),
-                        (byte)((body.Length >> 8) & 0xFF),
+                        (byte)(message.Length & 0xFF),
+                        (byte)((message.Length >> 8) & 0xFF),
                         (byte)flags,
                     };
 
                     socket.Send(header, 0, HeaderSize, 0);
-                    socket.Send(body, 0, body.Length, 0);
+                    socket.Send(message, 0, message.Length, 0);
                 }
             }
         }
@@ -145,6 +149,7 @@ namespace AggroBird.ReflectionDebugConsole
 
                 if (socket != null)
                 {
+                    Log($"Connection closed");
                     socket.Close();
                     socket = null;
                 }
@@ -161,10 +166,10 @@ namespace AggroBird.ReflectionDebugConsole
                     {
                         socket.EndConnect(result);
 
-                        DebugConsole.Log($"Successfully connected to endpoint '{endpoint}'");
+                        Log($"Successfully connected to endpoint '{endpoint}'");
                         state = State.Connected;
 
-                        Send(authKey);
+                        Send(Encoding.UTF8.GetBytes(authKey));
 
                         socket.BeginReceive(receiveBuffer, 0, BufferSize, 0, new AsyncCallback(ReceiveCallback), socket);
                     }
@@ -224,6 +229,11 @@ namespace AggroBird.ReflectionDebugConsole
 #if INCLUDE_DEBUG_SERVER
     internal class DebugServer
     {
+        private static void Log(object msg)
+        {
+            Debug.Log($"[DebugServer] {msg}");
+        }
+
         public DebugServer(int port, string authKey)
         {
             this.authKey = string.IsNullOrEmpty(authKey) ? string.Empty : authKey;
@@ -232,7 +242,7 @@ namespace AggroBird.ReflectionDebugConsole
             socket.Bind(new IPEndPoint(IPAddress.Any, port));
             socket.Listen(100);
             socket.BeginAccept(new AsyncCallback(AcceptCallback), socket);
-            DebugConsole.Log("Debug server started");
+            Log("Debug server started");
         }
 
         private Socket socket = null;
@@ -267,7 +277,7 @@ namespace AggroBird.ReflectionDebugConsole
                     {
                         if (connection.state == DebugClient.State.Disconnected)
                         {
-                            DebugConsole.Log($"Connection to endpoint '{connection.endpoint}' lost");
+                            Log($"Connection to endpoint '{connection.endpoint}' lost");
                             goto RemoveAndSwap;
                         }
                         else if (connection.Poll(out string message, out MessageFlags flags))
@@ -280,7 +290,7 @@ namespace AggroBird.ReflectionDebugConsole
                                         goto RemoveAndSwap;
                                     }
                                     connection.Authenticate();
-                                    DebugConsole.Log($"Connection accepted from endpoint '{connection.endpoint}'");
+                                    Log($"Connection accepted from endpoint '{connection.endpoint}'");
                                     break;
                                 default:
                                     messageQueue.Add(new Message(connections[i], message, flags));
@@ -342,7 +352,7 @@ namespace AggroBird.ReflectionDebugConsole
                     socket = null;
                 }
 
-                DebugConsole.Log("Debug server stopped");
+                Log("Debug server stopped");
             }
         }
 

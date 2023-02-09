@@ -530,7 +530,7 @@ namespace AggroBird.ReflectionDebugConsole
                     {
                         string asString = DebugConsole.FormatResult(result);
                         if (isDocked) AppendOutputLine(asString, false);
-                        DebugConsole.Log(asString);
+                        Debug.Log(asString);
                     }
                 }
                 else if (exception != null)
