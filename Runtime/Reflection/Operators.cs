@@ -168,14 +168,6 @@ namespace AggroBird.Reflection
             return (TypeCode)Math.Max((int)lhs, (int)rhs);
         }
 
-        private static bool CheckAssignmentImplicitConversion(TypeCode destination, TypeCode operand)
-        {
-            if (destination == operand) return true;
-            if (destination == TypeCode.Double) return operand <= TypeCode.Double;
-            if (destination == TypeCode.Single) return operand <= TypeCode.Single;
-            if (IsUnsigned(destination)) return IsUnsigned(operand) && operand <= destination;
-            return operand <= destination;
-        }
         private static bool CheckArithmeticImplicitConversion(TypeCode lhs, TypeCode rhs, out TypeCode cast)
         {
             cast = default;
