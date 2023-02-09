@@ -32,6 +32,7 @@ namespace AggroBird.Reflection
         {
             Any,
             Float,
+            Double,
             UInt,
             Long,
             ULong,
@@ -1210,6 +1211,14 @@ namespace AggroBird.Reflection
                                 literalType = LiteralType.Float;
                                 break;
 
+                            case 'd':
+                            case 'D':
+                                // Double
+                                if (numBase != 10) goto InvalidLiteral;
+                                idx++;
+                                literalType = LiteralType.Double;
+                                break;
+
                             case 'l':
                             case 'L':
                                 // Long
@@ -1271,6 +1280,7 @@ namespace AggroBird.Reflection
                             switch (literalType)
                             {
                                 case LiteralType.Float: return new BoxedObject((float)result);
+                                case LiteralType.Double:
                                 case LiteralType.Any: return new BoxedObject(result);
                             }
                         }
