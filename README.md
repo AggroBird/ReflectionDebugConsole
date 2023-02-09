@@ -50,7 +50,7 @@ Getting elements of an array:
 UnityEngine.Object.FindObjectsOfType(typeof(Camera))[0].ToString();
 ```
 
-Constructing new objects:
+Constructing new objects (new keyword is not necessary):
 ```csharp
 Game.player.transform.position = UnityEngine.Vector3(1, 2, 3);
 ```
