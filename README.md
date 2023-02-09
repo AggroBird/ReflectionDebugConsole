@@ -32,7 +32,7 @@ The settings can be accessed in the editor through Window > Analysis > Debug Con
 
 ![alt text](https://github.com/AggroBird/ReflectionDebugConsole/blob/main/Documentation~/screenshot.png?raw=true "Screenshot")
 
-The console supports most basic C# syntax, including:
+The console uses a scripting language that closely emulates C#. It supports most of the basic C# operations including value/reference types, literals, delegates and typecasting.
 
 Invoking methods (including variable number parameter):
 ```csharp
