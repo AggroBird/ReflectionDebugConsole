@@ -1004,6 +1004,9 @@ namespace AggroBird.Reflection
                 if (optimal.Length > 0)
                 {
                     if (optimal.Length > 1) throw new DebugConsoleException($"Operator '{info.str}' is ambiguous on operand of type '{arg.ResultType}'");
+
+                    args = Expression.ConvertArguments(optimal[0].GetParameters(), args);
+
                     expr = new MethodMember(optimal[0], args);
                     return true;
                 }
@@ -1045,6 +1048,9 @@ namespace AggroBird.Reflection
                 if (optimal.Length > 0)
                 {
                     if (optimal.Length > 1) throw new DebugConsoleException($"Operator '{info.str}' is ambiguous on operands of type '{lhs.ResultType}' and '{rhs.ResultType}'");
+
+                    args = Expression.ConvertArguments(optimal[0].GetParameters(), args);
+
                     expr = new MethodMember(optimal[0], args);
                     return true;
                 }
