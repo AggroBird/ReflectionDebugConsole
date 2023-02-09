@@ -214,7 +214,6 @@ namespace AggroBird.Reflection
     {
         public abstract object Execute(ExecutionContext context);
         public abstract Type ResultType { get; }
-        public virtual TypeCode GetTypeCode() => Type.GetTypeCode(ResultType);
 
         public virtual bool IsConstant => false;
 
@@ -1172,7 +1171,6 @@ namespace AggroBird.Reflection
 
         public override object Execute(ExecutionContext context) => obj;
         public override Type ResultType => type;
-        public override TypeCode GetTypeCode() => typeCode;
 
         public override bool IsConstant => isConstant;
 
@@ -1963,7 +1961,7 @@ namespace AggroBird.Reflection
 
 
         private static readonly MethodInfo ConvertMethod = typeof(Conversion).GetMethod("Convert");
-        public static T Convert<T>(object obj) => (T)obj;
+        public static object Convert<T>(object obj) => (T)obj;
     }
 
     internal class IsCast : Expression
