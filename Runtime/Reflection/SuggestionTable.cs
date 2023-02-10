@@ -402,8 +402,15 @@ namespace AggroBird.Reflection
             {
                 case FieldInfo fieldInfo:
                 {
-                    if (fieldInfo.IsInitOnly) output.Append($"{Styles.Open(Style.Keyword)}readonly{Styles.Close} ");
-                    if (fieldInfo.IsLiteral) output.Append($"{Styles.Open(Style.Keyword)}const{Styles.Close} ");
+                    if (fieldInfo.IsLiteral)
+                    {
+                        output.Append($"{Styles.Open(Style.Keyword)}const{Styles.Close} ");
+                    }
+                    else
+                    {
+                        if (fieldInfo.IsStatic) output.Append($"{Styles.Open(Style.Keyword)}static{Styles.Close} ");
+                        if (fieldInfo.IsInitOnly) output.Append($"{Styles.Open(Style.Keyword)}readonly{Styles.Close} ");
+                    }
                     FormatTypeName(output, fieldInfo.FieldType);
                     output.Append($" {Highlight(fieldInfo.Name, len)}");
                 }
@@ -423,6 +430,7 @@ namespace AggroBird.Reflection
                 break;
                 case MethodInfo methodInfo:
                 {
+                    if (methodInfo.IsStatic) output.Append($"{Styles.Open(Style.Keyword)}static{Styles.Close} ");
                     FormatTypeName(output, methodInfo.ReturnType);
                     output.Append($" {Highlight(methodInfo.Name, len, Style.Method)}");
                     FormatGenericArguments(output, methodInfo.GetGenericArguments());
@@ -486,19 +494,20 @@ namespace AggroBird.Reflection
             {
                 FormatTypeName(output, constructor.DeclaringType, TypeNameFlags.GenericArguments);
             }
-            else if (overload is MethodInfo method)
+            else if (overload is MethodInfo methodInfo)
             {
-                FormatTypeName(output, method.ReturnType);
+                if (methodInfo.IsStatic) output.Append($"{Styles.Open(Style.Keyword)}static{Styles.Close} ");
+                FormatTypeName(output, methodInfo.ReturnType);
                 if (delegateType == null)
                 {
-                    output.Append($" {Styles.Open(Style.Method)}{method.Name}{Styles.Close}");
+                    output.Append($" {Styles.Open(Style.Method)}{methodInfo.Name}{Styles.Close}");
                 }
                 else
                 {
                     output.Append(' ');
                     FormatTypeName(output, delegateType);
                 }
-                FormatGenericArguments(output, method.GetGenericArguments());
+                FormatGenericArguments(output, methodInfo.GetGenericArguments());
             }
             output.Append('(');
             FormatParameters(output, overload.GetParameters(), currentParameterIndex);
