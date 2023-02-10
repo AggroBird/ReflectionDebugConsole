@@ -562,7 +562,7 @@ namespace AggroBird.ReflectionDebugConsole
                 suggestionResult = suggestionProvider.GetResult(ref highlightOffset, ref highlightIndex, direction, maxSuggestionCount, stringBuilder);
                 if (!suggestionResult.isOverloadList)
                 {
-                    InsertSuggestion(highlightIndex + highlightOffset);
+                    InsertSuggestion(highlightIndex);
                 }
             }
         }
