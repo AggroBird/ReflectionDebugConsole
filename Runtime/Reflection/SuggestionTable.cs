@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace AggroBird.Reflection
 {
@@ -69,9 +70,9 @@ namespace AggroBird.Reflection
         }
     }
 
-    internal abstract class Suggestion : IComparable<Suggestion>
+    internal abstract class SuggestionObject : IComparable<SuggestionObject>
     {
-        public Suggestion(IReadOnlyList<string> usingNamespaces)
+        public SuggestionObject(IReadOnlyList<string> usingNamespaces)
         {
             this.usingNamespaces = usingNamespaces;
         }
@@ -79,7 +80,7 @@ namespace AggroBird.Reflection
         public abstract string Text { get; }
         public virtual int GenericArgumentCount => 0;
         public virtual int ParameterCount => 0;
-        public int CompareTo(Suggestion suggestion)
+        public int CompareTo(SuggestionObject suggestion)
         {
             int textCompare = Text.CompareTo(suggestion.Text);
             if (textCompare == 0)
@@ -369,7 +370,7 @@ namespace AggroBird.Reflection
         }
     }
 
-    internal class MemberSuggestion : Suggestion
+    internal class MemberSuggestion : SuggestionObject
     {
         public MemberSuggestion(MemberInfo memberInfo, int highlightLength, IReadOnlyList<string> usingNamespaces) : base(usingNamespaces)
         {
@@ -455,7 +456,7 @@ namespace AggroBird.Reflection
         }
     }
 
-    internal class MethodOverloadSuggestion : Suggestion
+    internal class MethodOverloadSuggestion : SuggestionObject
     {
         public MethodOverloadSuggestion(MethodBase overload, int currentParameterIndex, IReadOnlyList<string> usingNamespaces, Type delegateType = null) : base(usingNamespaces)
         {
@@ -505,7 +506,7 @@ namespace AggroBird.Reflection
         }
     }
 
-    internal class GenericOverloadSuggestion : Suggestion
+    internal class GenericOverloadSuggestion : SuggestionObject
     {
         public GenericOverloadSuggestion(Generic generic, int currentParameterIndex, IReadOnlyList<string> usingNamespaces) : base(usingNamespaces)
         {
@@ -553,7 +554,7 @@ namespace AggroBird.Reflection
         }
     }
 
-    internal class SubscriptPropertySuggestion : Suggestion
+    internal class SubscriptPropertySuggestion : SuggestionObject
     {
         public SubscriptPropertySuggestion(PropertyInfo property, int currentParameterIndex, IReadOnlyList<string> usingNamespaces, Type declaringType) : base(usingNamespaces)
         {
@@ -584,7 +585,7 @@ namespace AggroBird.Reflection
         }
     }
 
-    internal class NamespaceSuggestion : Suggestion
+    internal class NamespaceSuggestion : SuggestionObject
     {
         public NamespaceSuggestion(Identifier identifier, int highlightLength, IReadOnlyList<string> usingNamespaces) : base(usingNamespaces)
         {
@@ -603,7 +604,7 @@ namespace AggroBird.Reflection
         }
     }
 
-    internal class TypeSuggestion : Suggestion
+    internal class TypeSuggestion : SuggestionObject
     {
         public TypeSuggestion(Type type, int highlightLength, IReadOnlyList<string> usingNamespaces) : base(usingNamespaces)
         {
@@ -632,7 +633,7 @@ namespace AggroBird.Reflection
         }
     }
 
-    internal class VariableSuggestion : Suggestion
+    internal class VariableSuggestion : SuggestionObject
     {
         public VariableSuggestion(Type type, string name, int highlightLength, IReadOnlyList<string> usingNamespaces) : base(usingNamespaces)
         {
@@ -655,7 +656,7 @@ namespace AggroBird.Reflection
         }
     }
 
-    internal class KeywordSuggestion : Suggestion
+    internal class KeywordSuggestion : SuggestionObject
     {
         public KeywordSuggestion(string name, int highlightLength, IReadOnlyList<string> usingNamespaces) : base(usingNamespaces)
         {
@@ -688,7 +689,7 @@ namespace AggroBird.Reflection
         public readonly int insertOffset;
         public readonly int insertLength;
 
-        public abstract Suggestion[] GetSuggestions(int cursorPosition, IReadOnlyList<string> usingNamespaces, bool safeMode);
+        public abstract SuggestionObject[] GetSuggestions(int cursorPosition, IReadOnlyList<string> usingNamespaces, bool safeMode);
     }
 
     internal sealed class MemberList : SuggestionInfo
@@ -703,13 +704,13 @@ namespace AggroBird.Reflection
         public readonly bool isStatic;
 
 
-        public override Suggestion[] GetSuggestions(int cursorPosition, IReadOnlyList<string> usingNamespaces, bool safeMode)
+        public override SuggestionObject[] GetSuggestions(int cursorPosition, IReadOnlyList<string> usingNamespaces, bool safeMode)
         {
             if (query.Length == 0 || query.End == cursorPosition)
             {
                 string queryString = query.ToString();
                 int queryLength = queryString.Length;
-                List<Suggestion> result = new List<Suggestion>();
+                List<SuggestionObject> result = new List<SuggestionObject>();
 
                 BindingFlags bindingFlags = Expression.MakeBindingFlags(isStatic, safeMode);
                 MemberInfo[] members = Expression.FilterMembers(type.GetMembers(bindingFlags));
@@ -747,7 +748,7 @@ namespace AggroBird.Reflection
                 }
             }
 
-            return Array.Empty<Suggestion>();
+            return Array.Empty<SuggestionObject>();
         }
     }
 
@@ -765,11 +766,11 @@ namespace AggroBird.Reflection
         private readonly bool includeKeywords;
 
 
-        public override Suggestion[] GetSuggestions(int cursorPosition, IReadOnlyList<string> usingNamespaces, bool safeMode)
+        public override SuggestionObject[] GetSuggestions(int cursorPosition, IReadOnlyList<string> usingNamespaces, bool safeMode)
         {
             if (query.Length == 0 || query.End == cursorPosition)
             {
-                Dictionary<string, Suggestion> suggestions = new Dictionary<string, Suggestion>();
+                Dictionary<string, SuggestionObject> suggestions = new Dictionary<string, SuggestionObject>();
                 string queryString = query.ToString();
                 int queryLength = queryString.Length;
                 bool hasQuery = queryLength > 0;
@@ -809,12 +810,12 @@ namespace AggroBird.Reflection
                 }
                 if (suggestions.Count > 0)
                 {
-                    List<Suggestion> result = new List<Suggestion>(suggestions.Values);
+                    List<SuggestionObject> result = new List<SuggestionObject>(suggestions.Values);
                     result.Sort();
                     return result.ToArray();
                 }
             }
-            return Array.Empty<Suggestion>();
+            return Array.Empty<SuggestionObject>();
         }
     }
 
@@ -832,9 +833,9 @@ namespace AggroBird.Reflection
         private readonly Type delegateType;
 
 
-        public override Suggestion[] GetSuggestions(int cursorPosition, IReadOnlyList<string> usingNamespaces, bool safeMode)
+        public override SuggestionObject[] GetSuggestions(int cursorPosition, IReadOnlyList<string> usingNamespaces, bool safeMode)
         {
-            List<Suggestion> result = new List<Suggestion>();
+            List<SuggestionObject> result = new List<SuggestionObject>();
 
             int currentArgumentIndex = args.Count;
             for (int i = 0; i < overloads.Count; i++)
@@ -871,9 +872,9 @@ namespace AggroBird.Reflection
         private readonly IReadOnlyList<Type> args;
 
 
-        public override Suggestion[] GetSuggestions(int cursorPosition, IReadOnlyList<string> usingNamespaces, bool safeMode)
+        public override SuggestionObject[] GetSuggestions(int cursorPosition, IReadOnlyList<string> usingNamespaces, bool safeMode)
         {
-            List<Suggestion> result = new List<Suggestion>();
+            List<SuggestionObject> result = new List<SuggestionObject>();
 
             int currentArgumentIndex = args.Count;
             for (int i = 0; i < generics.Count; i++)
@@ -911,9 +912,9 @@ namespace AggroBird.Reflection
         public int CurrentArgumentIndex => args.Count;
 
 
-        public override Suggestion[] GetSuggestions(int cursorPosition, IReadOnlyList<string> usingNamespaces, bool safeMode)
+        public override SuggestionObject[] GetSuggestions(int cursorPosition, IReadOnlyList<string> usingNamespaces, bool safeMode)
         {
-            List<Suggestion> result = new List<Suggestion>();
+            List<SuggestionObject> result = new List<SuggestionObject>();
 
             int currentArgumentIndex = CurrentArgumentIndex;
             for (int i = 0; i < properties.Count; i++)
@@ -938,41 +939,43 @@ namespace AggroBird.Reflection
         }
     }
 
-    internal readonly struct StyledCommand
+    internal struct StyledToken
     {
-        public StyledCommand(string command, StyledToken[] styledTokens)
+        public StyledToken(StringView str, Style style)
         {
-            this.command = command;
-            this.styledTokens = styledTokens;
+            offset = str.Offset;
+            length = str.Length;
+            this.style = style;
+        }
+        public StyledToken(int offset, int length, Style style)
+        {
+            this.offset = offset;
+            this.length = length;
+            this.style = style;
         }
 
-        public readonly string command;
-        public readonly StyledToken[] styledTokens;
-
-        public static implicit operator bool(StyledCommand styledCommand)
-        {
-            return !string.IsNullOrEmpty(styledCommand.command);
-        }
+        public int offset;
+        public int length;
+        public readonly Style style;
     }
 
     internal struct SuggestionTable
     {
-        public static readonly SuggestionTable Empty = new SuggestionTable();
-
         public SuggestionTable(string input, int cursorPosition, Identifier identifierTable, IReadOnlyList<string> usingNamespaces, bool safeMode)
         {
-            visible = new List<Suggestion>();
+            commandText = input;
+            visible = new List<SuggestionObject>();
             text = string.Empty;
 
             currentHighlightOffset = -1;
             currentHighlightIndex = -1;
 
-            suggestions = Array.Empty<Suggestion>();
+            suggestions = Array.Empty<SuggestionObject>();
             isOverloadList = false;
             insertOffset = 0;
             insertLength = 0;
-            styledOutput = default;
-            visibleLineCount = 0;
+            commandStyle = default;
+            totalLineCount = 0;
 
             containsErrors = false;
 
@@ -1012,7 +1015,7 @@ namespace AggroBird.Reflection
                 List<StyledToken> styledTokens = new List<StyledToken>();
                 for (int i = 0, j = 0; i < tokens.Length; i++)
                 {
-                    if (j < commandTokens.Length && commandTokens[j].str.Offset == tokens[i].str.Offset)
+                    if (j < commandTokens.Length && commandTokens[j].offset == tokens[i].str.Offset)
                     {
                         styledTokens.Add(commandTokens[j++]);
                     }
@@ -1039,26 +1042,27 @@ namespace AggroBird.Reflection
                         }
                     }
                 }
-                styledOutput = new StyledCommand(input, styledTokens.ToArray());
+                commandStyle = styledTokens.ToArray();
             }
         }
 
 
-        public readonly Suggestion[] suggestions;
+        public readonly SuggestionObject[] suggestions;
         public readonly bool isOverloadList;
         public int SuggestionCount => suggestions == null ? 0 : suggestions.Length;
 
         // The string used to build the suggestion table
-        public readonly StyledCommand styledOutput;
+        public readonly string commandText;
+        public readonly StyledToken[] commandStyle;
         // Offset and length of the string in the input that needs to be replaced when inserting a suggestion
         public readonly int insertOffset;
         public readonly int insertLength;
 
         // List of currently visible suggestions
-        public readonly List<Suggestion> visible;
+        public readonly List<SuggestionObject> visible;
         public string text;
         // Amount of suggestion lines including overflow
-        public int visibleLineCount;
+        public int totalLineCount;
 
         public readonly bool containsErrors;
 
@@ -1212,13 +1216,13 @@ namespace AggroBird.Reflection
 
             visible.Clear();
             output.Clear();
-            visibleLineCount = 0;
+            totalLineCount = 0;
 
             // Underflow
             if (highlightOffset > 0)
             {
                 output.Append($"\n< {highlightOffset} more results >");
-                visibleLineCount++;
+                totalLineCount++;
             }
 
             output.Append(Styles.Open(Style.Default));
@@ -1232,18 +1236,148 @@ namespace AggroBird.Reflection
                 suggestion.BuildSuggestionString(output, i == highlightIndex);
             }
             output.Append(Styles.Close);
-            visibleLineCount += visibleCount;
+            totalLineCount += visibleCount;
 
             // Overflow
             if (overflow > 0)
             {
                 output.Append($"\n< {overflow} more results >");
-                visibleLineCount++;
+                totalLineCount++;
             }
 
             text = output.ToString();
-
             return true;
+        }
+    }
+
+    internal struct SuggestionResult
+    {
+        public static readonly SuggestionResult Empty = new SuggestionResult(string.Empty, Array.Empty<StyledToken>(), string.Empty, Array.Empty<string>(), 0, 0, 0, false);
+
+        public SuggestionResult(string commandText, StyledToken[] commandStyle, string suggestionText, string[] suggestions, int insertOffset, int insertLength, int totalLineCount, bool isOverloadList)
+        {
+            this.commandText = commandText;
+            this.commandStyle = commandStyle;
+            this.suggestionText = suggestionText;
+            this.suggestions = suggestions;
+            this.insertOffset = insertOffset;
+            this.insertLength = insertLength;
+            this.totalLineCount = totalLineCount;
+            this.isOverloadList = isOverloadList;
+        }
+
+        public string commandText;
+        public StyledToken[] commandStyle;
+        public string suggestionText;
+        public string[] suggestions;
+        public int insertOffset;
+        public int insertLength;
+        public int totalLineCount;
+        public bool isOverloadList;
+    }
+
+    internal class SuggestionProvider
+    {
+        private class SuggestionTableBuilder
+        {
+            public SuggestionTableBuilder(string input, int cursorPosition, Identifier identifierTable, IReadOnlyList<string> usingNamespaces, bool safeMode)
+            {
+                this.input = input;
+                this.cursorPosition = cursorPosition;
+                this.identifierTable = identifierTable;
+                this.usingNamespaces = usingNamespaces;
+                this.safeMode = safeMode;
+            }
+
+            private readonly string input;
+            private readonly int cursorPosition;
+            private readonly Identifier identifierTable;
+            private readonly IReadOnlyList<string> usingNamespaces;
+            private readonly bool safeMode;
+
+            public SuggestionTable Build() => new SuggestionTable(input, cursorPosition, identifierTable, usingNamespaces, safeMode);
+        }
+
+        private SuggestionTable suggestionTable = default;
+        private Task<SuggestionTable> updateSuggestionsTask = null;
+        public bool IsBuildingSuggestions => updateSuggestionsTask != null;
+        public int SuggestionCount => suggestionTable.suggestions != null ? suggestionTable.suggestions.Length : 0;
+        private Action onComplete;
+        private SuggestionResult cachedResult = default;
+
+        public void BuildSuggestions(string input, int cursorPosition, Identifier identifierTable, IReadOnlyList<string> usingNamespaces, bool safeMode)
+        {
+            if (IsBuildingSuggestions) throw new DebugConsoleException("Suggestion building operation already in progress");
+
+            SuggestionTableBuilder builder = new SuggestionTableBuilder(input, cursorPosition, identifierTable, usingNamespaces, safeMode);
+            suggestionTable = builder.Build();
+        }
+        public void BuildSuggestionsAsync(string input, int cursorPosition, Identifier identifierTable, IReadOnlyList<string> usingNamespaces, bool safeMode, Action onComplete)
+        {
+            if (IsBuildingSuggestions) throw new DebugConsoleException("Suggestion building operation already in progress");
+
+            SuggestionTableBuilder builder = new SuggestionTableBuilder(input, cursorPosition, identifierTable, usingNamespaces, safeMode);
+            this.onComplete = onComplete;
+            updateSuggestionsTask = Task.Run(() => builder.Build());
+        }
+
+        public void Update()
+        {
+            if (IsBuildingSuggestions)
+            {
+                // Update the task status and retrieve the result upon completion
+                TaskStatus taskStatus = updateSuggestionsTask.Status;
+                if (taskStatus >= TaskStatus.RanToCompletion)
+                {
+                    Exception exception = updateSuggestionsTask.Exception;
+
+                    if (exception != null)
+                    {
+                        updateSuggestionsTask = null;
+
+                        throw exception;
+                    }
+                    else
+                    {
+                        if (taskStatus == TaskStatus.RanToCompletion)
+                        {
+                            suggestionTable = updateSuggestionsTask.Result;
+                            cachedResult = SuggestionResult.Empty;
+                            updateSuggestionsTask = null;
+                            onComplete?.Invoke();
+                        }
+                        else
+                        {
+                            updateSuggestionsTask = null;
+                        }
+                    }
+                }
+            }
+        }
+
+        public SuggestionResult GetResult(ref int highlightOffset, ref int highlightIndex, int direction, int maxCount, StringBuilder output)
+        {
+            if (IsBuildingSuggestions) throw new DebugConsoleException("Suggestion building operation still in progress");
+
+            cachedResult.commandText = suggestionTable.commandText;
+            cachedResult.commandStyle = suggestionTable.commandStyle;
+            cachedResult.insertOffset = suggestionTable.insertOffset;
+            cachedResult.insertLength = suggestionTable.insertLength;
+            cachedResult.totalLineCount = suggestionTable.totalLineCount;
+            cachedResult.isOverloadList = suggestionTable.isOverloadList;
+
+            if (suggestionTable.Update(ref highlightOffset, ref highlightIndex, direction, maxCount, output))
+            {
+                cachedResult.suggestionText = output.ToString();
+                cachedResult.suggestions = new string[suggestionTable.visible.Count];
+                int idx = 0;
+                foreach (var visible in suggestionTable.visible)
+                {
+                    cachedResult.suggestions[idx++] = visible.Text;
+                }
+            }
+
+            return cachedResult;
         }
     }
 }

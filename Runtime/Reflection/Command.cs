@@ -14,18 +14,6 @@ namespace AggroBird.Reflection
         public static readonly VoidResult Empty = new VoidResult();
     }
 
-    internal readonly struct StyledToken
-    {
-        public StyledToken(StringView str, Style style)
-        {
-            this.str = str;
-            this.style = style;
-        }
-
-        public readonly StringView str;
-        public readonly Style style;
-    }
-
     internal sealed class CommandParser : ExpressionParser
     {
         private enum LiteralType

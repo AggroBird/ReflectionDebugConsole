@@ -5,7 +5,6 @@ using AggroBird.Reflection;
 using System;
 using System.Collections.Generic;
 using System.Text;
-using System.Threading.Tasks;
 #endif
 
 using UnityEngine;
@@ -87,31 +86,10 @@ namespace AggroBird.ReflectionDebugConsole
         private readonly List<OutputLine> consoleOutputLines = new List<OutputLine>();
 
         // Suggestions
-        private Task<SuggestionTable> updateSuggestionsTask = null;
-        private SuggestionTable suggestionResult = SuggestionTable.Empty;
+        private SuggestionResult suggestionResult = SuggestionResult.Empty;
+        private readonly SuggestionProvider suggestionProvider = new SuggestionProvider();
         private readonly StringBuilder stringBuilder = new StringBuilder(1024);
         private int maxSuggestionCount = 0;
-        private bool IsBuildingSuggestions => updateSuggestionsTask != null;
-
-        private class SuggestionTableBuilder
-        {
-            public SuggestionTableBuilder(string input, int cursorPosition, Identifier identifierTable, IReadOnlyList<string> usingNamespaces, bool safeMode)
-            {
-                this.input = input;
-                this.cursorPosition = cursorPosition;
-                this.identifierTable = identifierTable;
-                this.usingNamespaces = usingNamespaces;
-                this.safeMode = safeMode;
-            }
-
-            private readonly string input;
-            private readonly int cursorPosition;
-            private readonly Identifier identifierTable;
-            private readonly IReadOnlyList<string> usingNamespaces;
-            private readonly bool safeMode;
-
-            public SuggestionTable Build() => new SuggestionTable(input, cursorPosition, identifierTable, usingNamespaces, safeMode);
-        }
 
         // GUI style
         private GUIStyle boxStyle = default;
@@ -135,7 +113,7 @@ namespace AggroBird.ReflectionDebugConsole
                 cursorPosition = 0;
                 clearConsole = true;
                 historyIndex = -1;
-                suggestionResult = SuggestionTable.Empty;
+                suggestionResult = SuggestionResult.Empty;
                 capturePosition = -1;
             }
             else
@@ -170,23 +148,9 @@ namespace AggroBird.ReflectionDebugConsole
             }
             HasFocus = consoleFocusFrameCount > 0;
 
-            if (isLayout && IsBuildingSuggestions)
+            if (isLayout)
             {
-                // Update the task status and retrieve the result upon completion
-                TaskStatus taskStatus = updateSuggestionsTask.Status;
-                if (taskStatus >= TaskStatus.RanToCompletion)
-                {
-                    Exception exception = updateSuggestionsTask.Exception;
-                    if (exception != null)
-                    {
-                        Debug.LogException(exception);
-                    }
-                    if (taskStatus == TaskStatus.RanToCompletion)
-                    {
-                        OnSuggestionResultCompleted(updateSuggestionsTask.Result);
-                    }
-                    updateSuggestionsTask = null;
-                }
+                suggestionProvider.Update();
             }
 
             if (!IsOpen) return;
@@ -304,11 +268,11 @@ namespace AggroBird.ReflectionDebugConsole
                 if (maxSuggestionCount < 1) maxSuggestionCount = 1;
 
                 // Show suggestions
-                if (!string.IsNullOrEmpty(suggestionResult.text) || isDocked)
+                if (!string.IsNullOrEmpty(suggestionResult.suggestionText) || isDocked)
                 {
                     if (!isDocked)
                     {
-                        boxHeight = boxStyle.lineHeight * suggestionResult.visibleLineCount + verticalPadding;
+                        boxHeight = boxStyle.lineHeight * suggestionResult.totalLineCount + verticalPadding;
                         y -= boxHeight;
                     }
                     else
@@ -320,31 +284,31 @@ namespace AggroBird.ReflectionDebugConsole
                     boxHeight += scaleFactor;
 
                     boxStyle.richText = true;
-                    string showText = consoleInput.Length > 0 ? suggestionResult.text : consoleOutputText;
+                    string showText = consoleInput.Length > 0 ? suggestionResult.suggestionText : consoleOutputText;
                     GUI.Box(DrawBackground(new Rect(0, y, dimension.x, boxHeight), borderThickness), showText, boxStyle);
                 }
 
                 // Start a new task if the input has changed and no other tasks are running
-                if (isLayout && isReady && inputChanged && !IsBuildingSuggestions)
+                if (isLayout && isReady && inputChanged && !suggestionProvider.IsBuildingSuggestions)
                 {
                     inputChanged = false;
 
                     if (!string.IsNullOrEmpty(consoleInput) && !DebugConsole.IsConsoleCommand(consoleInput))
                     {
-                        SuggestionTableBuilder builder = new SuggestionTableBuilder(consoleInput, cursorPosition, DebugConsole.IdentifierTable, DebugConsole.UsingNamespacesString, DebugConsole.Settings.safeMode);
                         if (Application.platform == RuntimePlatform.WebGLPlayer)
                         {
                             // WebGL does not support threading
-                            OnSuggestionResultCompleted(builder.Build());
+                            suggestionProvider.BuildSuggestions(consoleInput, cursorPosition, DebugConsole.IdentifierTable, DebugConsole.UsingNamespacesString, DebugConsole.Settings.safeMode);
+                            OnSuggestionResultCompleted();
                         }
                         else
                         {
-                            updateSuggestionsTask = Task.Run(() => builder.Build());
+                            suggestionProvider.BuildSuggestionsAsync(consoleInput, cursorPosition, DebugConsole.IdentifierTable, DebugConsole.UsingNamespacesString, DebugConsole.Settings.safeMode, OnSuggestionResultCompleted);
                         }
                     }
                     else
                     {
-                        suggestionResult = SuggestionTable.Empty;
+                        suggestionResult = SuggestionResult.Empty;
                     }
                 }
 
@@ -394,17 +358,6 @@ namespace AggroBird.ReflectionDebugConsole
             return copy;
         }
 
-
-        private void OnSuggestionResultCompleted(SuggestionTable table)
-        {
-            highlightIndex = -1;
-            highlightOffset = -1;
-
-            suggestionResult = table;
-            suggestionResult.Update(ref highlightOffset, ref highlightIndex, 0, maxSuggestionCount, stringBuilder);
-
-            RebuildStyledInput();
-        }
 
         private void UpdateKeyboardEvents()
         {
@@ -470,19 +423,19 @@ namespace AggroBird.ReflectionDebugConsole
                     }
                     else if (settings.prevSuggestionKey.IsPressed(current))
                     {
-                        ApplySuggestion(1);
+                        CycleSuggestion(1);
                         current.Use();
                         return;
                     }
                     else if (settings.nextSuggestionKey.IsPressed(current))
                     {
-                        ApplySuggestion(-1);
+                        CycleSuggestion(-1);
                         current.Use();
                         return;
                     }
                     else if (settings.autoCompleteKey.IsPressed(current))
                     {
-                        InsertSuggestion();
+                        AutocompleteSuggestion();
                         current.Use();
                         return;
                     }
@@ -596,30 +549,38 @@ namespace AggroBird.ReflectionDebugConsole
         }
 
 
-        private void ApplySuggestion(int direction)
+        private void OnSuggestionResultCompleted()
         {
-            if (suggestionResult.SuggestionCount > 0 && !IsBuildingSuggestions)
+            highlightIndex = -1;
+            highlightOffset = -1;
+
+            suggestionResult = suggestionProvider.GetResult(ref highlightOffset, ref highlightIndex, 0, maxSuggestionCount, stringBuilder);
+
+            RebuildStyledInput();
+        }
+
+        private void CycleSuggestion(int direction)
+        {
+            if (!suggestionProvider.IsBuildingSuggestions && suggestionProvider.SuggestionCount > 0)
             {
-                if (suggestionResult.Update(ref highlightOffset, ref highlightIndex, direction, maxSuggestionCount, stringBuilder))
+                suggestionResult = suggestionProvider.GetResult(ref highlightOffset, ref highlightIndex, direction, maxSuggestionCount, stringBuilder);
+                if (!suggestionResult.isOverloadList)
                 {
-                    if (!suggestionResult.isOverloadList)
-                    {
-                        InsertSuggestion(highlightIndex + highlightOffset);
-                    }
+                    InsertSuggestion(highlightIndex + highlightOffset);
                 }
             }
         }
-        private void InsertSuggestion()
+        private void AutocompleteSuggestion()
         {
-            if (suggestionResult.SuggestionCount > 0 && !IsBuildingSuggestions && !suggestionResult.isOverloadList && suggestionResult.insertLength > 0)
+            if (!suggestionProvider.IsBuildingSuggestions && suggestionProvider.SuggestionCount > 0 && suggestionResult.insertLength > 0)
             {
                 // Find shortest matching suggestion
-                int shortestLength = suggestionResult.visible[0].Text.Length;
+                int shortestLength = suggestionResult.suggestions[0].Length;
                 int shortestIndex = 0;
-                for (int i = 1; i < suggestionResult.visible.Count; i++)
+                for (int i = 1; i < suggestionResult.suggestions.Length; i++)
                 {
-                    var suggestion = suggestionResult.visible[i];
-                    int len = suggestion.Text.Length;
+                    string suggestion = suggestionResult.suggestions[i];
+                    int len = suggestion.Length;
                     if (len < shortestLength)
                     {
                         shortestLength = len;
@@ -640,27 +601,25 @@ namespace AggroBird.ReflectionDebugConsole
         }
         private void InsertSuggestion(int index)
         {
-            Suggestion suggestion = suggestionResult.suggestions[index];
-
             stringBuilder.Clear();
 
-            // Insert prefix (namespace, etc.)
+            // Insert before suggestion
             if (suggestionResult.insertOffset > 0)
             {
-                stringBuilder.Append(suggestionResult.styledOutput.command.Substring(0, suggestionResult.insertOffset));
+                stringBuilder.Append(suggestionResult.commandText.Substring(0, suggestionResult.insertOffset));
             }
 
             // Insert suggestion
-            stringBuilder.Append(suggestion.Text);
+            stringBuilder.Append(suggestionResult.suggestions[index]);
 
             // Recapture console at end of insert
             cursorPosition = capturePosition = stringBuilder.Length;
 
             // Insert remainder after suggestion (if any)
             int end = suggestionResult.insertOffset + suggestionResult.insertLength;
-            if (end < suggestionResult.styledOutput.command.Length)
+            if (end < suggestionResult.commandText.Length)
             {
-                stringBuilder.Append(suggestionResult.styledOutput.command.Substring(end));
+                stringBuilder.Append(suggestionResult.commandText.Substring(end));
             }
 
             // Update text
@@ -672,44 +631,44 @@ namespace AggroBird.ReflectionDebugConsole
 
         private void RebuildStyledInput()
         {
-            if (suggestionResult.styledOutput)
+            if (suggestionResult.commandStyle != null && suggestionResult.commandStyle.Length > 0)
             {
                 stringBuilder.Clear();
-                StyledCommand styledOutput = suggestionResult.styledOutput;
+                StyledToken[] styledOutput = suggestionResult.commandStyle;
                 int outputLength = 0;
                 int maxLength = 0;
-                int shortest = Mathf.Min(styledOutput.command.Length, consoleInput.Length);
+                int shortest = Mathf.Min(suggestionResult.commandText.Length, consoleInput.Length);
                 for (; maxLength < shortest; maxLength++)
                 {
-                    if (styledOutput.command[maxLength] != consoleInput[maxLength])
+                    if (suggestionResult.commandText[maxLength] != consoleInput[maxLength])
                     {
                         break;
                     }
                 }
-                foreach (StyledToken token in styledOutput.styledTokens)
+                foreach (StyledToken token in styledOutput)
                 {
-                    if (token.str.Offset >= maxLength)
+                    if (token.offset >= maxLength)
                     {
                         break;
                     }
-                    if (token.str.Offset > outputLength)
+                    if (token.offset > outputLength)
                     {
-                        int appendLen = token.str.Offset - outputLength;
-                        stringBuilder.EscapeRTF(styledOutput.command, outputLength, appendLen);
+                        int appendLen = token.offset - outputLength;
+                        stringBuilder.EscapeRTF(suggestionResult.commandText, outputLength, appendLen);
                         outputLength += appendLen;
                     }
                     stringBuilder.Append(Styles.Open(token.style));
-                    int newLength = token.str.Offset + token.str.Length;
+                    int newLength = token.offset + token.length;
                     if (newLength > maxLength)
                     {
-                        int subLength = token.str.Length - (newLength - maxLength);
-                        stringBuilder.EscapeRTF(token.str.SubView(0, subLength));
+                        int subLength = token.length - (newLength - maxLength);
+                        stringBuilder.EscapeRTF(suggestionResult.commandText.SubView(token.offset, subLength));
                         outputLength += subLength;
                     }
                     else
                     {
-                        stringBuilder.EscapeRTF(token.str);
-                        outputLength += token.str.Length;
+                        stringBuilder.EscapeRTF(suggestionResult.commandText.SubView(token.offset, token.length));
+                        outputLength += token.length;
                     }
                     stringBuilder.Append(Styles.Close);
                 }
