@@ -268,7 +268,7 @@ namespace AggroBird.ReflectionDebugConsole
                 {
                     if (!isDocked)
                     {
-                        boxHeight = boxStyle.lineHeight * suggestionResult.totalLineCount + verticalPadding;
+                        boxHeight = boxStyle.lineHeight * suggestionResult.visibleLineCount + verticalPadding;
                         y -= boxHeight;
                     }
                     else
@@ -513,6 +513,47 @@ namespace AggroBird.ReflectionDebugConsole
             consoleOutputText = stringBuilder.ToString();
         }
 
+        private void CycleSuggestion(int direction)
+        {
+            if (!suggestionProvider.IsBuildingSuggestions && suggestionResult.suggestions.Length > 0)
+            {
+                suggestionResult = suggestionProvider.GetResult(ref highlightOffset, ref highlightIndex, direction, maxSuggestionCount, stringBuilder);
+                if (!suggestionResult.isOverloadList)
+                {
+                    InsertSuggestion(highlightIndex);
+                }
+            }
+        }
+        private void AutocompleteSuggestion()
+        {
+            if (!suggestionProvider.IsBuildingSuggestions && suggestionResult.suggestions.Length > 0 && suggestionResult.insertLength > 0)
+            {
+                // Find shortest matching suggestion
+                int shortestLength = suggestionResult.suggestions[0].Length;
+                int shortestIndex = 0;
+                for (int i = 1; i < suggestionResult.suggestions.Length; i++)
+                {
+                    string suggestion = suggestionResult.suggestions[i];
+                    int len = suggestion.Length;
+                    if (len < shortestLength)
+                    {
+                        shortestLength = len;
+                        shortestIndex = i;
+                    }
+                }
+
+                // Apply suggestion
+                InsertSuggestion(shortestIndex);
+                inputChanged = true;
+                styledInput = null;
+            }
+            else
+            {
+                capturePosition = cursorPosition;
+                consoleCaptureFrameCount = CaptureFrameCount;
+            }
+        }
+
         private void SaveToHistory(string cmd)
         {
             var settings = DebugConsole.Settings;
@@ -555,46 +596,6 @@ namespace AggroBird.ReflectionDebugConsole
             RebuildStyledInput();
         }
 
-        private void CycleSuggestion(int direction)
-        {
-            if (!suggestionProvider.IsBuildingSuggestions && suggestionProvider.SuggestionCount > 0)
-            {
-                suggestionResult = suggestionProvider.GetResult(ref highlightOffset, ref highlightIndex, direction, maxSuggestionCount, stringBuilder);
-                if (!suggestionResult.isOverloadList)
-                {
-                    InsertSuggestion(highlightIndex);
-                }
-            }
-        }
-        private void AutocompleteSuggestion()
-        {
-            if (!suggestionProvider.IsBuildingSuggestions && suggestionProvider.SuggestionCount > 0 && suggestionResult.insertLength > 0)
-            {
-                // Find shortest matching suggestion
-                int shortestLength = suggestionResult.suggestions[0].Length;
-                int shortestIndex = 0;
-                for (int i = 1; i < suggestionResult.suggestions.Length; i++)
-                {
-                    string suggestion = suggestionResult.suggestions[i];
-                    int len = suggestion.Length;
-                    if (len < shortestLength)
-                    {
-                        shortestLength = len;
-                        shortestIndex = i;
-                    }
-                }
-
-                // Apply suggestion
-                InsertSuggestion(shortestIndex);
-                inputChanged = true;
-                styledInput = null;
-            }
-            else
-            {
-                capturePosition = cursorPosition;
-                consoleCaptureFrameCount = CaptureFrameCount;
-            }
-        }
         private void InsertSuggestion(int index)
         {
             stringBuilder.Clear();

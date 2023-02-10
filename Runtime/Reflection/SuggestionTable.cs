@@ -976,7 +976,7 @@ namespace AggroBird.Reflection
             insertOffset = 0;
             insertLength = 0;
             commandStyle = default;
-            totalLineCount = 0;
+            visibleLineCount = 0;
 
             containsErrors = false;
 
@@ -1063,7 +1063,7 @@ namespace AggroBird.Reflection
         public readonly List<SuggestionObject> visible;
         public string text;
         // Amount of suggestion lines including overflow
-        public int totalLineCount;
+        public int visibleLineCount;
 
         public readonly bool containsErrors;
 
@@ -1217,13 +1217,13 @@ namespace AggroBird.Reflection
 
             visible.Clear();
             output.Clear();
-            totalLineCount = 0;
+            visibleLineCount = 0;
 
             // Underflow
             if (highlightOffset > 0)
             {
                 output.Append($"\n< {highlightOffset} more results >");
-                totalLineCount++;
+                visibleLineCount++;
             }
 
             output.Append(Styles.Open(Style.Default));
@@ -1237,13 +1237,13 @@ namespace AggroBird.Reflection
                 suggestion.BuildSuggestionString(output, i == highlightIndex);
             }
             output.Append(Styles.Close);
-            totalLineCount += visibleCount;
+            visibleLineCount += visibleCount;
 
             // Overflow
             if (overflow > 0)
             {
                 output.Append($"\n< {overflow} more results >");
-                totalLineCount++;
+                visibleLineCount++;
             }
 
             text = output.ToString();
@@ -1256,7 +1256,7 @@ namespace AggroBird.Reflection
     {
         public static readonly SuggestionResult Empty = new SuggestionResult(string.Empty, Array.Empty<StyledToken>(), string.Empty, Array.Empty<string>(), 0, 0, 0, false);
 
-        public SuggestionResult(string commandText, StyledToken[] commandStyle, string suggestionText, string[] suggestions, int insertOffset, int insertLength, int totalLineCount, bool isOverloadList)
+        public SuggestionResult(string commandText, StyledToken[] commandStyle, string suggestionText, string[] suggestions, int insertOffset, int insertLength, int visibleLineCount, bool isOverloadList)
         {
             this.commandText = commandText;
             this.commandStyle = commandStyle;
@@ -1264,7 +1264,7 @@ namespace AggroBird.Reflection
             this.suggestions = suggestions;
             this.insertOffset = insertOffset;
             this.insertLength = insertLength;
-            this.totalLineCount = totalLineCount;
+            this.visibleLineCount = visibleLineCount;
             this.isOverloadList = isOverloadList;
         }
 
@@ -1274,7 +1274,7 @@ namespace AggroBird.Reflection
         public string[] suggestions;
         public int insertOffset;
         public int insertLength;
-        public int totalLineCount;
+        public int visibleLineCount;
         public bool isOverloadList;
     }
 
@@ -1303,7 +1303,6 @@ namespace AggroBird.Reflection
         private SuggestionTable suggestionTable = default;
         private Task<SuggestionTable> updateSuggestionsTask = null;
         public bool IsBuildingSuggestions => updateSuggestionsTask != null;
-        public int SuggestionCount => suggestionTable.suggestions != null ? suggestionTable.suggestions.Length : 0;
         private Action onComplete;
         private SuggestionResult cachedResult = default;
 
@@ -1365,7 +1364,7 @@ namespace AggroBird.Reflection
             cachedResult.commandStyle = suggestionTable.commandStyle;
             cachedResult.insertOffset = suggestionTable.insertOffset;
             cachedResult.insertLength = suggestionTable.insertLength;
-            cachedResult.totalLineCount = suggestionTable.totalLineCount;
+            cachedResult.visibleLineCount = suggestionTable.visibleLineCount;
             cachedResult.isOverloadList = suggestionTable.isOverloadList;
 
             if (suggestionTable.Update(ref highlightOffset, ref highlightIndex, direction, maxCount, output))
