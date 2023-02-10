@@ -18,7 +18,7 @@ namespace AggroBird.Reflection
         {
             if (stringView.Length > 0)
             {
-                stringBuilder.Append(stringView.GetStringData(), stringView.Offset, stringView.Length);
+                stringBuilder.Append(stringView.GetString(), stringView.Offset, stringView.Length);
             }
             return stringBuilder;
         }
@@ -162,7 +162,7 @@ namespace AggroBird.Reflection
             }
         }
 
-        public string GetStringData()
+        public string GetString()
         {
             return str ?? string.Empty;
         }

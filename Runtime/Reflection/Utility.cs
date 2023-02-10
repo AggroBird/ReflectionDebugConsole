@@ -21,15 +21,15 @@ namespace AggroBird.Reflection
 
         private const char EscapeCharacter = '\u200B';
 
-        public static void EscapeRTF(this StringBuilder stringBuilder, string str)
+        public static void AppendRTF(this StringBuilder stringBuilder, string str)
         {
-            EscapeRTF(stringBuilder, str, 0, str.Length);
+            AppendRTF(stringBuilder, str, 0, str.Length);
         }
-        public static void EscapeRTF(this StringBuilder stringBuilder, StringView str)
+        public static void AppendRTF(this StringBuilder stringBuilder, StringView str)
         {
-            EscapeRTF(stringBuilder, str.GetStringData(), str.Offset, str.Length);
+            AppendRTF(stringBuilder, str.GetString(), str.Offset, str.Length);
         }
-        public static void EscapeRTF(this StringBuilder stringBuilder, string str, int startIndex, int count)
+        public static void AppendRTF(this StringBuilder stringBuilder, string str, int startIndex, int count)
         {
             for (int i = 0; i < count; i++)
             {
@@ -38,7 +38,7 @@ namespace AggroBird.Reflection
                 if (c == '<') stringBuilder.Append(EscapeCharacter);
             }
         }
-        public static void EscapeRTF(this StringBuilder stringBuilder, char c)
+        public static void AppendRTF(this StringBuilder stringBuilder, char c)
         {
             stringBuilder.Append(c);
             stringBuilder.Append(EscapeCharacter);

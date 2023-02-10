@@ -502,12 +502,12 @@ namespace AggroBird.ReflectionDebugConsole
                 if (line.isError)
                 {
                     stringBuilder.Append(Styles.Open(Style.Error));
-                    stringBuilder.EscapeRTF(line.text);
+                    stringBuilder.AppendRTF(line.text);
                     stringBuilder.Append(Styles.Close);
                 }
                 else
                 {
-                    stringBuilder.EscapeRTF(line.text);
+                    stringBuilder.AppendRTF(line.text);
                 }
             }
             consoleOutputText = stringBuilder.ToString();
@@ -651,7 +651,7 @@ namespace AggroBird.ReflectionDebugConsole
                     if (token.offset > outputLength)
                     {
                         int appendLen = token.offset - outputLength;
-                        stringBuilder.EscapeRTF(suggestionResult.commandText, outputLength, appendLen);
+                        stringBuilder.AppendRTF(suggestionResult.commandText, outputLength, appendLen);
                         outputLength += appendLen;
                     }
                     stringBuilder.Append(Styles.Open(token.style));
@@ -659,19 +659,19 @@ namespace AggroBird.ReflectionDebugConsole
                     if (newLength > maxLength)
                     {
                         int subLength = token.length - (newLength - maxLength);
-                        stringBuilder.EscapeRTF(suggestionResult.commandText.SubView(token.offset, subLength));
+                        stringBuilder.AppendRTF(suggestionResult.commandText.SubView(token.offset, subLength));
                         outputLength += subLength;
                     }
                     else
                     {
-                        stringBuilder.EscapeRTF(suggestionResult.commandText.SubView(token.offset, token.length));
+                        stringBuilder.AppendRTF(suggestionResult.commandText.SubView(token.offset, token.length));
                         outputLength += token.length;
                     }
                     stringBuilder.Append(Styles.Close);
                 }
                 if (consoleInput.Length > outputLength)
                 {
-                    stringBuilder.EscapeRTF(consoleInput, outputLength, consoleInput.Length - outputLength);
+                    stringBuilder.AppendRTF(consoleInput, outputLength, consoleInput.Length - outputLength);
                 }
                 styledInput = stringBuilder.ToString();
             }

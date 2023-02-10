@@ -12,7 +12,7 @@ namespace AggroBird.Reflection
 {
     internal enum Style : uint
     {
-        Default,
+        None,
         Class,
         Struct,
         Enum,
@@ -66,8 +66,121 @@ namespace AggroBird.Reflection
             else if (type.IsValueType)
                 return Style.Struct;
             else
-                return Style.Default;
+                return Style.None;
         }
+    }
+
+    internal sealed class StyledStringBuilder
+    {
+        public StyledStringBuilder(StringBuilder stringBuilder)
+        {
+            this.stringBuilder = stringBuilder;
+        }
+
+        private void BeginStyle(Style style)
+        {
+            if (currentStyle != style)
+            {
+                EndStyle();
+
+                currentStyle = style;
+            }
+
+            if (!hasText && currentStyle != Style.None)
+            {
+                if (currentStyle != Style.None)
+                {
+                    stringBuilder.Append(Styles.Open(currentStyle));
+                }
+            }
+
+            hasText = true;
+        }
+        private void EndStyle()
+        {
+            if (hasText && currentStyle != Style.None)
+            {
+                stringBuilder.Append(Styles.Close);
+            }
+
+            hasText = false;
+        }
+
+
+        public void Append(object obj, Style style = Style.None)
+        {
+            BeginStyle(style);
+
+            stringBuilder.Append(obj);
+        }
+
+        public void Append(string str, Style style = Style.None)
+        {
+            BeginStyle(style);
+
+            stringBuilder.Append(str);
+        }
+        public void Append(string str, int startIndex, int count, Style style = Style.None)
+        {
+            if (count > 0)
+            {
+                BeginStyle(style);
+
+                stringBuilder.Append(str, startIndex, count);
+            }
+        }
+        public void Append(char c, Style style = Style.None)
+        {
+            if (!char.IsWhiteSpace(c)) BeginStyle(style);
+
+            stringBuilder.Append(c);
+        }
+
+        public void AppendRTF(string str, Style style = Style.None)
+        {
+            BeginStyle(style);
+
+            stringBuilder.AppendRTF(str);
+        }
+        public void AppendRTF(StringView str, Style style = Style.None)
+        {
+            BeginStyle(style);
+
+            stringBuilder.AppendRTF(str);
+        }
+        public void AppendRTF(string str, int startIndex, int count, Style style = Style.None)
+        {
+            if (count > 0)
+            {
+                BeginStyle(style);
+
+                stringBuilder.AppendRTF(str, startIndex, count);
+            }
+        }
+        public void AppendRTF(char c, Style style = Style.None)
+        {
+            if (!char.IsWhiteSpace(c)) BeginStyle(style);
+
+            stringBuilder.AppendRTF(c);
+        }
+
+        public void Clear()
+        {
+            stringBuilder.Clear();
+            currentStyle = Style.None;
+            hasText = false;
+        }
+
+        public override string ToString()
+        {
+            EndStyle();
+
+            return stringBuilder.ToString();
+        }
+
+        private readonly StringBuilder stringBuilder;
+        private Style currentStyle = Style.None;
+        private bool hasText = false;
     }
 
     internal abstract class SuggestionObject : IComparable<SuggestionObject>
@@ -95,21 +208,12 @@ namespace AggroBird.Reflection
             return textCompare;
         }
 
-        public abstract void BuildSuggestionString(StringBuilder output, bool isHighlighted);
+        public abstract void BuildSuggestionString(StyledStringBuilder output, bool isHighlighted);
 
         protected readonly IReadOnlyList<string> usingNamespaces;
 
 
-        private static readonly string Null = $"{Styles.Open(Style.Keyword)}null{Styles.Close}";
-        private static readonly string True = $"{Styles.Open(Style.Keyword)}true{Styles.Close}";
-        private static readonly string False = $"{Styles.Open(Style.Keyword)}false{Styles.Close}";
-
-        private static readonly string GetStr = $" {{ {Styles.Open(Style.Keyword)}get{Styles.Close}; }}";
-        private static readonly string SetStr = $" {{ {Styles.Open(Style.Keyword)}set{Styles.Close}; }}";
-        private static readonly string GetSetStr = $" {{ {Styles.Open(Style.Keyword)}get{Styles.Close}; {Styles.Open(Style.Keyword)}set{Styles.Close}; }}";
-
-
-        protected void Stringify(Type type, object value, StringBuilder output)
+        protected void Stringify(Type type, object value, StyledStringBuilder output)
         {
             if (value == null)
             {
@@ -120,7 +224,7 @@ namespace AggroBird.Reflection
                 }
                 else
                 {
-                    output.Append(Null);
+                    output.Append("null", Style.Keyword);
                 }
                 return;
             }
@@ -136,10 +240,10 @@ namespace AggroBird.Reflection
             switch (Type.GetTypeCode(type))
             {
                 case TypeCode.Char:
-                    output.Append($"{Styles.Open(Style.String)}'{value}'{Styles.Close}");
+                    output.Append($"\"{value}\"", Style.String);
                     return;
                 case TypeCode.String:
-                    output.Append($"{Styles.Open(Style.String)}\"{value}\"{Styles.Close}");
+                    output.Append($"'{value}'", Style.String);
                     return;
 
                 case TypeCode.SByte:
@@ -153,38 +257,40 @@ namespace AggroBird.Reflection
                 case TypeCode.Single:
                 case TypeCode.Double:
                 case TypeCode.Decimal:
-                    output.Append($"{Styles.Open(Style.Number)}{value}{Styles.Close}");
+                    output.Append(value, Style.Number);
                     return;
 
                 case TypeCode.Boolean:
-                    output.Append((bool)value ? True : False);
+                    output.Append((bool)value ? "true" : "false", Style.Keyword);
                     return;
             }
 
             output.Append(value.ToString());
         }
 
-        protected static string Highlight(string str, int len, Style color = Style.Default)
+        protected static void Highlight(StyledStringBuilder output, string str, int len, Style color = Style.None)
         {
             if (len >= str.Length)
             {
-                return $"{Styles.Open(color)}<b>{str}</b>{Styles.Close}";
+                output.Append($"<b>{str}</b>", color);
             }
             else if (len > 0)
             {
-                return $"{Styles.Open(color)}<b>{str.Substring(0, len)}</b>{str.Substring(len)}{Styles.Close}";
+                output.Append($"<b>{str.Substring(0, len)}</b>{str.Substring(len)}", color);
             }
             else
             {
-                return $"{Styles.Open(color)}{str}{Styles.Close}";
+                output.Append(str, color);
             }
         }
 
-        protected static string GetPrefix(Type type)
+        protected static void WritePrefix(StyledStringBuilder output, Type type)
         {
-            string result = Expression.GetPrefix(type);
-            if (string.IsNullOrEmpty(result)) return result;
-            return $"{Styles.Open(Style.Keyword)}{result}{Styles.Close}";
+            string prefix = Expression.GetPrefix(type);
+            if (!string.IsNullOrEmpty(prefix))
+            {
+                output.Append(prefix, Style.Keyword);
+            }
         }
 
         protected enum TypeNameFlags
@@ -196,7 +302,7 @@ namespace AggroBird.Reflection
             AllowKeywords = 8,
             All = 255,
         }
-        protected void FormatTypeName(StringBuilder output, Type type, TypeNameFlags flags = TypeNameFlags.All, int highlight = 0)
+        protected void FormatTypeName(StyledStringBuilder output, Type type, TypeNameFlags flags = TypeNameFlags.All, int highlight = 0)
         {
             // Remove reference
             if (type.IsByRef)
@@ -206,7 +312,7 @@ namespace AggroBird.Reflection
 
             if (type.IsGenericParameter)
             {
-                output.Append(Highlight(type.Name, highlight, Styles.GetTypeColor(type)));
+                Highlight(output, type.Name, highlight, Styles.GetTypeColor(type));
                 return;
             }
 
@@ -214,7 +320,7 @@ namespace AggroBird.Reflection
             {
                 if (TokenUtility.TryGetBaseTypeName(type, out string baseTypeName))
                 {
-                    output.Append(Highlight(baseTypeName, highlight, Style.Keyword));
+                    Highlight(output, baseTypeName, highlight, Style.Keyword);
                     return;
                 }
             }
@@ -301,7 +407,7 @@ namespace AggroBird.Reflection
             }
 
             // Actual type name
-            output.Append(Highlight(typeName, highlight, Styles.GetTypeColor(type)));
+            Highlight(output, typeName, highlight, Styles.GetTypeColor(type));
 
             if ((flags & TypeNameFlags.GenericArguments) != TypeNameFlags.None && type.IsGenericType)
             {
@@ -309,7 +415,7 @@ namespace AggroBird.Reflection
                 int parentArgumentCount = type.DeclaringType == null ? 0 : type.DeclaringType.GetGenericArguments().Length;
                 if (genericArgs.Length > parentArgumentCount)
                 {
-                    output.EscapeRTF('<');
+                    output.AppendRTF('<');
                     for (int i = parentArgumentCount; i < genericArgs.Length; i++)
                     {
                         if (i != 0) output.Append(", ");
@@ -320,16 +426,17 @@ namespace AggroBird.Reflection
             }
         }
 
-        protected void FormatParameter(StringBuilder output, ParameterInfo parameter)
+        protected void FormatParameter(StyledStringBuilder output, ParameterInfo parameter)
         {
-            if (parameter.HasCustomAttribute<ParamArrayAttribute>(true)) output.Append($"{Styles.Open(Style.Keyword)}params{Styles.Close} ");
-            if (parameter.IsIn) output.Append($"{Styles.Open(Style.Keyword)}in{Styles.Close} ");
-            else if (parameter.IsOut) output.Append($"{Styles.Open(Style.Keyword)}out{Styles.Close} ");
-            else if (parameter.ParameterType.IsByRef) output.Append($"{Styles.Open(Style.Keyword)}ref{Styles.Close} ");
+            if (parameter.HasCustomAttribute<ParamArrayAttribute>(true)) output.Append("params ", Style.Keyword);
+            if (parameter.IsIn) output.Append("in ", Style.Keyword);
+            else if (parameter.IsOut) output.Append("out ", Style.Keyword);
+            else if (parameter.ParameterType.IsByRef) output.Append("ref ", Style.Keyword);
             FormatTypeName(output, parameter.ParameterType);
-            output.Append($" {Styles.Open(Style.Variable)}{parameter.Name}{Styles.Close}");
+            output.Append(' ');
+            output.Append(parameter.Name, Style.Variable);
         }
-        protected void FormatParameters(StringBuilder output, ParameterInfo[] parameters, int currentParameterIndex = -1)
+        protected void FormatParameters(StyledStringBuilder output, ParameterInfo[] parameters, int currentParameterIndex = -1)
         {
             if (currentParameterIndex >= parameters.Length) currentParameterIndex = parameters.Length - 1;
             for (int i = 0; i < parameters.Length; i++)
@@ -339,17 +446,17 @@ namespace AggroBird.Reflection
                 FormatParameter(output, parameters[i]);
                 if (parameters[i].HasDefaultValue)
                 {
-                    output.Append($" = ");
+                    output.Append(" = ");
                     Stringify(parameters[i].ParameterType, parameters[i].DefaultValue, output);
                 }
                 if (i == currentParameterIndex) output.Append("</b>");
             }
         }
-        protected void FormatGenericArguments(StringBuilder output, Type[] genericArguments, int currentParameterIndex = -1)
+        protected void FormatGenericArguments(StyledStringBuilder output, Type[] genericArguments, int currentParameterIndex = -1)
         {
             if (genericArguments.Length > 0)
             {
-                output.EscapeRTF('<');
+                output.AppendRTF('<');
                 if (currentParameterIndex >= genericArguments.Length) currentParameterIndex = genericArguments.Length - 1;
                 for (int i = 0; i < genericArguments.Length; i++)
                 {
@@ -362,11 +469,20 @@ namespace AggroBird.Reflection
             }
         }
 
-        protected void FormatPropertyGetSet(StringBuilder output, PropertyInfo property)
+        protected void FormatPropertyGetSet(StyledStringBuilder output, PropertyInfo property)
         {
-            if (property.CanWrite && property.CanRead) output.Append(GetSetStr);
-            else if (property.CanWrite) output.Append(SetStr);
-            else if (property.CanRead) output.Append(GetStr);
+            output.Append("{ ");
+            if (property.CanRead)
+            {
+                output.Append("get", Style.Keyword);
+                output.Append("; ");
+            }
+            if (property.CanWrite)
+            {
+                output.Append("set", Style.Keyword);
+                output.Append("; ");
+            }
+            output.Append('}');
         }
     }
 
@@ -395,7 +511,7 @@ namespace AggroBird.Reflection
         public override int GenericArgumentCount => genericArgumentCount;
         public override int ParameterCount => parameterCount;
 
-        public override void BuildSuggestionString(StringBuilder output, bool isHighlighted)
+        public override void BuildSuggestionString(StyledStringBuilder output, bool isHighlighted)
         {
             int len = isHighlighted ? int.MaxValue : highlightLength;
             switch (memberInfo)
@@ -404,35 +520,39 @@ namespace AggroBird.Reflection
                 {
                     if (fieldInfo.IsLiteral)
                     {
-                        output.Append($"{Styles.Open(Style.Keyword)}const{Styles.Close} ");
+                        output.Append("const ", Style.Keyword);
                     }
                     else
                     {
-                        if (fieldInfo.IsStatic) output.Append($"{Styles.Open(Style.Keyword)}static{Styles.Close} ");
-                        if (fieldInfo.IsInitOnly) output.Append($"{Styles.Open(Style.Keyword)}readonly{Styles.Close} ");
+                        if (fieldInfo.IsStatic) output.Append("static ", Style.Keyword);
+                        if (fieldInfo.IsInitOnly) output.Append("readonly ", Style.Keyword);
                     }
                     FormatTypeName(output, fieldInfo.FieldType);
-                    output.Append($" {Highlight(fieldInfo.Name, len)}");
+                    output.Append(' ');
+                    Highlight(output, fieldInfo.Name, len);
                 }
                 break;
                 case PropertyInfo propertyInfo:
                 {
                     FormatTypeName(output, propertyInfo.PropertyType);
-                    output.Append($" {Highlight(propertyInfo.Name, len)}");
+                    output.Append(' ');
+                    Highlight(output, propertyInfo.Name, len);
                     FormatPropertyGetSet(output, propertyInfo);
                 }
                 break;
                 case EventInfo eventInfo:
                 {
                     FormatTypeName(output, eventInfo.EventHandlerType);
-                    output.Append($" {Highlight(eventInfo.Name, len)}");
+                    output.Append(' ');
+                    Highlight(output, eventInfo.Name, len);
                 }
                 break;
                 case MethodInfo methodInfo:
                 {
-                    if (methodInfo.IsStatic) output.Append($"{Styles.Open(Style.Keyword)}static{Styles.Close} ");
+                    if (methodInfo.IsStatic) output.Append("static ", Style.Keyword);
                     FormatTypeName(output, methodInfo.ReturnType);
-                    output.Append($" {Highlight(methodInfo.Name, len, Style.Method)}");
+                    output.Append(' ');
+                    Highlight(output, methodInfo.Name, len, Style.Method);
                     FormatGenericArguments(output, methodInfo.GetGenericArguments());
                     output.Append('(');
                     ParameterInfo[] parameters = methodInfo.GetParameters();
@@ -457,7 +577,7 @@ namespace AggroBird.Reflection
                 }
                 default:
                 {
-                    output.Append(Highlight(memberInfo.Name, len));
+                    Highlight(output, memberInfo.Name, len);
                 }
                 break;
             }
@@ -488,7 +608,7 @@ namespace AggroBird.Reflection
         public override int GenericArgumentCount => genericArgumentCount;
         public override int ParameterCount => parameterCount;
 
-        public override void BuildSuggestionString(StringBuilder output, bool isHighlighted)
+        public override void BuildSuggestionString(StyledStringBuilder output, bool isHighlighted)
         {
             if (overload is ConstructorInfo constructor)
             {
@@ -496,11 +616,12 @@ namespace AggroBird.Reflection
             }
             else if (overload is MethodInfo methodInfo)
             {
-                if (methodInfo.IsStatic) output.Append($"{Styles.Open(Style.Keyword)}static{Styles.Close} ");
+                if (methodInfo.IsStatic) output.Append("static ", Style.Keyword);
                 FormatTypeName(output, methodInfo.ReturnType);
                 if (delegateType == null)
                 {
-                    output.Append($" {Styles.Open(Style.Method)}{methodInfo.Name}{Styles.Close}");
+                    output.Append(' ');
+                    output.Append(methodInfo.Name, Style.Method);
                 }
                 else
                 {
@@ -539,22 +660,18 @@ namespace AggroBird.Reflection
         public override int GenericArgumentCount => genericArgumentCount;
         public override int ParameterCount => parameterCount;
 
-        public override void BuildSuggestionString(StringBuilder output, bool isHighlighted)
+        public override void BuildSuggestionString(StyledStringBuilder output, bool isHighlighted)
         {
             if (generic is GenericType genericType)
             {
-                output.Append(Styles.Open(Styles.GetTypeColor(genericType.type)));
-                output.Append(name);
-                output.Append(Styles.Close);
+                output.Append(name, Styles.GetTypeColor(genericType.type));
                 FormatGenericArguments(output, generic.GetGenericArguments(), currentParameterIndex);
             }
             else if (generic is GenericMethod genericMethod)
             {
                 FormatTypeName(output, genericMethod.methodInfo.ReturnType);
                 output.Append(' ');
-                output.Append(Styles.Open(Style.Method));
-                output.Append(name);
-                output.Append(Styles.Close);
+                output.Append(name, Style.Method);
                 FormatGenericArguments(output, genericMethod.GetGenericArguments(), currentParameterIndex);
                 output.Append('(');
                 FormatParameters(output, genericMethod.methodInfo.GetParameters());
@@ -578,7 +695,7 @@ namespace AggroBird.Reflection
 
 
         public override string Text => property.Name;
-        public override void BuildSuggestionString(StringBuilder output, bool isHighlighted)
+        public override void BuildSuggestionString(StyledStringBuilder output, bool isHighlighted)
         {
             FormatTypeName(output, property.PropertyType);
             if (declaringType.BaseType != typeof(Array))
@@ -606,10 +723,11 @@ namespace AggroBird.Reflection
         private readonly int highlightLength;
 
         public override string Text => identifier.Name;
-        public override void BuildSuggestionString(StringBuilder output, bool isHighlighted)
+        public override void BuildSuggestionString(StyledStringBuilder output, bool isHighlighted)
         {
             int len = isHighlighted ? int.MaxValue : highlightLength;
-            output.Append($"{Styles.Open(Style.Keyword)}namespace {Styles.Close}{Highlight(identifier.Name, len)}");
+            output.Append("namespace ", Style.Keyword);
+            Highlight(output, identifier.Name, len);
         }
     }
 
@@ -634,10 +752,10 @@ namespace AggroBird.Reflection
         public override string Text => name;
         public override int GenericArgumentCount => genericArgumentCount;
 
-        public override void BuildSuggestionString(StringBuilder output, bool isHighlighted)
+        public override void BuildSuggestionString(StyledStringBuilder output, bool isHighlighted)
         {
             int len = isHighlighted ? int.MaxValue : highlightLength;
-            output.Append(GetPrefix(type));
+            WritePrefix(output, type);
             FormatTypeName(output, type, TypeNameFlags.GenericArguments, highlight: len);
         }
     }
@@ -657,11 +775,12 @@ namespace AggroBird.Reflection
 
 
         public override string Text => name;
-        public override void BuildSuggestionString(StringBuilder output, bool isHighlighted)
+        public override void BuildSuggestionString(StyledStringBuilder output, bool isHighlighted)
         {
             int len = isHighlighted ? int.MaxValue : highlightLength;
             FormatTypeName(output, type);
-            output.Append($" {Highlight(name, len, Style.Variable)}");
+            output.Append(' ');
+            Highlight(output, name, len, Style.Variable);
         }
     }
 
@@ -678,10 +797,10 @@ namespace AggroBird.Reflection
 
 
         public override string Text => name;
-        public override void BuildSuggestionString(StringBuilder output, bool isHighlighted)
+        public override void BuildSuggestionString(StyledStringBuilder output, bool isHighlighted)
         {
             int len = isHighlighted ? int.MaxValue : highlightLength;
-            output.Append($"{Highlight(name, len, Style.Keyword)}");
+            Highlight(output, name, len, Style.Keyword);
         }
     }
 
@@ -1043,10 +1162,10 @@ namespace AggroBird.Reflection
                                 TokenType.StringLiteral => Style.String,
                                 TokenType.CharLiteral => Style.String,
                                 TokenType.NumberLiteral => Style.Number,
-                                _ => Style.Default,
+                                _ => Style.None,
                             };
                         }
-                        if (style != Style.Default)
+                        if (style != Style.None)
                         {
                             styledTokens.Add(new StyledToken(tokens[i].str, style));
                         }
@@ -1228,34 +1347,34 @@ namespace AggroBird.Reflection
             output.Clear();
             visibleLineCount = 0;
 
+            StyledStringBuilder styledOutput = new StyledStringBuilder(output);
+
             // Underflow
             if (highlightOffset > 0)
             {
-                output.Append($"\n< {highlightOffset} more results >");
+                styledOutput.Append($"\n< {highlightOffset} more results >");
                 visibleLineCount++;
             }
 
-            output.Append(Styles.Open(Style.Default));
             for (int i = 0; i < visibleCount; i++)
             {
                 var suggestion = suggestions[highlightOffset + i];
 
                 visible.Add(suggestion);
 
-                output.Append('\n');
-                suggestion.BuildSuggestionString(output, i == highlightIndex);
+                styledOutput.Append('\n');
+                suggestion.BuildSuggestionString(styledOutput, i == highlightIndex);
             }
-            output.Append(Styles.Close);
             visibleLineCount += visibleCount;
 
             // Overflow
             if (overflow > 0)
             {
-                output.Append($"\n< {overflow} more results >");
+                styledOutput.Append($"\n< {overflow} more results >");
                 visibleLineCount++;
             }
 
-            text = output.ToString();
+            text = styledOutput.ToString();
             return true;
         }
     }
