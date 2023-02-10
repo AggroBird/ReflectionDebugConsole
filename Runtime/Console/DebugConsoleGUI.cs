@@ -14,11 +14,7 @@ namespace AggroBird.ReflectionDebugConsole
     public sealed class DebugConsoleGUI
     {
 #if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
-        public DebugConsoleGUI()
-        {
-            isDocked = true;
-        }
-        public DebugConsoleGUI(bool isDocked)
+        public DebugConsoleGUI(bool isDocked = true)
         {
             this.isDocked = isDocked;
 
@@ -716,7 +712,7 @@ namespace AggroBird.ReflectionDebugConsole
             return texture;
         }
 #else
-        public DebugConsoleGUI() { }
+        public DebugConsoleGUI(bool isDocked = true) { }
 
         public void Open() { }
         public void Close() { }
