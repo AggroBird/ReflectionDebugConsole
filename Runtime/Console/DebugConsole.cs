@@ -509,7 +509,7 @@ namespace AggroBird.ReflectionDebugConsole
         {
             if (client != null)
             {
-                if (client.state == DebugClient.State.Disconnected)
+                if (client.State == DebugClient.ConnectionState.Disconnected)
                 {
                     CloseConnection();
                     return;
@@ -517,7 +517,7 @@ namespace AggroBird.ReflectionDebugConsole
 
                 if (client.Poll(out string message, out MessageFlags flags))
                 {
-                    message = $"[{client.endpoint}] {message}";
+                    message = $"[{client.Endpoint}] {message}";
                     switch (flags)
                     {
                         default: Debug.Log(message); break;

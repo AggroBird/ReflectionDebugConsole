@@ -53,7 +53,7 @@ namespace AggroBird.ReflectionDebugConsole
             Debug.Log($"[DebugClient] {msg}");
         }
 
-        public enum State
+        public enum ConnectionState
         {
             Disconnected,
             Connecting,
@@ -67,20 +67,21 @@ namespace AggroBird.ReflectionDebugConsole
             endpoint = new IPEndPoint(IPAddress.Parse(address), port);
             this.authKey = string.IsNullOrEmpty(authKey) ? string.Empty : authKey;
             Log($"Connecting to endpoint '{endpoint}'...");
-            state = State.Connecting;
+            State = ConnectionState.Connecting;
             socket.BeginConnect(endpoint, new AsyncCallback(ConnectCallback), socket);
         }
         public DebugClient(Socket socket)
         {
             this.socket = socket;
             endpoint = socket.RemoteEndPoint;
-            state = State.Authenticating;
+            State = ConnectionState.Authenticating;
             socket.BeginReceive(receiveBuffer, 0, BufferSize, 0, new AsyncCallback(ReceiveCallback), socket);
         }
 
-        public State state { get; private set; }
+        public ConnectionState State { get; private set; }
         private Socket socket = null;
-        public EndPoint endpoint { get; private set; }
+        private EndPoint endpoint;
+        public string Endpoint => endpoint.ToString();
         private readonly string authKey;
         private readonly Mutex mutex = new Mutex();
 
@@ -96,7 +97,7 @@ namespace AggroBird.ReflectionDebugConsole
         {
             using (new ThreadLock(mutex))
             {
-                if (state == State.Connected)
+                if (State == ConnectionState.Connected)
                 {
                     if (message.Length > MaxPackageSize)
                     {
@@ -145,7 +146,7 @@ namespace AggroBird.ReflectionDebugConsole
         {
             using (new ThreadLock(mutex))
             {
-                state = State.Disconnected;
+                State = ConnectionState.Disconnected;
 
                 if (socket != null)
                 {
@@ -167,7 +168,7 @@ namespace AggroBird.ReflectionDebugConsole
                         socket.EndConnect(result);
 
                         Log($"Successfully connected to endpoint '{endpoint}'");
-                        state = State.Connected;
+                        State = ConnectionState.Connected;
 
                         Send(Encoding.UTF8.GetBytes(authKey));
 
@@ -178,7 +179,7 @@ namespace AggroBird.ReflectionDebugConsole
                         Debug.LogException(ex);
                     }
 
-                    if (state == State.Connecting)
+                    if (State == ConnectionState.Connecting)
                     {
                         socket.BeginConnect(endpoint, new AsyncCallback(ConnectCallback), socket);
                     }
@@ -201,7 +202,7 @@ namespace AggroBird.ReflectionDebugConsole
                         }
                         else
                         {
-                            state = State.Disconnected;
+                            State = ConnectionState.Disconnected;
                         }
                     }
                     catch (Exception ex)
@@ -209,7 +210,7 @@ namespace AggroBird.ReflectionDebugConsole
                         Debug.LogException(ex);
                     }
 
-                    if (state != State.Disconnected)
+                    if (State != ConnectionState.Disconnected)
                     {
                         socket.BeginReceive(receiveBuffer, 0, BufferSize, 0, new AsyncCallback(ReceiveCallback), socket);
                     }
@@ -219,9 +220,9 @@ namespace AggroBird.ReflectionDebugConsole
 
         public void Authenticate()
         {
-            if (state == State.Authenticating)
+            if (State == ConnectionState.Authenticating)
             {
-                state = State.Connected;
+                State = ConnectionState.Connected;
             }
         }
     }
@@ -275,22 +276,22 @@ namespace AggroBird.ReflectionDebugConsole
                     DebugClient connection = connections[i];
                     try
                     {
-                        if (connection.state == DebugClient.State.Disconnected)
+                        if (connection.State == DebugClient.ConnectionState.Disconnected)
                         {
-                            Log($"Connection to endpoint '{connection.endpoint}' lost");
+                            Log($"Connection to endpoint '{connection.Endpoint}' lost");
                             goto RemoveAndSwap;
                         }
                         else if (connection.Poll(out string message, out MessageFlags flags))
                         {
-                            switch (connection.state)
+                            switch (connection.State)
                             {
-                                case DebugClient.State.Authenticating:
+                                case DebugClient.ConnectionState.Authenticating:
                                     if (message != authKey)
                                     {
                                         goto RemoveAndSwap;
                                     }
                                     connection.Authenticate();
-                                    Log($"Connection accepted from endpoint '{connection.endpoint}'");
+                                    Log($"Connection accepted from endpoint '{connection.Endpoint}'");
                                     break;
                                 default:
                                     messageQueue.Add(new Message(connections[i], message, flags));
