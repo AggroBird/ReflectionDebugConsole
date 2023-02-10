@@ -259,6 +259,15 @@ namespace AggroBird.Reflection
 
             return false;
         }
+        private static bool CheckEnumImplicitConversion(TypeCode lhs, TypeCode rhs)
+        {
+            if (IsIntegral(lhs) && IsIntegral(rhs))
+            {
+                return lhs == rhs && IsUnsigned(lhs) == IsUnsigned(rhs);
+            }
+
+            return false;
+        }
         private static bool CheckShiftOperand(Type operand)
         {
             if (!operand.IsEnum)
@@ -713,27 +722,36 @@ namespace AggroBird.Reflection
                         }
                         break;
                     case TokenType.Add:
-                        if (lhsType.IsEnum && !rhsType.IsEnum && IsIntegral(rhsTypeCode))
+                        if (lhsType.IsEnum && !rhsType.IsEnum && IsArithmetic(rhsTypeCode))
                         {
-                            //E operator +(E x, U y);
-                            return MakeOperatorExpression(lhsExpr, rhsExpr, InfixFunc.MakeConversion(MakeInfix(op, lhsTypeCode, lhsType, rhsType), lhsType));
+                            if (CheckEnumImplicitConversion(lhsTypeCode, rhsTypeCode))
+                            {
+                                //E operator +(E x, U y);
+                                return MakeOperatorExpression(lhsExpr, rhsExpr, InfixFunc.MakeConversion(MakeInfix(op, lhsTypeCode, lhsType, rhsType), lhsType));
+                            }
                         }
-                        else if (rhsType.IsEnum && !lhsType.IsEnum && IsIntegral(lhsTypeCode))
+                        else if (rhsType.IsEnum && !lhsType.IsEnum && IsArithmetic(lhsTypeCode))
                         {
-                            //E operator +(U x, E y);
-                            return MakeOperatorExpression(lhsExpr, rhsExpr, InfixFunc.MakeConversion(MakeInfix(op, rhsTypeCode, lhsType, rhsType), rhsType));
+                            if (CheckEnumImplicitConversion(lhsTypeCode, rhsTypeCode))
+                            {
+                                //E operator +(U x, E y);
+                                return MakeOperatorExpression(lhsExpr, rhsExpr, InfixFunc.MakeConversion(MakeInfix(op, rhsTypeCode, lhsType, rhsType), rhsType));
+                            }
                         }
                         break;
                     case TokenType.Sub:
                         if (lhsType.Equals(rhsType))
                         {
-                            //U operator –(E x, E y);
+                            //U operator -(E x, E y);
                             return MakeOperatorExpression(lhsExpr, rhsExpr, MakeInfix(op, lhsTypeCode, lhsType, rhsType));
                         }
-                        else if (lhsType.IsEnum && !rhsType.IsEnum && IsIntegral(rhsTypeCode))
+                        else if (lhsType.IsEnum && !rhsType.IsEnum && IsArithmetic(rhsTypeCode))
                         {
-                            //E operator –(E x, U y);
-                            return MakeOperatorExpression(lhsExpr, rhsExpr, InfixFunc.MakeConversion(MakeInfix(op, lhsTypeCode, lhsType, rhsType), lhsType));
+                            if (CheckEnumImplicitConversion(lhsTypeCode, rhsTypeCode))
+                            {
+                                //E operator -(E x, U y);
+                                return MakeOperatorExpression(lhsExpr, rhsExpr, InfixFunc.MakeConversion(MakeInfix(op, lhsTypeCode, lhsType, rhsType), lhsType));
+                            }
                         }
                         break;
                     case TokenType.Eq:
