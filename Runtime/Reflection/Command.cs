@@ -198,7 +198,7 @@ namespace AggroBird.Reflection
                         // Ensure up / down cast is possible when not unboxing
                         if (!iterType.IsAssignableFrom(enumeratorInfo.ElementType) || !enumeratorInfo.ElementType.IsAssignableFrom(iterType))
                         {
-                            throw new InvalidCastException(enumeratorInfo.ElementType, iterType);
+                            throw new InvalidConversionException(enumeratorInfo.ElementType, iterType);
                         }
                     }
 
@@ -267,7 +267,7 @@ namespace AggroBird.Reflection
                         Expression rhs = ParseNext();
                         if (!Expression.IsImplicitConvertable(rhs, typename.type, out rhs))
                         {
-                            throw new InvalidCastException(rhs.ResultType, typename.type);
+                            throw new InvalidConversionException(rhs.ResultType, typename.type);
                         }
                         declaration = new VariableAssignment(typename.type, name.ToString(), rhs);
                     }
@@ -873,7 +873,7 @@ namespace AggroBird.Reflection
                                     }
                                     else
                                     {
-                                        throw new InvalidCastException(rhs.ResultType, eventMember.eventInfo.EventHandlerType);
+                                        throw new InvalidConversionException(rhs.ResultType, eventMember.eventInfo.EventHandlerType);
                                     }
                                 }
 
@@ -896,7 +896,7 @@ namespace AggroBird.Reflection
                                     }
                                     else
                                     {
-                                        throw new InvalidCastException(rhs.ResultType, lhs.ResultType);
+                                        throw new InvalidConversionException(rhs.ResultType, lhs.ResultType);
                                     }
                                 }
 
@@ -926,7 +926,7 @@ namespace AggroBird.Reflection
                                 {
                                     if (!Expression.IsExplicitConvertable(result, lhs.ResultType, out result))
                                     {
-                                        throw new InvalidCastException(result.ResultType, lhs.ResultType);
+                                        throw new InvalidConversionException(result.ResultType, lhs.ResultType);
                                     }
                                 }
                                 return new Assignment(lhs, result);
@@ -1405,7 +1405,7 @@ namespace AggroBird.Reflection
                 Expression rhs = ParseNext(Precedence.Prefix);
                 if (!Expression.IsExplicitConvertable(rhs, typename.type, out Expression cast))
                 {
-                    throw new DebugConsoleException($"Unable to cast type '{rhs.ResultType}' to '{typename.type}'");
+                    throw new DebugConsoleException($"Cannot convert type '{rhs.ResultType}' to '{typename.type}'");
                 }
                 return cast;
             }

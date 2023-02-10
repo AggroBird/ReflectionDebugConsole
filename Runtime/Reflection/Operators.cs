@@ -289,7 +289,7 @@ namespace AggroBird.Reflection
         {
             Type srcType = val.GetType();
             if (srcType == typeof(bool)) return (bool)val;
-            throw new InvalidCastException(srcType, typeof(bool));
+            throw new InvalidConversionException(srcType, typeof(bool));
         }
         public static char ToChar(object val)
         {
@@ -311,7 +311,7 @@ namespace AggroBird.Reflection
                     case TypeCode.Double: return (char)(double)val;
                 }
             }
-            throw new InvalidCastException(srcType, typeof(double));
+            throw new InvalidConversionException(srcType, typeof(double));
         }
         public static sbyte ToSByte(object val)
         {
@@ -333,7 +333,7 @@ namespace AggroBird.Reflection
                     case TypeCode.Double: return (sbyte)(double)val;
                 }
             }
-            throw new InvalidCastException(srcType, typeof(sbyte));
+            throw new InvalidConversionException(srcType, typeof(sbyte));
         }
         public static byte ToByte(object val)
         {
@@ -355,7 +355,7 @@ namespace AggroBird.Reflection
                     case TypeCode.Double: return (byte)(double)val;
                 }
             }
-            throw new InvalidCastException(srcType, typeof(byte));
+            throw new InvalidConversionException(srcType, typeof(byte));
         }
         public static short ToInt16(object val)
         {
@@ -377,7 +377,7 @@ namespace AggroBird.Reflection
                     case TypeCode.Double: return (short)(double)val;
                 }
             }
-            throw new InvalidCastException(srcType, typeof(short));
+            throw new InvalidConversionException(srcType, typeof(short));
         }
         public static ushort ToUInt16(object val)
         {
@@ -399,7 +399,7 @@ namespace AggroBird.Reflection
                     case TypeCode.Double: return (ushort)(double)val;
                 }
             }
-            throw new InvalidCastException(srcType, typeof(ushort));
+            throw new InvalidConversionException(srcType, typeof(ushort));
         }
         public static int ToInt32(object val)
         {
@@ -421,7 +421,7 @@ namespace AggroBird.Reflection
                     case TypeCode.Double: return (int)(double)val;
                 }
             }
-            throw new InvalidCastException(srcType, typeof(int));
+            throw new InvalidConversionException(srcType, typeof(int));
         }
         public static uint ToUInt32(object val)
         {
@@ -443,7 +443,7 @@ namespace AggroBird.Reflection
                     case TypeCode.Double: return (uint)(double)val;
                 }
             }
-            throw new InvalidCastException(srcType, typeof(uint));
+            throw new InvalidConversionException(srcType, typeof(uint));
         }
         public static long ToInt64(object val)
         {
@@ -465,7 +465,7 @@ namespace AggroBird.Reflection
                     case TypeCode.Double: return (long)(double)val;
                 }
             }
-            throw new InvalidCastException(srcType, typeof(long));
+            throw new InvalidConversionException(srcType, typeof(long));
         }
         public static ulong ToUInt64(object val)
         {
@@ -487,7 +487,7 @@ namespace AggroBird.Reflection
                     case TypeCode.Double: return (ulong)(double)val;
                 }
             }
-            throw new InvalidCastException(srcType, typeof(ulong));
+            throw new InvalidConversionException(srcType, typeof(ulong));
         }
         public static float ToSingle(object val)
         {
@@ -509,7 +509,7 @@ namespace AggroBird.Reflection
                     case TypeCode.Double: return (float)(double)val;
                 }
             }
-            throw new InvalidCastException(srcType, typeof(float));
+            throw new InvalidConversionException(srcType, typeof(float));
         }
         public static double ToDouble(object val)
         {
@@ -531,7 +531,7 @@ namespace AggroBird.Reflection
                     case TypeCode.Double: return (double)val;
                 }
             }
-            throw new InvalidCastException(srcType, typeof(double));
+            throw new InvalidConversionException(srcType, typeof(double));
         }
 
         private static Expression MakeOperatorExpression(Expression arg, UnaryFunc func)

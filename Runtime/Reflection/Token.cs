@@ -313,17 +313,9 @@ namespace AggroBird.Reflection
         }
     }
 
-    internal class InvalidCastException : DebugConsoleException
-    {
-        public InvalidCastException(Type srcType, Type dstType) : base($"Cannot implicitly convert type '{srcType}' to '{dstType}'")
-        {
-
-        }
-    }
-
     internal class InvalidConversionException : DebugConsoleException
     {
-        public InvalidConversionException(Type srcType, Type dstType) : base($"Invalid conversion from type '{srcType}' to '{dstType}'")
+        public InvalidConversionException(Type srcType, Type dstType) : base($"Cannot implicitly convert type '{srcType}' to '{dstType}'")
         {
 
         }

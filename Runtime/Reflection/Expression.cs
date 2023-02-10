@@ -862,17 +862,31 @@ namespace AggroBird.Reflection
                 return true;
             }
 
-            // Boxing / unboxing
-            if (dstType.Equals(typeof(object)) || srcType.Equals(typeof(object)))
+            // Boxing
+            if (dstType.Equals(typeof(object)))
             {
-                castExpr = new Conversion(dstType, expr);
+                castExpr = new DownCast(typeof(object), expr);
                 return true;
             }
 
-            // Downcast / upcast
-            if (dstType.IsAssignableFrom(srcType) || srcType.IsAssignableFrom(dstType))
+            // Unboxing
+            if (srcType.Equals(typeof(object)))
             {
-                castExpr = new Conversion(dstType, expr);
+                castExpr = new UpCast(dstType, expr);
+                return true;
+            }
+
+            // Downcast
+            if (dstType.IsAssignableFrom(srcType))
+            {
+                castExpr = new DownCast(dstType, expr);
+                return true;
+            }
+
+            // Upcast
+            if (srcType.IsAssignableFrom(dstType))
+            {
+                castExpr = new UpCast(dstType, expr);
                 return true;
             }
 
@@ -890,7 +904,7 @@ namespace AggroBird.Reflection
         {
             if (!IsImplicitConvertable(expr, dstType, out result))
             {
-                throw new InvalidCastException(expr.ResultType, dstType);
+                throw new InvalidConversionException(expr.ResultType, dstType);
             }
         }
         public static void CheckConvertibleBool(Expression expr, out Expression result)
@@ -1922,28 +1936,27 @@ namespace AggroBird.Reflection
         public override Type ResultType => typeof(void);
     }
 
-    internal class Cast<T> : Expression
+    internal class DownCast : Expression
     {
-        public Cast(Func<Expression, T> func, Expression rhs)
+        public DownCast(Type type, Expression rhs)
         {
-            this.func = func;
+            this.type = type;
             this.rhs = rhs;
         }
 
-        public readonly Func<Expression, T> func;
+        public readonly Type type;
         public readonly Expression rhs;
-
 
         public override object Execute(ExecutionContext context)
         {
-            return func(rhs);
+            return rhs.Execute(context);
         }
-        public override Type ResultType => typeof(T);
+        public override Type ResultType => type;
     }
 
-    internal class Conversion : Expression
+    internal class UpCast : Expression
     {
-        public Conversion(Type type, Expression rhs)
+        public UpCast(Type type, Expression rhs)
         {
             this.type = type;
             this.rhs = rhs;
@@ -1955,7 +1968,21 @@ namespace AggroBird.Reflection
 
         public override object Execute(ExecutionContext context)
         {
-            return Convert.ChangeType(rhs.Execute(context), type);
+            object value = rhs.Execute(context);
+            if (value == null)
+            {
+                if (type.IsValueType)
+                    throw new NullResultException();
+                else
+                    return value;
+            }
+
+            if (!type.IsAssignableFrom(value.GetType()))
+            {
+                throw new DebugConsoleException($"Specified cast is not valid ('{value.GetType()}' to '{type}').");
+            }
+
+            return value;
         }
         public override Type ResultType => type;
     }
