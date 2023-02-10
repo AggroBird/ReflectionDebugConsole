@@ -939,6 +939,7 @@ namespace AggroBird.Reflection
         }
     }
 
+    [Serializable]
     internal struct StyledToken
     {
         public StyledToken(StringView str, Style style)
@@ -956,7 +957,7 @@ namespace AggroBird.Reflection
 
         public int offset;
         public int length;
-        public readonly Style style;
+        public Style style;
     }
 
     internal struct SuggestionTable
@@ -1250,6 +1251,7 @@ namespace AggroBird.Reflection
         }
     }
 
+    [Serializable]
     internal struct SuggestionResult
     {
         public static readonly SuggestionResult Empty = new SuggestionResult(string.Empty, Array.Empty<StyledToken>(), string.Empty, Array.Empty<string>(), 0, 0, 0, false);
