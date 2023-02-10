@@ -12,16 +12,6 @@ namespace AggroBird.Reflection
     {
         private delegate object InfixOperatorDelegate(ExecutionContext context, Expression lhs, Expression rhs);
 
-        /*private static class ConversionUtility
-        {
-            public static UnaryOperatorDelegate MakeExplicitConversion(Type dstType)
-            {
-                return (UnaryOperatorDelegate)ConvertExprMethod.MakeGenericMethod(dstType).CreateDelegate(typeof(UnaryOperatorDelegate));
-            }
-            private static readonly MethodInfo ConvertExprMethod = typeof(ConversionUtility).GetMethod("ConvertExpr");
-            public static object ConvertExpr<T>(ExecutionContext context, Expression arg) => (T)arg.Execute(context);
-        }*/
-
         private abstract class UnaryFunc
         {
             private class GenericUnaryFunc<RetType> : UnaryFunc
@@ -35,38 +25,50 @@ namespace AggroBird.Reflection
 
                 public override object Invoke(ExecutionContext context, Expression arg)
                 {
-                    return func(context, arg);
+                    object result = func(context, arg);
+                    if (EnumType != null)
+                    {
+                        result = Enum.ToObject(EnumType, result);
+                    }
+                    return result;
                 }
-                public override Type ResultType => typeof(RetType);
+                public override Type ResultType => EnumType == null ? typeof(RetType) : EnumType;
             }
             public static UnaryFunc MakeOperator<RetType>(Func<ExecutionContext, Expression, RetType> func)
             {
                 return new GenericUnaryFunc<RetType>(func);
             }
 
-            private class GenericConversion<DstType> : UnaryFunc
+            private class EnumConversion : UnaryFunc
             {
-                public GenericConversion(UnaryFunc func)
+                public EnumConversion(Type enumType)
                 {
-                    this.func = func;
+                    this.enumType = enumType;
                 }
 
-                private readonly UnaryFunc func;
+                private readonly Type enumType;
 
                 public override object Invoke(ExecutionContext context, Expression arg)
                 {
-                    return (DstType)(func != null ? func.Invoke(context, arg) : arg.Execute(context));
+                    return Enum.ToObject(enumType, arg.Execute(context));
                 }
-                public override Type ResultType => typeof(DstType);
+
+                public override Type ResultType => enumType;
             }
-            public static UnaryFunc MakeConversion(Type dstType)
+            public static UnaryFunc MakeEnumConversion(Type enumType)
             {
-                return (UnaryFunc)Activator.CreateInstance(typeof(GenericConversion<>).MakeGenericType(dstType), new object[] { null });
+                if (!enumType.IsEnum) throw new ArgumentException("Enum type expected");
+                return new EnumConversion(enumType);
             }
-            public static UnaryFunc MakeConversion(UnaryFunc func, Type dstType)
+
+            public static UnaryFunc MakeEnumConversion(UnaryFunc func, Type enumType)
             {
-                return (UnaryFunc)Activator.CreateInstance(typeof(GenericConversion<>).MakeGenericType(dstType), new object[] { func });
+                if (!enumType.IsEnum) throw new ArgumentException("Enum type expected");
+                func.EnumType = enumType;
+                return func;
             }
+
+            public Type EnumType { get; private set; }
 
             public abstract object Invoke(ExecutionContext context, Expression arg);
             public abstract Type ResultType { get; }
@@ -85,34 +87,28 @@ namespace AggroBird.Reflection
 
                 public override object Invoke(ExecutionContext context, Expression lhs, Expression rhs)
                 {
-                    return func(context, lhs, rhs);
+                    object result = func(context, lhs, rhs);
+                    if (EnumType != null)
+                    {
+                        result = Enum.ToObject(EnumType, result);
+                    }
+                    return result;
                 }
-                public override Type ResultType => typeof(RetType);
+                public override Type ResultType => EnumType == null ? typeof(RetType) : EnumType;
             }
             public static InfixFunc MakeOperator<RetType>(Func<ExecutionContext, Expression, Expression, RetType> func)
             {
                 return new GenericInfixFunc<RetType>(func);
             }
 
-            private class GenericConversion<DstType> : InfixFunc
+            public static InfixFunc MakeEnumConversion(InfixFunc func, Type enumType)
             {
-                public GenericConversion(InfixFunc func)
-                {
-                    this.func = func;
-                }
-
-                private readonly InfixFunc func;
-
-                public override object Invoke(ExecutionContext context, Expression lhs, Expression rhs)
-                {
-                    return (DstType)func.Invoke(context, lhs, rhs);
-                }
-                public override Type ResultType => typeof(DstType);
+                if (!enumType.IsEnum) throw new ArgumentException("Enum type expected");
+                func.EnumType = enumType;
+                return func;
             }
-            public static InfixFunc MakeConversion(InfixFunc func, Type dstType)
-            {
-                return (InfixFunc)Activator.CreateInstance(typeof(GenericConversion<>).MakeGenericType(dstType), new object[] { func });
-            }
+
+            public Type EnumType { get; private set; }
 
             public abstract object Invoke(ExecutionContext context, Expression lhs, Expression rhs);
             public abstract Type ResultType { get; }
@@ -566,7 +562,7 @@ namespace AggroBird.Reflection
             if (arg.ResultType.IsEnum && op == TokenType.BitwiseNot)
             {
                 //E operator ~(E x);
-                return MakeOperatorExpression(arg, UnaryFunc.MakeConversion(MakeUnary(op, argType), argType));
+                return MakeOperatorExpression(arg, UnaryFunc.MakeEnumConversion(MakeUnary(op, argType), argType));
             }
 
             if (TryFindUserOperator(info, arg, out Expression expr))
@@ -718,7 +714,7 @@ namespace AggroBird.Reflection
                             //E operator &(E x, E y);
                             //E operator |(E x, E y);
                             //E operator ^(E x, E y);
-                            return MakeOperatorExpression(lhsExpr, rhsExpr, InfixFunc.MakeConversion(MakeInfix(op, lhsTypeCode, lhsType, rhsType), lhsType));
+                            return MakeOperatorExpression(lhsExpr, rhsExpr, InfixFunc.MakeEnumConversion(MakeInfix(op, lhsTypeCode, lhsType, rhsType), lhsType));
                         }
                         break;
                     case TokenType.Add:
@@ -727,7 +723,7 @@ namespace AggroBird.Reflection
                             if (CheckEnumImplicitConversion(lhsTypeCode, rhsTypeCode))
                             {
                                 //E operator +(E x, U y);
-                                return MakeOperatorExpression(lhsExpr, rhsExpr, InfixFunc.MakeConversion(MakeInfix(op, lhsTypeCode, lhsType, rhsType), lhsType));
+                                return MakeOperatorExpression(lhsExpr, rhsExpr, InfixFunc.MakeEnumConversion(MakeInfix(op, lhsTypeCode, lhsType, rhsType), lhsType));
                             }
                         }
                         else if (rhsType.IsEnum && !lhsType.IsEnum && IsArithmetic(lhsTypeCode))
@@ -735,7 +731,7 @@ namespace AggroBird.Reflection
                             if (CheckEnumImplicitConversion(lhsTypeCode, rhsTypeCode))
                             {
                                 //E operator +(U x, E y);
-                                return MakeOperatorExpression(lhsExpr, rhsExpr, InfixFunc.MakeConversion(MakeInfix(op, rhsTypeCode, lhsType, rhsType), rhsType));
+                                return MakeOperatorExpression(lhsExpr, rhsExpr, InfixFunc.MakeEnumConversion(MakeInfix(op, rhsTypeCode, lhsType, rhsType), rhsType));
                             }
                         }
                         break;
@@ -750,7 +746,7 @@ namespace AggroBird.Reflection
                             if (CheckEnumImplicitConversion(lhsTypeCode, rhsTypeCode))
                             {
                                 //E operator -(E x, U y);
-                                return MakeOperatorExpression(lhsExpr, rhsExpr, InfixFunc.MakeConversion(MakeInfix(op, lhsTypeCode, lhsType, rhsType), lhsType));
+                                return MakeOperatorExpression(lhsExpr, rhsExpr, InfixFunc.MakeEnumConversion(MakeInfix(op, lhsTypeCode, lhsType, rhsType), lhsType));
                             }
                         }
                         break;
@@ -1141,7 +1137,7 @@ namespace AggroBird.Reflection
                 TypeCode srcTypeCode = Type.GetTypeCode(srcType);
                 if (IsArithmetic(srcTypeCode))
                 {
-                    func = UnaryFunc.MakeConversion(dstType);
+                    func = UnaryFunc.MakeEnumConversion(dstType);
                     return true;
                 }
             }

@@ -1955,13 +1955,9 @@ namespace AggroBird.Reflection
 
         public override object Execute(ExecutionContext context)
         {
-            return ConvertMethod.MakeGenericMethod(type).Invoke(this, new object[] { rhs.Execute(context) });
+            return Convert.ChangeType(rhs.Execute(context), type);
         }
         public override Type ResultType => type;
-
-
-        private static readonly MethodInfo ConvertMethod = typeof(Conversion).GetMethod("Convert");
-        public static object Convert<T>(object obj) => (T)obj;
     }
 
     internal class IsCast : Expression
