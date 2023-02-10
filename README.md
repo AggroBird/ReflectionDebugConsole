@@ -123,4 +123,4 @@ The console can be excluded by either disabling the specific platform in the con
 
 ## Limitations
 
-- **Limited support in IL2CPP**: The debug console is not intended for IL2CPP builds due to reflection limitations. The console may have its search scope limited in IL2CPP builds due to assembly stripping, or may not work at all.
+- **Limited support in IL2CPP**: The debug console is not intended for IL2CPP builds due to reflection limitations. The console may have its search scope limited in IL2CPP builds due to assembly stripping, and some C# generic language features may be limited.
