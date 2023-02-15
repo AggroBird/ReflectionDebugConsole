@@ -1381,19 +1381,15 @@ namespace AggroBird.Reflection
     [Serializable]
     internal struct SuggestionResult
     {
-        public static readonly SuggestionResult Empty = new SuggestionResult(string.Empty, Array.Empty<StyledToken>(), string.Empty, Array.Empty<string>(), 0, 0, 0, false);
-
-        public SuggestionResult(string commandText, StyledToken[] commandStyle, string suggestionText, string[] suggestions, int insertOffset, int insertLength, int visibleLineCount, bool isOverloadList)
+        public static readonly SuggestionResult Empty = new SuggestionResult
         {
-            this.commandText = commandText;
-            this.commandStyle = commandStyle;
-            this.suggestionText = suggestionText;
-            this.suggestions = suggestions;
-            this.insertOffset = insertOffset;
-            this.insertLength = insertLength;
-            this.visibleLineCount = visibleLineCount;
-            this.isOverloadList = isOverloadList;
-        }
+            commandText = string.Empty,
+            commandStyle = Array.Empty<StyledToken>(),
+            suggestionText = string.Empty,
+            suggestions = Array.Empty<string>(),
+            highlightOffset = -1,
+            highlightIndex = -1,
+        };
 
         public string commandText;
         public StyledToken[] commandStyle;
@@ -1403,6 +1399,8 @@ namespace AggroBird.Reflection
         public int insertLength;
         public int visibleLineCount;
         public bool isOverloadList;
+        public int highlightOffset;
+        public int highlightIndex;
     }
 }
 

@@ -64,8 +64,6 @@ namespace AggroBird.ReflectionDebugConsole
         private bool clearConsole = false;
         private float previousWindowHeight = 0;
         private int historyIndex = -1;
-        private int highlightIndex = -1;
-        private int highlightOffset = -1;
         private TouchScreenKeyboard touchScreenKeyboard = null;
         private bool IsTSKOpen => touchScreenKeyboard != null && touchScreenKeyboard.status == TouchScreenKeyboard.Status.Visible;
         private string consoleOutputText = string.Empty;
@@ -118,8 +116,6 @@ namespace AggroBird.ReflectionDebugConsole
             }
 
             consoleCaptureFrameCount = CaptureFrameCount;
-            highlightIndex = -1;
-            highlightOffset = -1;
 
             inputChanged = true;
             styledInput = null;
@@ -212,8 +208,6 @@ namespace AggroBird.ReflectionDebugConsole
                     {
                         consoleInput = newInput;
                         previousWindowHeight = dimension.y;
-                        highlightIndex = -1;
-                        highlightOffset = -1;
                         inputChanged = true;
                         styledInput = null;
                     }
@@ -508,7 +502,7 @@ namespace AggroBird.ReflectionDebugConsole
         {
             if (!suggestionProvider.OperationInProgress && suggestionResult.suggestions.Length > 0)
             {
-                suggestionProvider.UpdateSuggestions(ref highlightOffset, ref highlightIndex, direction, OnSuggestionsUpdated);
+                suggestionProvider.UpdateSuggestions(suggestionResult.highlightOffset, suggestionResult.highlightIndex, direction, OnSuggestionsUpdated);
             }
         }
         private void AutocompleteSuggestion()
@@ -585,9 +579,6 @@ namespace AggroBird.ReflectionDebugConsole
 
         private void OnSuggestionsBuild(SuggestionResult result)
         {
-            highlightIndex = -1;
-            highlightOffset = -1;
-
             suggestionResult = result;
 
             RebuildStyledInput();
@@ -598,7 +589,7 @@ namespace AggroBird.ReflectionDebugConsole
 
             if (!suggestionResult.isOverloadList)
             {
-                InsertSuggestion(suggestionResult.suggestions[highlightIndex]);
+                InsertSuggestion(suggestionResult.suggestions[suggestionResult.highlightIndex]);
             }
         }
 

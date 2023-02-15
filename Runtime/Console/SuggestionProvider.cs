@@ -86,7 +86,10 @@ namespace AggroBird.ReflectionDebugConsole
             if (OperationInProgress) throw new DebugConsoleException(OperationInProgressException);
 
 #if UNITY_EDITOR
-
+            if (DebugConsole.HasRemoteConnection)
+            {
+                return;
+            }
 #endif
 
             SuggestionTableBuilder builder = new SuggestionTableBuilder(input, cursorPosition, DebugConsole.IdentifierTable, DebugConsole.UsingNamespacesString, DebugConsole.Settings.safeMode);
@@ -106,19 +109,22 @@ namespace AggroBird.ReflectionDebugConsole
                 onComplete?.Invoke(cachedResult);
             }
         }
-        public void UpdateSuggestions(ref int highlightOffset, ref int highlightIndex, int direction, Action<SuggestionResult> onComplete)
+        public void UpdateSuggestions(int highlightOffset, int highlightIndex, int direction, Action<SuggestionResult> onComplete)
         {
             if (OperationInProgress) throw new DebugConsoleException(OperationInProgressException);
 
 #if UNITY_EDITOR
-
+            if (DebugConsole.HasRemoteConnection)
+            {
+                return;
+            }
 #endif
 
-            BuildResult(ref highlightOffset, ref highlightIndex, direction);
+            BuildResult(highlightOffset, highlightIndex, direction);
             onComplete?.Invoke(cachedResult);
         }
 
-        private void BuildResult(ref int highlightOffset, ref int highlightIndex, int direction)
+        private void BuildResult(int highlightOffset, int highlightIndex, int direction)
         {
             cachedResult.commandText = suggestionTable.commandText;
             cachedResult.commandStyle = suggestionTable.commandStyle;
@@ -138,11 +144,13 @@ namespace AggroBird.ReflectionDebugConsole
                     cachedResult.suggestions[idx++] = visible.Text;
                 }
             }
+
+            cachedResult.insertOffset = highlightOffset;
+            cachedResult.highlightIndex = highlightIndex;
         }
         private void BuildResult()
         {
-            int highlightOffset = -1, highlightIndex = -1;
-            BuildResult(ref highlightOffset, ref highlightIndex, 0);
+            BuildResult(-1, -1, 0);
         }
 
         public void Dispose()

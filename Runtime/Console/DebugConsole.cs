@@ -487,6 +487,8 @@ namespace AggroBird.ReflectionDebugConsole
 #if UNITY_EDITOR
         private static DebugClient client;
 
+        internal static bool HasRemoteConnection => client != null && client.State == DebugClient.ConnectionState.Connected;
+
         private static void OpenConnection(string address, int port)
         {
             CloseConnection();
@@ -513,11 +515,10 @@ namespace AggroBird.ReflectionDebugConsole
             {
                 if (client.State == DebugClient.ConnectionState.Disconnected)
                 {
+                    // Clean up
                     CloseConnection();
-                    return;
                 }
-
-                if (client.Poll(out string message, out MessageFlags flags))
+                else if (client.Poll(out string message, out MessageFlags flags))
                 {
                     message = $"[{client.Endpoint}] {message}";
                     switch (flags)
