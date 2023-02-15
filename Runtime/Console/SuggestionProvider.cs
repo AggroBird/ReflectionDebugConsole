@@ -1,12 +1,17 @@
+// Copyright, AggrobirdGK
+
+#if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
+
 using AggroBird.Reflection;
 using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
+using UnityEngine;
 
 namespace AggroBird.ReflectionDebugConsole
 {
-    internal class SuggestionProvider
+    internal class SuggestionProvider : IDisposable
     {
         private class SuggestionTableBuilder
         {
@@ -28,16 +33,24 @@ namespace AggroBird.ReflectionDebugConsole
             public SuggestionTable Build() => new SuggestionTable(input, cursorPosition, identifierTable, usingNamespaces, safeMode);
         }
 
+        internal static uint lastId = 0;
+        internal readonly uint id = lastId++;
+        public uint ID => id;
+
         private readonly StringBuilder stringBuilder = new StringBuilder();
         private SuggestionTable suggestionTable = default;
         private Task<SuggestionTable> updateSuggestionsTask = null;
-        public bool IsBuildingSuggestions => updateSuggestionsTask != null;
-        private Action onComplete;
+        public bool OperationInProgress { get; private set; }
         private SuggestionResult cachedResult = default;
+
+        private const string OperationInProgressException = "Another operation already in progress";
+
+        private Action<SuggestionResult> onComplete;
+        private int maxSuggestionCount;
 
         public void Update()
         {
-            if (IsBuildingSuggestions)
+            if (OperationInProgress)
             {
                 // Update the task status and retrieve the result upon completion
                 TaskStatus taskStatus = updateSuggestionsTask.Status;
@@ -47,9 +60,7 @@ namespace AggroBird.ReflectionDebugConsole
 
                     if (exception != null)
                     {
-                        updateSuggestionsTask = null;
-
-                        throw exception;
+                        Debug.LogException(exception);
                     }
                     else
                     {
@@ -58,37 +69,57 @@ namespace AggroBird.ReflectionDebugConsole
                             suggestionTable = updateSuggestionsTask.Result;
                             cachedResult = SuggestionResult.Empty;
                             updateSuggestionsTask = null;
-                            onComplete?.Invoke();
-                        }
-                        else
-                        {
-                            updateSuggestionsTask = null;
+                            BuildResult();
+                            onComplete?.Invoke(cachedResult);
                         }
                     }
+
+                    onComplete = null;
+                    updateSuggestionsTask = null;
+                    OperationInProgress = false;
                 }
             }
         }
 
-        public void BuildSuggestions(string input, int cursorPosition, Identifier identifierTable, IReadOnlyList<string> usingNamespaces, bool safeMode)
+        public void BuildSuggestions(string input, int cursorPosition, int maxSuggestionCount, Action<SuggestionResult> onComplete)
         {
-            if (IsBuildingSuggestions) throw new DebugConsoleException("Suggestion building operation already in progress");
+            if (OperationInProgress) throw new DebugConsoleException(OperationInProgressException);
 
-            SuggestionTableBuilder builder = new SuggestionTableBuilder(input, cursorPosition, identifierTable, usingNamespaces, safeMode);
-            suggestionTable = builder.Build();
+#if UNITY_EDITOR
+
+#endif
+
+            SuggestionTableBuilder builder = new SuggestionTableBuilder(input, cursorPosition, DebugConsole.IdentifierTable, DebugConsole.UsingNamespacesString, DebugConsole.Settings.safeMode);
+
+            this.maxSuggestionCount = maxSuggestionCount;
+
+            if (DebugConsole.PlatformSupportsThreading())
+            {
+                OperationInProgress = true;
+                this.onComplete = onComplete;
+                updateSuggestionsTask = Task.Run(() => builder.Build());
+            }
+            else
+            {
+                suggestionTable = builder.Build();
+                BuildResult();
+                onComplete?.Invoke(cachedResult);
+            }
         }
-        public void BuildSuggestionsAsync(string input, int cursorPosition, Identifier identifierTable, IReadOnlyList<string> usingNamespaces, bool safeMode, Action onComplete)
+        public void UpdateSuggestions(ref int highlightOffset, ref int highlightIndex, int direction, Action<SuggestionResult> onComplete)
         {
-            if (IsBuildingSuggestions) throw new DebugConsoleException("Suggestion building operation already in progress");
+            if (OperationInProgress) throw new DebugConsoleException(OperationInProgressException);
 
-            SuggestionTableBuilder builder = new SuggestionTableBuilder(input, cursorPosition, identifierTable, usingNamespaces, safeMode);
-            this.onComplete = onComplete;
-            updateSuggestionsTask = Task.Run(() => builder.Build());
+#if UNITY_EDITOR
+
+#endif
+
+            BuildResult(ref highlightOffset, ref highlightIndex, direction);
+            onComplete?.Invoke(cachedResult);
         }
 
-        public SuggestionResult GetResult(ref int highlightOffset, ref int highlightIndex, int direction, int maxCount)
+        private void BuildResult(ref int highlightOffset, ref int highlightIndex, int direction)
         {
-            if (IsBuildingSuggestions) throw new DebugConsoleException("Suggestion building operation still in progress");
-
             cachedResult.commandText = suggestionTable.commandText;
             cachedResult.commandStyle = suggestionTable.commandStyle;
             cachedResult.insertOffset = suggestionTable.insertOffset;
@@ -96,7 +127,7 @@ namespace AggroBird.ReflectionDebugConsole
             cachedResult.visibleLineCount = suggestionTable.visibleLineCount;
             cachedResult.isOverloadList = suggestionTable.isOverloadList;
 
-            if (suggestionTable.Update(ref highlightOffset, ref highlightIndex, direction, maxCount, stringBuilder))
+            if (suggestionTable.Update(ref highlightOffset, ref highlightIndex, direction, maxSuggestionCount, stringBuilder))
             {
                 cachedResult.suggestionText = stringBuilder.ToString();
                 stringBuilder.Clear();
@@ -107,8 +138,17 @@ namespace AggroBird.ReflectionDebugConsole
                     cachedResult.suggestions[idx++] = visible.Text;
                 }
             }
+        }
+        private void BuildResult()
+        {
+            int highlightOffset = -1, highlightIndex = -1;
+            BuildResult(ref highlightOffset, ref highlightIndex, 0);
+        }
 
-            return cachedResult;
+        public void Dispose()
+        {
+
         }
     }
 }
+#endif

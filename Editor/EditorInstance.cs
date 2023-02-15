@@ -15,13 +15,16 @@ namespace AggroBird.ReflectionDebugConsole.Editor
             window.Show();
         }
 
-#if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
-        private DebugConsoleGUI gui = new DebugConsoleGUI(true);
-#endif
+        private readonly DebugConsoleGUI gui = new DebugConsoleGUI(true);
 
         private void Awake()
         {
             minSize = new Vector2(300, 100);
+        }
+
+        private void OnDestroy()
+        {
+            gui.Dispose();
         }
 
         private void OnInspectorUpdate()
@@ -31,11 +34,7 @@ namespace AggroBird.ReflectionDebugConsole.Editor
 
         private void OnGUI()
         {
-#if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
             gui.DrawGUI(new Rect(Vector2.zero, position.size), DebugConsoleSettings.DefaultFontSize);
-#else
-            GUI.Label(new Rect(0, 0, position.width, 20), "Debug Console is disabled");
-#endif
         }
     }
 }

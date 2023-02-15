@@ -2,16 +2,16 @@
 
 #if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
 using AggroBird.Reflection;
-using System;
 using System.Collections.Generic;
 using System.Text;
 #endif
 
+using System;
 using UnityEngine;
 
 namespace AggroBird.ReflectionDebugConsole
 {
-    public sealed class DebugConsoleGUI
+    public sealed class DebugConsoleGUI : IDisposable
     {
 #if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
         public DebugConsoleGUI(bool isDocked = true)
@@ -285,21 +285,13 @@ namespace AggroBird.ReflectionDebugConsole
                 }
 
                 // Start a new task if the input has changed and no other tasks are running
-                if (isLayout && isReady && inputChanged && !suggestionProvider.IsBuildingSuggestions)
+                if (isLayout && isReady && inputChanged && !suggestionProvider.OperationInProgress)
                 {
                     inputChanged = false;
 
                     if (!string.IsNullOrEmpty(consoleInput) && !DebugConsole.IsConsoleCommand(consoleInput))
                     {
-                        if (DebugConsole.PlatformSupportsThreading())
-                        {
-                            suggestionProvider.BuildSuggestionsAsync(consoleInput, cursorPosition, DebugConsole.IdentifierTable, DebugConsole.UsingNamespacesString, DebugConsole.Settings.safeMode, OnSuggestionTaskCompleted);
-                        }
-                        else
-                        {
-                            suggestionProvider.BuildSuggestions(consoleInput, cursorPosition, DebugConsole.IdentifierTable, DebugConsole.UsingNamespacesString, DebugConsole.Settings.safeMode);
-                            OnSuggestionTaskCompleted();
-                        }
+                        suggestionProvider.BuildSuggestions(consoleInput, cursorPosition, maxSuggestionCount, OnSuggestionsBuild);
                     }
                     else
                     {
@@ -514,18 +506,14 @@ namespace AggroBird.ReflectionDebugConsole
 
         private void CycleSuggestion(int direction)
         {
-            if (!suggestionProvider.IsBuildingSuggestions && suggestionResult.suggestions.Length > 0)
+            if (!suggestionProvider.OperationInProgress && suggestionResult.suggestions.Length > 0)
             {
-                suggestionResult = suggestionProvider.GetResult(ref highlightOffset, ref highlightIndex, direction, maxSuggestionCount);
-                if (!suggestionResult.isOverloadList)
-                {
-                    InsertSuggestion(highlightIndex);
-                }
+                suggestionProvider.UpdateSuggestions(ref highlightOffset, ref highlightIndex, direction, OnSuggestionsUpdated);
             }
         }
         private void AutocompleteSuggestion()
         {
-            if (!suggestionProvider.IsBuildingSuggestions && suggestionResult.suggestions.Length > 0 && suggestionResult.insertLength > 0)
+            if (!suggestionProvider.OperationInProgress && suggestionResult.suggestions.Length > 0 && suggestionResult.insertLength > 0)
             {
                 // Find shortest matching suggestion
                 string shortestSuggestion = suggestionResult.suggestions[0];
@@ -596,18 +584,23 @@ namespace AggroBird.ReflectionDebugConsole
         }
 
 
-        private void OnSuggestionTaskCompleted()
+        private void OnSuggestionsBuild(SuggestionResult result)
         {
             highlightIndex = -1;
             highlightOffset = -1;
 
-            suggestionResult = suggestionProvider.GetResult(ref highlightOffset, ref highlightIndex, 0, maxSuggestionCount);
+            suggestionResult = result;
 
-            OnSuggestionResult();
-        }
-        private void OnSuggestionResult()
-        {
             RebuildStyledInput();
+        }
+        private void OnSuggestionsUpdated(SuggestionResult result)
+        {
+            suggestionResult = result;
+
+            if (!suggestionResult.isOverloadList)
+            {
+                InsertSuggestion(suggestionResult.suggestions[highlightIndex]);
+            }
         }
 
         private void InsertSuggestion(string suggestion)
@@ -636,7 +629,7 @@ namespace AggroBird.ReflectionDebugConsole
             // Update text
             consoleInput = stringBuilder.ToString();
             consoleCaptureFrameCount = CaptureFrameCount;
-            styledInput = null;
+            RebuildStyledInput();
         }
 
 
@@ -726,16 +719,26 @@ namespace AggroBird.ReflectionDebugConsole
             texture.Apply();
             return texture;
         }
+
+        public void Dispose()
+        {
+            suggestionProvider.Dispose();
+        }
 #else
         public DebugConsoleGUI(bool isDocked = true) { }
 
         public void Open() { }
         public void Close() { }
 
-        public bool IsOpen { get; private set; }
-        public bool HasFocus { get; private set; }
+        public bool IsOpen => false;
+        public bool HasFocus => false;
 
-        public void DrawGUI(Rect position, int fontSize, float scaleFactor = 1, bool useTouchScreenKeyboard = false) { }
+        public void DrawGUI(Rect position, int fontSize, float scaleFactor = 1, bool useTouchScreenKeyboard = false)
+        {
+            GUI.Label(new Rect(0, 0, position.width, 20), "Debug Console is disabled");
+        }
+
+        public void Dispose() { }
 #endif
     }
 }

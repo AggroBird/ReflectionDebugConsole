@@ -293,6 +293,10 @@ namespace AggroBird.ReflectionDebugConsole
                 TaskStatus taskStatus = identifierTableTask.Status;
                 if (taskStatus >= TaskStatus.RanToCompletion)
                 {
+#if UNITY_EDITOR
+                    UnityEditor.EditorApplication.update -= UpdateIdentifierTableTask;
+#endif
+
                     Exception exception = identifierTableTask.Exception;
                     if (exception != null)
                     {
@@ -306,10 +310,6 @@ namespace AggroBird.ReflectionDebugConsole
                     identifierTableTokenSource.Dispose();
                     identifierTableTokenSource = null;
                     identifierTableTask = null;
-
-#if UNITY_EDITOR
-                    UnityEditor.EditorApplication.update -= UpdateIdentifierTableTask;
-#endif
                 }
             }
         }
@@ -498,13 +498,13 @@ namespace AggroBird.ReflectionDebugConsole
         }
         private static void CloseConnection()
         {
+            UnityEditor.EditorApplication.update -= UpdateConnection;
+
             if (client != null)
             {
                 client.Close();
                 client = null;
             }
-
-            UnityEditor.EditorApplication.update -= UpdateConnection;
         }
 
         private static void UpdateConnection()
