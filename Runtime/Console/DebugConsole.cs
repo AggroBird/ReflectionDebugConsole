@@ -504,6 +504,7 @@ namespace AggroBird.ReflectionDebugConsole
             private void OnDestroy()
             {
                 gui?.Close();
+                gui?.Dispose();
 
 #if INCLUDE_DEBUG_SERVER
                 StopDebugServer();

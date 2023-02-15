@@ -62,21 +62,18 @@ namespace AggroBird.ReflectionDebugConsole
                     {
                         Debug.LogException(exception);
                     }
-                    else
+                    else if (taskStatus == TaskStatus.RanToCompletion && OperationInProgress)
                     {
-                        if (taskStatus == TaskStatus.RanToCompletion)
-                        {
-                            suggestionTable = updateSuggestionsTask.Result;
-                            cachedResult = SuggestionResult.Empty;
-                            updateSuggestionsTask = null;
-                            BuildResult();
-                            onComplete?.Invoke(cachedResult);
-                        }
+                        suggestionTable = updateSuggestionsTask.Result;
+                        cachedResult = SuggestionResult.Empty;
+                        updateSuggestionsTask = null;
+                        BuildResult();
+                        onComplete?.Invoke(cachedResult);
                     }
 
                     onComplete = null;
-                    updateSuggestionsTask = null;
                     OperationInProgress = false;
+                    updateSuggestionsTask = null;
                 }
             }
         }
@@ -135,9 +132,12 @@ namespace AggroBird.ReflectionDebugConsole
 
         public void OnRemoteSuggestionsReceived(SuggestionResult result)
         {
-            onComplete?.Invoke(result);
-            onComplete = null;
-            OperationInProgress = false;
+            if (OperationInProgress)
+            {
+                onComplete?.Invoke(result);
+                onComplete = null;
+                OperationInProgress = false;
+            }
         }
         public void OnRemoteRequestCancelled()
         {
@@ -178,7 +178,8 @@ namespace AggroBird.ReflectionDebugConsole
 
         public void Dispose()
         {
-
+            OperationInProgress = false;
+            onComplete = null;
         }
     }
 }
