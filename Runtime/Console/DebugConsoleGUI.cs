@@ -528,21 +528,32 @@ namespace AggroBird.ReflectionDebugConsole
             if (!suggestionProvider.IsBuildingSuggestions && suggestionResult.suggestions.Length > 0 && suggestionResult.insertLength > 0)
             {
                 // Find shortest matching suggestion
-                int shortestLength = suggestionResult.suggestions[0].Length;
-                int shortestIndex = 0;
+                string shortestSuggestion = suggestionResult.suggestions[0];
+                int shortestLength = shortestSuggestion.Length;
                 for (int i = 1; i < suggestionResult.suggestions.Length; i++)
                 {
                     string suggestion = suggestionResult.suggestions[i];
-                    int len = suggestion.Length;
-                    if (len < shortestLength)
+                    int length = suggestion.Length;
+                    int compareLen = Math.Min(length, shortestLength);
+                    for (int j = 0; j < compareLen; j++)
                     {
-                        shortestLength = len;
-                        shortestIndex = i;
+                        if (char.ToLower(suggestion[j]) != char.ToLower(shortestSuggestion[j]))
+                        {
+                            shortestSuggestion = suggestion;
+                            shortestLength = j;
+                            goto Next;
+                        }
                     }
+                    if (length < shortestLength)
+                    {
+                        shortestSuggestion = suggestion;
+                        shortestLength = length;
+                    }
+                Next: continue;
                 }
 
                 // Apply suggestion
-                InsertSuggestion(shortestIndex);
+                InsertSuggestion(shortestLength == shortestSuggestion.Length ? shortestSuggestion : shortestSuggestion.Substring(0, shortestLength));
                 inputChanged = true;
                 styledInput = null;
             }
@@ -599,7 +610,7 @@ namespace AggroBird.ReflectionDebugConsole
             RebuildStyledInput();
         }
 
-        private void InsertSuggestion(int index)
+        private void InsertSuggestion(string suggestion)
         {
             stringBuilder.Clear();
 
@@ -610,7 +621,7 @@ namespace AggroBird.ReflectionDebugConsole
             }
 
             // Insert suggestion
-            stringBuilder.Append(suggestionResult.suggestions[index]);
+            stringBuilder.Append(suggestion);
 
             // Recapture console at end of insert
             cursorPosition = capturePosition = stringBuilder.Length;
