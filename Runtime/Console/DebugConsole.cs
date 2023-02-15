@@ -354,6 +354,7 @@ namespace AggroBird.ReflectionDebugConsole
 
 #if INCLUDE_DEBUG_SERVER
             private DebugServer server;
+            private readonly SuggestionProvider serverSuggestionProvider = new SuggestionProvider();
             private DebugClient currentExecutingClient;
             public DebugClient CurrentExecutingClient => currentExecutingClient;
 
@@ -401,24 +402,83 @@ namespace AggroBird.ReflectionDebugConsole
 
                 if (server != null)
                 {
+                    serverSuggestionProvider.Update();
+
                     server.Update(out DebugServer.Message[] messages);
                     for (int i = 0; i < messages.Length; i++)
                     {
-                        currentExecutingClient = messages[i].sender;
-                        if (ExecuteCommand(messages[i].message, out object result, out Exception exception, isRemoteCommand: true))
+                        switch (messages[i].flags)
                         {
-                            // Send the output to the client
-                            if (result == null || !result.GetType().Equals(typeof(VoidResult)))
+                            case MessageFlags.None:
+                                currentExecutingClient = messages[i].sender;
+                                if (ExecuteCommand(messages[i].message, out object result, out Exception exception, isRemoteCommand: true))
+                                {
+                                    // Send the output to the client
+                                    if (result == null || !result.GetType().Equals(typeof(VoidResult)))
+                                    {
+                                        currentExecutingClient.Send(TruncateNetworkMessage(result), MessageFlags.Log);
+                                    }
+                                }
+                                else if (exception != null)
+                                {
+                                    // Send the exception to the client
+                                    currentExecutingClient.Send(TruncateNetworkMessage(exception.ToString()), MessageFlags.Error);
+                                }
+                                currentExecutingClient = null;
+                                break;
+
+                            case MessageFlags.BuildSuggestions:
                             {
-                                currentExecutingClient.Send(TruncateNetworkMessage(result), MessageFlags.Log);
+                                SuggestionBuildRequest request = JsonUtility.FromJson<SuggestionBuildRequest>(messages[i].message);
+                                DebugClient sender = messages[i].sender;
+                                serverSuggestionProvider.BuildSuggestions(request.input, request.cursorPosition, request.maxSuggestionCount, (result) =>
+                                {
+                                    if (sender.State == DebugClient.ConnectionState.Connected)
+                                    {
+                                        try
+                                        {
+                                            result.id = request.id;
+                                            sender.Send(Encoding.UTF8.GetBytes(JsonUtility.ToJson(result)), MessageFlags.SuggestionResult);
+                                        }
+                                        catch (Exception exception)
+                                        {
+                                            sender.Send(Encoding.UTF8.GetBytes(JsonUtility.ToJson(new SuggestionRequestFailed
+                                            {
+                                                id = request.id,
+                                                error = exception.Message,
+                                            })), MessageFlags.SuggestionFailed);
+                                        }
+                                    }
+                                });
                             }
+                            break;
+
+                            case MessageFlags.UpdateSuggestions:
+                            {
+                                SuggestionUpdateRequest request = JsonUtility.FromJson<SuggestionUpdateRequest>(messages[i].message);
+                                DebugClient sender = messages[i].sender;
+                                serverSuggestionProvider.UpdateSuggestions(request.highlightOffset, request.highlightIndex, request.direction, (result) =>
+                                {
+                                    if (sender.State == DebugClient.ConnectionState.Connected)
+                                    {
+                                        try
+                                        {
+                                            result.id = request.id;
+                                            sender.Send(Encoding.UTF8.GetBytes(JsonUtility.ToJson(result)), MessageFlags.SuggestionResult);
+                                        }
+                                        catch (Exception exception)
+                                        {
+                                            sender.Send(Encoding.UTF8.GetBytes(JsonUtility.ToJson(new SuggestionRequestFailed
+                                            {
+                                                id = request.id,
+                                                error = exception.Message,
+                                            })), MessageFlags.SuggestionFailed);
+                                        }
+                                    }
+                                });
+                            }
+                            break;
                         }
-                        else if (exception != null)
-                        {
-                            // Send the exception to the client
-                            currentExecutingClient.Send(TruncateNetworkMessage(exception.ToString()), MessageFlags.Error);
-                        }
-                        currentExecutingClient = null;
                     }
                 }
 #endif
@@ -484,10 +544,62 @@ namespace AggroBird.ReflectionDebugConsole
 #endif
         }
 
+        [Serializable]
+        private struct SuggestionBuildRequest
+        {
+            public int id;
+            public string input;
+            public int cursorPosition;
+            public int maxSuggestionCount;
+        }
+
+        [Serializable]
+        private struct SuggestionUpdateRequest
+        {
+            public int id;
+            public int highlightOffset;
+            public int highlightIndex;
+            public int direction;
+        }
+
+        [Serializable]
+        private struct SuggestionRequestFailed
+        {
+            public int id;
+            public string error;
+        }
+
 #if UNITY_EDITOR
         private static DebugClient client;
 
         internal static bool HasRemoteConnection => client != null && client.State == DebugClient.ConnectionState.Connected;
+
+        internal static void SendSuggestionBuildRequest(SuggestionProvider provider, string input, int cursorPosition, int maxSuggestionCount)
+        {
+            awaitingRequests.Add(provider.id, provider);
+
+            client.Send(Encoding.UTF8.GetBytes(JsonUtility.ToJson(new SuggestionBuildRequest
+            {
+                id = provider.id,
+                input = input,
+                cursorPosition = cursorPosition,
+                maxSuggestionCount = maxSuggestionCount,
+            })), MessageFlags.BuildSuggestions);
+        }
+        internal static void SendSuggestionUpdateRequest(SuggestionProvider provider, int highlightOffset, int highlightIndex, int direction)
+        {
+            awaitingRequests.Add(provider.id, provider);
+
+            client.Send(Encoding.UTF8.GetBytes(JsonUtility.ToJson(new SuggestionUpdateRequest
+            {
+                id = provider.id,
+                highlightOffset = highlightOffset,
+                highlightIndex = highlightIndex,
+                direction = direction,
+            })), MessageFlags.UpdateSuggestions);
+        }
+
+        private static readonly Dictionary<int, SuggestionProvider> awaitingRequests = new Dictionary<int, SuggestionProvider>();
 
         private static void OpenConnection(string address, int port)
         {
@@ -501,6 +613,12 @@ namespace AggroBird.ReflectionDebugConsole
         private static void CloseConnection()
         {
             UnityEditor.EditorApplication.update -= UpdateConnection;
+
+            foreach (SuggestionProvider provider in awaitingRequests.Values)
+            {
+                provider.OnRemoteRequestCancelled();
+            }
+            awaitingRequests.Clear();
 
             if (client != null)
             {
@@ -520,12 +638,46 @@ namespace AggroBird.ReflectionDebugConsole
                 }
                 else if (client.Poll(out string message, out MessageFlags flags))
                 {
-                    message = $"[{client.Endpoint}] {message}";
                     switch (flags)
                     {
-                        default: Debug.Log(message); break;
-                        case MessageFlags.Warning: Debug.LogWarning(message); break;
-                        case MessageFlags.Error: Debug.LogError(message); break;
+                        default: Debug.Log($"[{client.Endpoint}] {message}"); break;
+                        case MessageFlags.Warning: Debug.LogWarning($"[{client.Endpoint}] {message}"); break;
+                        case MessageFlags.Error: Debug.LogError($"[{client.Endpoint}] {message}"); break;
+                        case MessageFlags.SuggestionResult:
+                        {
+                            try
+                            {
+                                SuggestionResult result = JsonUtility.FromJson<SuggestionResult>(message);
+                                if (awaitingRequests.TryGetValue(result.id, out SuggestionProvider provider))
+                                {
+                                    awaitingRequests.Remove(result.id);
+                                    provider.OnRemoteSuggestionsReceived(result);
+                                }
+                            }
+                            catch (Exception exception)
+                            {
+                                Debug.LogException(exception);
+                            }
+                        }
+                        break;
+                        case MessageFlags.SuggestionFailed:
+                        {
+                            try
+                            {
+                                SuggestionRequestFailed result = JsonUtility.FromJson<SuggestionRequestFailed>(message);
+                                if (awaitingRequests.TryGetValue(result.id, out SuggestionProvider provider))
+                                {
+                                    awaitingRequests.Remove(result.id);
+                                    provider.OnRemoteRequestCancelled();
+                                    Debug.LogError($"[{client.Endpoint}] {result.error}");
+                                }
+                            }
+                            catch (Exception exception)
+                            {
+                                Debug.LogException(exception);
+                            }
+                        }
+                        break;
                     }
                 }
             }
@@ -769,7 +921,7 @@ namespace AggroBird.ReflectionDebugConsole
                     // Treat syntax errors as non-exceptions
                     Debug.LogError(exception.Message);
                 }
-                else if (exception != null)
+                else
                 {
                     // Forward the exception to the unity console
                     Debug.LogException(exception);
@@ -815,6 +967,9 @@ namespace AggroBird.ReflectionDebugConsole
             IdentifierTable = null;
 
             settings = LoadSettings();
+
+            gui.Dispose();
+            gui = new DebugConsoleGUI(false);
         }
         internal static void ReloadMacroTable()
         {

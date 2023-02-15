@@ -44,6 +44,10 @@ namespace AggroBird.ReflectionDebugConsole
         Log,
         Warning,
         Error,
+        BuildSuggestions,
+        UpdateSuggestions,
+        SuggestionResult,
+        SuggestionFailed,
     }
 
     internal class DebugClient

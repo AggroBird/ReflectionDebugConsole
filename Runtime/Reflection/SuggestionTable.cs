@@ -1391,6 +1391,7 @@ namespace AggroBird.Reflection
             highlightIndex = -1,
         };
 
+        public int id;
         public string commandText;
         public StyledToken[] commandStyle;
         public string suggestionText;

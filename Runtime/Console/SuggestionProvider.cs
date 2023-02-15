@@ -33,9 +33,9 @@ namespace AggroBird.ReflectionDebugConsole
             public SuggestionTable Build() => new SuggestionTable(input, cursorPosition, identifierTable, usingNamespaces, safeMode);
         }
 
-        internal static uint lastId = 0;
-        internal readonly uint id = lastId++;
-        public uint ID => id;
+        internal static int lastId = 0;
+        internal readonly int id = lastId++;
+        public int ID => id;
 
         private readonly StringBuilder stringBuilder = new StringBuilder();
         private SuggestionTable suggestionTable = default;
@@ -50,7 +50,7 @@ namespace AggroBird.ReflectionDebugConsole
 
         public void Update()
         {
-            if (OperationInProgress)
+            if (updateSuggestionsTask != null)
             {
                 // Update the task status and retrieve the result upon completion
                 TaskStatus taskStatus = updateSuggestionsTask.Status;
@@ -86,8 +86,12 @@ namespace AggroBird.ReflectionDebugConsole
             if (OperationInProgress) throw new DebugConsoleException(OperationInProgressException);
 
 #if UNITY_EDITOR
-            if (DebugConsole.HasRemoteConnection)
+            // Forward request to remote server
+            if (DebugConsole.HasRemoteConnection && !Application.isPlaying)
             {
+                DebugConsole.SendSuggestionBuildRequest(this, input, cursorPosition, maxSuggestionCount);
+                OperationInProgress = true;
+                this.onComplete = onComplete;
                 return;
             }
 #endif
@@ -98,9 +102,9 @@ namespace AggroBird.ReflectionDebugConsole
 
             if (DebugConsole.PlatformSupportsThreading())
             {
+                updateSuggestionsTask = Task.Run(() => builder.Build());
                 OperationInProgress = true;
                 this.onComplete = onComplete;
-                updateSuggestionsTask = Task.Run(() => builder.Build());
             }
             else
             {
@@ -114,38 +118,57 @@ namespace AggroBird.ReflectionDebugConsole
             if (OperationInProgress) throw new DebugConsoleException(OperationInProgressException);
 
 #if UNITY_EDITOR
-            if (DebugConsole.HasRemoteConnection)
+            // Forward request to remote server
+            if (DebugConsole.HasRemoteConnection && !Application.isPlaying)
             {
+                DebugConsole.SendSuggestionUpdateRequest(this, highlightOffset, highlightIndex, direction);
+                OperationInProgress = true;
+                this.onComplete = onComplete;
                 return;
             }
 #endif
 
+            // No need to async this, we can use the cached result
             BuildResult(highlightOffset, highlightIndex, direction);
             onComplete?.Invoke(cachedResult);
         }
 
+        public void OnRemoteSuggestionsReceived(SuggestionResult result)
+        {
+            onComplete?.Invoke(result);
+            onComplete = null;
+            OperationInProgress = false;
+        }
+        public void OnRemoteRequestCancelled()
+        {
+            onComplete = null;
+            OperationInProgress = false;
+        }
+
         private void BuildResult(int highlightOffset, int highlightIndex, int direction)
         {
+            if (suggestionTable.Update(ref highlightOffset, ref highlightIndex, direction, maxSuggestionCount, stringBuilder))
+            {
+                // Update text if changed
+                cachedResult.suggestionText = stringBuilder.ToString();
+                if (cachedResult.suggestions == null || cachedResult.suggestions.Length != suggestionTable.visible.Count)
+                {
+                    cachedResult.suggestions = new string[suggestionTable.visible.Count];
+                }
+                for (int i = 0; i < suggestionTable.visible.Count; i++)
+                {
+                    cachedResult.suggestions[i] = suggestionTable.visible[i].Text;
+                }
+            }
+
+            cachedResult.id = id;
             cachedResult.commandText = suggestionTable.commandText;
             cachedResult.commandStyle = suggestionTable.commandStyle;
             cachedResult.insertOffset = suggestionTable.insertOffset;
             cachedResult.insertLength = suggestionTable.insertLength;
             cachedResult.visibleLineCount = suggestionTable.visibleLineCount;
             cachedResult.isOverloadList = suggestionTable.isOverloadList;
-
-            if (suggestionTable.Update(ref highlightOffset, ref highlightIndex, direction, maxSuggestionCount, stringBuilder))
-            {
-                cachedResult.suggestionText = stringBuilder.ToString();
-                stringBuilder.Clear();
-                cachedResult.suggestions = new string[suggestionTable.visible.Count];
-                int idx = 0;
-                foreach (var visible in suggestionTable.visible)
-                {
-                    cachedResult.suggestions[idx++] = visible.Text;
-                }
-            }
-
-            cachedResult.insertOffset = highlightOffset;
+            cachedResult.highlightOffset = highlightOffset;
             cachedResult.highlightIndex = highlightIndex;
         }
         private void BuildResult()
