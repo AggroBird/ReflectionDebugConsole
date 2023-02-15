@@ -968,9 +968,6 @@ namespace AggroBird.ReflectionDebugConsole
             IdentifierTable = null;
 
             settings = LoadSettings();
-
-            gui.Dispose();
-            gui = new DebugConsoleGUI(false);
         }
         internal static void ReloadMacroTable()
         {
