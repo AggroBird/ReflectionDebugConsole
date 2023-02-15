@@ -291,15 +291,14 @@ namespace AggroBird.ReflectionDebugConsole
 
                     if (!string.IsNullOrEmpty(consoleInput) && !DebugConsole.IsConsoleCommand(consoleInput))
                     {
-                        if (Application.platform == RuntimePlatform.WebGLPlayer)
+                        if (DebugConsole.PlatformSupportsThreading())
                         {
-                            // WebGL does not support threading
-                            suggestionProvider.BuildSuggestions(consoleInput, cursorPosition, DebugConsole.IdentifierTable, DebugConsole.UsingNamespacesString, DebugConsole.Settings.safeMode);
-                            OnSuggestionResultCompleted();
+                            suggestionProvider.BuildSuggestionsAsync(consoleInput, cursorPosition, DebugConsole.IdentifierTable, DebugConsole.UsingNamespacesString, DebugConsole.Settings.safeMode, OnSuggestionTaskCompleted);
                         }
                         else
                         {
-                            suggestionProvider.BuildSuggestionsAsync(consoleInput, cursorPosition, DebugConsole.IdentifierTable, DebugConsole.UsingNamespacesString, DebugConsole.Settings.safeMode, OnSuggestionResultCompleted);
+                            suggestionProvider.BuildSuggestions(consoleInput, cursorPosition, DebugConsole.IdentifierTable, DebugConsole.UsingNamespacesString, DebugConsole.Settings.safeMode);
+                            OnSuggestionTaskCompleted();
                         }
                     }
                     else
@@ -517,7 +516,7 @@ namespace AggroBird.ReflectionDebugConsole
         {
             if (!suggestionProvider.IsBuildingSuggestions && suggestionResult.suggestions.Length > 0)
             {
-                suggestionResult = suggestionProvider.GetResult(ref highlightOffset, ref highlightIndex, direction, maxSuggestionCount, stringBuilder);
+                suggestionResult = suggestionProvider.GetResult(ref highlightOffset, ref highlightIndex, direction, maxSuggestionCount);
                 if (!suggestionResult.isOverloadList)
                 {
                     InsertSuggestion(highlightIndex);
@@ -586,13 +585,17 @@ namespace AggroBird.ReflectionDebugConsole
         }
 
 
-        private void OnSuggestionResultCompleted()
+        private void OnSuggestionTaskCompleted()
         {
             highlightIndex = -1;
             highlightOffset = -1;
 
-            suggestionResult = suggestionProvider.GetResult(ref highlightOffset, ref highlightIndex, 0, maxSuggestionCount, stringBuilder);
+            suggestionResult = suggestionProvider.GetResult(ref highlightOffset, ref highlightIndex, 0, maxSuggestionCount);
 
+            OnSuggestionResult();
+        }
+        private void OnSuggestionResult()
+        {
             RebuildStyledInput();
         }
 

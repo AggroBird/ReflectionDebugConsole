@@ -257,6 +257,9 @@ namespace AggroBird.ReflectionDebugConsole
             }
         }
 
+        // WebGL does not support threading
+        internal static bool PlatformSupportsThreading() => Application.isEditor || Application.platform != RuntimePlatform.WebGLPlayer;
+
         private static Task<Identifier> identifierTableTask = null;
         private static CancellationTokenSource identifierTableTokenSource = null;
         private static void BuildIdentifierTable()
@@ -273,14 +276,13 @@ namespace AggroBird.ReflectionDebugConsole
                 identifierTableTokenSource = new CancellationTokenSource();
                 CancellationToken cancellationToken = identifierTableTokenSource.Token;
                 IdentifierTableBuilder builder = new IdentifierTableBuilder(GetEnabledAssemblies(), UsingNamespaces, Settings.safeMode);
-                if (!Application.isEditor && Application.platform == RuntimePlatform.WebGLPlayer)
+                if (PlatformSupportsThreading())
                 {
-                    // WebGL does not support threading
-                    IdentifierTable = builder.Build(cancellationToken);
+                    identifierTableTask = Task.Run(() => builder.Build(cancellationToken));
                 }
                 else
                 {
-                    identifierTableTask = Task.Run(() => builder.Build(cancellationToken));
+                    IdentifierTable = builder.Build(cancellationToken);
                 }
             }
         }
