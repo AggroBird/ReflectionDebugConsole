@@ -543,7 +543,6 @@ namespace AggroBird.ReflectionDebugConsole
                 // Apply suggestion
                 InsertSuggestion(shortestLength == shortestSuggestion.Length ? shortestSuggestion : shortestSuggestion.Substring(0, shortestLength));
                 inputChanged = true;
-                styledInput = null;
             }
             else
             {
@@ -629,7 +628,7 @@ namespace AggroBird.ReflectionDebugConsole
             // Update text
             consoleInput = stringBuilder.ToString();
             consoleCaptureFrameCount = CaptureFrameCount;
-            RebuildStyledInput();
+            styledInput = null;
         }
 
 
