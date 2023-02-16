@@ -5,12 +5,15 @@
 using AggroBird.Reflection;
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using UnityEngine;
+using CompressionLevel = System.IO.Compression.CompressionLevel;
 
 namespace AggroBird.ReflectionDebugConsole
 {
@@ -93,30 +96,63 @@ namespace AggroBird.ReflectionDebugConsole
         private readonly byte[] receiveBuffer = new byte[BufferSize];
         private readonly List<byte> receivedData = new List<byte>();
 
-        public const int MaxPackageSize = ushort.MaxValue;
-        private const int HeaderSize = 3;
+        public const int MaxPackageSize = 0xFFFFFF;
+        private const int HeaderSize = 4;
 
 
-        public void Send(byte[] message, MessageFlags flags = MessageFlags.None)
+        private static byte[] Compress(string text)
         {
+            using (var memoryStream = new MemoryStream())
+            {
+                using (var gzipStream = new GZipStream(memoryStream, CompressionLevel.Optimal))
+                {
+                    byte[] bytes = Encoding.UTF8.GetBytes(text);
+                    gzipStream.Write(bytes, 0, bytes.Length);
+                }
+                return memoryStream.ToArray();
+            }
+        }
+        private static string Decompress(byte[] bytes)
+        {
+            using (var memoryStream = new MemoryStream(bytes))
+            {
+                using (var outputStream = new MemoryStream())
+                {
+                    using (var decompressStream = new GZipStream(memoryStream, CompressionMode.Decompress))
+                    {
+                        decompressStream.CopyTo(outputStream);
+                    }
+                    return Encoding.UTF8.GetString(outputStream.ToArray());
+                }
+            }
+        }
+
+        public void Send(string message, MessageFlags flags = MessageFlags.None)
+        {
+            if (message == null) throw new NullReferenceException(nameof(message));
+
             using (new ThreadLock(mutex))
             {
                 if (State == ConnectionState.Connected)
                 {
-                    if (message.Length > MaxPackageSize)
+                    byte[] body = Compress(message);
+
+                    int length = body.Length;
+                    if (length > MaxPackageSize)
                     {
-                        throw new DebugConsoleException($"Message size exceeds supported maximum ({message.Length}/{MaxPackageSize})");
+                        throw new DebugConsoleException($"Message size exceeds supported maximum ({length}/{MaxPackageSize})");
                     }
 
                     byte[] header = new byte[HeaderSize]
                     {
-                        (byte)(message.Length & 0xFF),
-                        (byte)((message.Length >> 8) & 0xFF),
+                        (byte)(length & 0xFF),
+                        (byte)((length >> 8) & 0xFF),
+                        (byte)((length >> 16) & 0xFF),
                         (byte)flags,
                     };
 
                     socket.Send(header, 0, HeaderSize, 0);
-                    socket.Send(message, 0, message.Length, 0);
+                    socket.Send(body, 0, length, 0);
                 }
             }
         }
@@ -127,14 +163,14 @@ namespace AggroBird.ReflectionDebugConsole
             {
                 if (receivedData.Count >= HeaderSize)
                 {
-                    int bodySize = receivedData[0] | (receivedData[1] << 8);
+                    int bodySize = receivedData[0] | (receivedData[1] << 8) | (receivedData[2] << 16);
                     int totalSize = bodySize + HeaderSize;
                     if (receivedData.Count >= totalSize)
                     {
                         byte[] body = new byte[bodySize];
                         receivedData.CopyTo(HeaderSize, body, 0, bodySize);
-                        message = Encoding.UTF8.GetString(body);
-                        flags = (MessageFlags)receivedData[2];
+                        message = Decompress(body);
+                        flags = (MessageFlags)receivedData[3];
                         receivedData.RemoveRange(0, totalSize);
                         return true;
                     }
@@ -174,7 +210,7 @@ namespace AggroBird.ReflectionDebugConsole
                         Log($"Successfully connected to endpoint '{endpoint}'");
                         State = ConnectionState.Connected;
 
-                        Send(Encoding.UTF8.GetBytes(authKey));
+                        Send(authKey);
 
                         socket.BeginReceive(receiveBuffer, 0, BufferSize, 0, new AsyncCallback(ReceiveCallback), socket);
                     }

@@ -40,7 +40,7 @@ namespace AggroBird.ReflectionDebugConsole
 #if INCLUDE_DEBUG_SERVER
             if (instance && instance.CurrentExecutingClient != null)
             {
-                instance.CurrentExecutingClient.Send(TruncateNetworkMessage(msg), MessageFlags.Log);
+                instance.CurrentExecutingClient.Send(FormatResult(msg), MessageFlags.Log);
             }
 #endif
             Debug.Log($"{LogPrefix} {msg}");
@@ -50,7 +50,7 @@ namespace AggroBird.ReflectionDebugConsole
 #if INCLUDE_DEBUG_SERVER
             if (instance && instance.CurrentExecutingClient != null)
             {
-                instance.CurrentExecutingClient.Send(TruncateNetworkMessage(msg), MessageFlags.Warning);
+                instance.CurrentExecutingClient.Send(FormatResult(msg), MessageFlags.Warning);
             }
 #endif
             Debug.LogWarning($"{LogPrefix} {msg}");
@@ -60,7 +60,7 @@ namespace AggroBird.ReflectionDebugConsole
 #if INCLUDE_DEBUG_SERVER
             if (instance && instance.CurrentExecutingClient != null)
             {
-                instance.CurrentExecutingClient.Send(TruncateNetworkMessage(msg), MessageFlags.Error);
+                instance.CurrentExecutingClient.Send(FormatResult(msg), MessageFlags.Error);
             }
 #endif
             Debug.LogError($"{LogPrefix} {msg}");
@@ -417,13 +417,13 @@ namespace AggroBird.ReflectionDebugConsole
                                     // Send the output to the client
                                     if (result == null || !result.GetType().Equals(typeof(VoidResult)))
                                     {
-                                        currentExecutingClient.Send(TruncateNetworkMessage(result), MessageFlags.Log);
+                                        currentExecutingClient.Send(FormatResult(result), MessageFlags.Log);
                                     }
                                 }
                                 else if (exception != null)
                                 {
                                     // Send the exception to the client
-                                    currentExecutingClient.Send(TruncateNetworkMessage(exception.ToString()), MessageFlags.Error);
+                                    currentExecutingClient.Send(exception.ToString(), MessageFlags.Error);
                                 }
                                 currentExecutingClient = null;
                                 break;
@@ -439,15 +439,15 @@ namespace AggroBird.ReflectionDebugConsole
                                         try
                                         {
                                             result.id = request.id;
-                                            sender.Send(Encoding.UTF8.GetBytes(JsonUtility.ToJson(result)), MessageFlags.SuggestionResult);
+                                            sender.Send(JsonUtility.ToJson(result), MessageFlags.SuggestionResult);
                                         }
                                         catch (Exception exception)
                                         {
-                                            sender.Send(Encoding.UTF8.GetBytes(JsonUtility.ToJson(new SuggestionRequestFailed
+                                            sender.Send(JsonUtility.ToJson(new SuggestionRequestFailed
                                             {
                                                 id = request.id,
                                                 error = exception.Message,
-                                            })), MessageFlags.SuggestionFailed);
+                                            }), MessageFlags.SuggestionFailed);
                                         }
                                     }
                                 });
@@ -465,15 +465,15 @@ namespace AggroBird.ReflectionDebugConsole
                                         try
                                         {
                                             result.id = request.id;
-                                            sender.Send(Encoding.UTF8.GetBytes(JsonUtility.ToJson(result)), MessageFlags.SuggestionResult);
+                                            sender.Send(JsonUtility.ToJson(result), MessageFlags.SuggestionResult);
                                         }
                                         catch (Exception exception)
                                         {
-                                            sender.Send(Encoding.UTF8.GetBytes(JsonUtility.ToJson(new SuggestionRequestFailed
+                                            sender.Send(JsonUtility.ToJson(new SuggestionRequestFailed
                                             {
                                                 id = request.id,
                                                 error = exception.Message,
-                                            })), MessageFlags.SuggestionFailed);
+                                            }), MessageFlags.SuggestionFailed);
                                         }
                                     }
                                 });
@@ -580,25 +580,25 @@ namespace AggroBird.ReflectionDebugConsole
         {
             awaitingRequests.Add(provider.id, provider);
 
-            client.Send(Encoding.UTF8.GetBytes(JsonUtility.ToJson(new SuggestionBuildRequest
+            client.Send(JsonUtility.ToJson(new SuggestionBuildRequest
             {
                 id = provider.id,
                 input = input,
                 cursorPosition = cursorPosition,
                 maxSuggestionCount = maxSuggestionCount,
-            })), MessageFlags.BuildSuggestions);
+            }), MessageFlags.BuildSuggestions);
         }
         internal static void SendSuggestionUpdateRequest(SuggestionProvider provider, int highlightOffset, int highlightIndex, int direction)
         {
             awaitingRequests.Add(provider.id, provider);
 
-            client.Send(Encoding.UTF8.GetBytes(JsonUtility.ToJson(new SuggestionUpdateRequest
+            client.Send(JsonUtility.ToJson(new SuggestionUpdateRequest
             {
                 id = provider.id,
                 highlightOffset = highlightOffset,
                 highlightIndex = highlightIndex,
                 direction = direction,
-            })), MessageFlags.UpdateSuggestions);
+            }), MessageFlags.UpdateSuggestions);
         }
 
         private static readonly Dictionary<int, SuggestionProvider> awaitingRequests = new Dictionary<int, SuggestionProvider>();
@@ -905,7 +905,7 @@ namespace AggroBird.ReflectionDebugConsole
                     // Forward commands to the client if there is one
                     if (client != null && !isRemoteCommand && !Application.isPlaying)
                     {
-                        client.Send(Encoding.UTF8.GetBytes(cmd.Trim()));
+                        client.Send(cmd);
                         return true;
                     }
 #endif
