@@ -28,6 +28,7 @@ namespace AggroBird.ReflectionDebugConsole
         internal static readonly string UniqueKey = $"{Namespace}.ReflectionDebugConsole";
         internal static readonly string SettingsFileName = $"{UniqueKey}.{SettingsKey}";
         internal static readonly string GameObjectName = $"{UniqueKey}.{InstanceKey}";
+        internal static readonly string LastAddressName = $"{UniqueKey}.lastAddress";
         internal const string LogPrefix = "[DebugConsole]";
 
         public delegate void OnConsoleFocusChange(bool isFocused);
@@ -781,22 +782,36 @@ namespace AggroBird.ReflectionDebugConsole
 #if UNITY_EDITOR
                 case "/open":
                 {
-                    ValidateConsoleCommandArgCount(args, 2);
+                    string address;
+                    if (args.Length == 1)
+                    {
+                        address = PlayerPrefs.GetString(LastAddressName, "127.0.0.1");
+                    }
+                    else
+                    {
+                        ValidateConsoleCommandArgCount(args, 2);
+                        address = args[1];
+                    }
 
-                    int portIdx = args[1].LastIndexOf(':');
+                    int portIdx = address.LastIndexOf(':');
                     if (portIdx == -1)
                     {
-                        OpenConnection(args[1], Settings.serverPort);
+                        OpenConnection(address, Settings.serverPort);
                     }
                     else
                     {
                         if (portIdx == 0 || !int.TryParse(cmd.Substring(portIdx + 1), out int port))
                         {
-                            LogError($"Invalid ip address format: '{args[1]}'");
+                            LogError($"Invalid ip address format: '{address}'");
                             return false;
                         }
 
                         OpenConnection(cmd, port);
+                    }
+
+                    if (args.Length > 1)
+                    {
+                        PlayerPrefs.SetString(LastAddressName, address);
                     }
                 }
                 break;
