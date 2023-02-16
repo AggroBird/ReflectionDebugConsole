@@ -160,11 +160,11 @@ namespace AggroBird.ReflectionDebugConsole
             }
         }
 
-        private static IReadOnlyList<string>[] validNamespaces = null;
-        private static string[] namespaceStrings = null;
+        private static IReadOnlyList<string>[] validNamespacesSplit = null;
+        private static string[] validNamespaces = null;
         private static void EnsureNamespaces()
         {
-            if (validNamespaces == null)
+            if (validNamespacesSplit == null)
             {
                 List<IReadOnlyList<string>> result = new List<IReadOnlyList<string>>();
                 HashSet<string> uniqueNamespaces = new HashSet<string>();
@@ -190,38 +190,38 @@ namespace AggroBird.ReflectionDebugConsole
                 Skip:
                     continue;
                 }
-                validNamespaces = result.ToArray();
+                validNamespacesSplit = result.ToArray();
 
                 // Build namespace strings
                 StringBuilder builder = new StringBuilder();
-                namespaceStrings = new string[validNamespaces.Length];
-                for (int i = 0; i < validNamespaces.Length; i++)
+                validNamespaces = new string[validNamespacesSplit.Length];
+                for (int i = 0; i < validNamespacesSplit.Length; i++)
                 {
-                    IReadOnlyList<string> validNamespace = validNamespaces[i];
+                    IReadOnlyList<string> validNamespace = validNamespacesSplit[i];
                     for (int j = 0; j < validNamespace.Count; j++)
                     {
                         if (builder.Length > 0) builder.Append('.');
                         builder.Append(validNamespace[j]);
                     }
-                    namespaceStrings[i] = builder.ToString();
+                    validNamespaces[i] = builder.ToString();
                     builder.Clear();
                 }
             }
         }
-        private static IReadOnlyList<string>[] UsingNamespaces
+        private static IReadOnlyList<string>[] UsingNamespacesSplit
+        {
+            get
+            {
+                EnsureNamespaces();
+                return validNamespacesSplit;
+            }
+        }
+        internal static IReadOnlyList<string> UsingNamespaces
         {
             get
             {
                 EnsureNamespaces();
                 return validNamespaces;
-            }
-        }
-        internal static IReadOnlyList<string> UsingNamespacesString
-        {
-            get
-            {
-                EnsureNamespaces();
-                return namespaceStrings;
             }
         }
         private static bool IsValidNamespace(string str)
@@ -267,7 +267,7 @@ namespace AggroBird.ReflectionDebugConsole
         {
             if (identifierTableTask == null)
             {
-                IdentifierTable = null;
+                identifierTable = null;
 
 #if UNITY_EDITOR
                 UnityEditor.EditorApplication.update -= UpdateIdentifierTableTask;
@@ -276,14 +276,14 @@ namespace AggroBird.ReflectionDebugConsole
 
                 identifierTableTokenSource = new CancellationTokenSource();
                 CancellationToken cancellationToken = identifierTableTokenSource.Token;
-                IdentifierTableBuilder builder = new IdentifierTableBuilder(GetEnabledAssemblies(), UsingNamespaces, Settings.safeMode);
+                IdentifierTableBuilder builder = new IdentifierTableBuilder(GetEnabledAssemblies(), UsingNamespacesSplit, Settings.safeMode);
                 if (PlatformSupportsThreading())
                 {
                     identifierTableTask = Task.Run(() => builder.Build(cancellationToken));
                 }
                 else
                 {
-                    IdentifierTable = builder.Build(cancellationToken);
+                    identifierTable = builder.Build(cancellationToken);
                 }
             }
         }
@@ -305,7 +305,7 @@ namespace AggroBird.ReflectionDebugConsole
                     }
                     if (taskStatus == TaskStatus.RanToCompletion)
                     {
-                        IdentifierTable = identifierTableTask.Result;
+                        identifierTable = identifierTableTask.Result;
                     }
 
                     identifierTableTokenSource.Dispose();
@@ -337,7 +337,7 @@ namespace AggroBird.ReflectionDebugConsole
                 return false;
             }
 
-            if (IdentifierTable == null)
+            if (identifierTable == null)
             {
                 BuildIdentifierTable();
                 return false;
@@ -345,7 +345,18 @@ namespace AggroBird.ReflectionDebugConsole
 
             return true;
         }
-        internal static Identifier IdentifierTable { get; private set; }
+        private static Identifier identifierTable;
+        internal static Identifier IdentifierTable
+        {
+            get
+            {
+                if (identifierTable == null)
+                {
+                    return Identifier.Empty;
+                }
+                return identifierTable;
+            }
+        }
 
 
         internal class Instance : MonoBehaviour
@@ -976,11 +987,11 @@ namespace AggroBird.ReflectionDebugConsole
         public static void Reload()
         {
             macroTableInstance = null;
-            validNamespaces = null;
+            validNamespacesSplit = null;
             assemblies = null;
 
             CancelIdentifierTableTask();
-            IdentifierTable = null;
+            identifierTable = null;
 
             settings = LoadSettings();
         }

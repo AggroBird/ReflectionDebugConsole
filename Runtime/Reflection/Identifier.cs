@@ -9,9 +9,11 @@ using System.Threading;
 
 namespace AggroBird.Reflection
 {
-    internal class Identifier
+    internal sealed class Identifier
     {
-        protected Identifier()
+        public static readonly Identifier Empty = new Identifier();
+
+        private Identifier()
         {
 
         }
