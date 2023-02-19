@@ -1415,11 +1415,11 @@ namespace AggroBird.Reflection
             {
                 if (Expression.IsImplicitConvertable(consequent, alternative.ResultType, out Expression c0))
                 {
-                    return new Conditional(lhs, c0, alternative, consequent.ResultType);
+                    return new Conditional(lhs, c0, alternative, alternative.ResultType);
                 }
                 else if (Expression.IsImplicitConvertable(alternative, consequent.ResultType, out Expression c1))
                 {
-                    return new Conditional(lhs, consequent, c1, alternative.ResultType);
+                    return new Conditional(lhs, consequent, c1, consequent.ResultType);
                 }
                 else
                 {
