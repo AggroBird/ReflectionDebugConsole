@@ -442,6 +442,9 @@ namespace AggroBird.ReflectionDebugConsole
                         currentKeyPresses.Remove(current.keyCode);
                     }
                     break;
+
+                    default:
+                        return;
                 }
 
                 if (identifierTableReady && DebugConsole.MacroTable.TryGetValue(current.keyCode, out List<Macro> list))
