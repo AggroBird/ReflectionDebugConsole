@@ -130,7 +130,7 @@ namespace AggroBird.ReflectionDebugConsole
 
             bool isReady = DebugConsole.EnsureIdentifierTable();
 
-            UpdateKeyboardEvents();
+            UpdateKeyboardEvents(isReady);
 
             // Keep console focus for some extra frames to catch any return
             // input presses going directly to the original application
@@ -340,7 +340,7 @@ namespace AggroBird.ReflectionDebugConsole
         }
 
 
-        private void UpdateKeyboardEvents()
+        private void UpdateKeyboardEvents(bool identifierTableReady)
         {
             Event current = Event.current;
             if (current.type == EventType.KeyDown && current.keyCode != KeyCode.None)
@@ -425,29 +425,32 @@ namespace AggroBird.ReflectionDebugConsole
 
             if (!isDocked)
             {
-                var macroTable = DebugConsole.MacroTable;
-
-                if ((current.type == EventType.KeyDown && !HasFocus) || current.type == EventType.KeyUp)
+                switch (current.type)
                 {
-                    if (current.type == EventType.KeyDown)
+                    case EventType.KeyDown:
                     {
+                        if (HasFocus) return;
+                        if (current.keyCode == KeyCode.None) return;
                         if (currentKeyPresses.Contains(current.keyCode)) return;
                         currentKeyPresses.Add(current.keyCode);
                     }
-                    else
+                    break;
+
+                    case EventType.KeyUp:
                     {
                         if (!currentKeyPresses.Contains(current.keyCode)) return;
                         currentKeyPresses.Remove(current.keyCode);
                     }
+                    break;
+                }
 
-                    if (macroTable.TryGetValue(current.keyCode, out List<Macro> list))
+                if (identifierTableReady && DebugConsole.MacroTable.TryGetValue(current.keyCode, out List<Macro> list))
+                {
+                    foreach (var macro in list)
                     {
-                        foreach (var macro in list)
+                        if (macro.IsPressed(current))
                         {
-                            if (macro.IsPressed(current))
-                            {
-                                DebugConsole.Execute(macro.command);
-                            }
+                            DebugConsole.Execute(macro.command);
                         }
                     }
                 }
