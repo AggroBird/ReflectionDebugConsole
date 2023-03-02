@@ -708,7 +708,7 @@ namespace AggroBird.Reflection
                             List<Type> nestedTypes = new List<Type>();
                             foreach (Type nestedType in Expression.FilterMembers(typename.type.GetNestedTypes(MakeStaticBindingFlags())))
                             {
-                                if (nestedType.Name.StartsWith(query) && (nestedType.Name.Length == query.Length || nestedType.Name[query.Length] == '`'))
+                                if (nestedType.Name.StartsWith(query, StringComparison.Ordinal) && (nestedType.Name.Length == query.Length || nestedType.Name[query.Length] == '`'))
                                 {
                                     nestedTypes.Add(nestedType);
                                 }

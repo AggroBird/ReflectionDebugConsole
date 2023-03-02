@@ -350,7 +350,7 @@ namespace AggroBird.Reflection
                         for (int i = 0; i < usingNamespaces.Count; i++)
                         {
                             string ns = usingNamespaces[i];
-                            if (typeNamespace.StartsWith(ns) && (typeNamespace.Length == ns.Length || typeNamespace[ns.Length] == '.'))
+                            if (typeNamespace.StartsWith(ns, StringComparison.Ordinal) && (typeNamespace.Length == ns.Length || typeNamespace[ns.Length] == '.'))
                             {
                                 longestNamespace = Math.Max(longestNamespace, ns.Length);
                             }
@@ -846,7 +846,7 @@ namespace AggroBird.Reflection
                     MemberInfo member = members[i];
 
                     // Skip any members that dont start with the query
-                    if (queryString.Length > 0 && !member.Name.StartsWith(queryString, true, null)) continue;
+                    if (queryString.Length > 0 && !member.Name.StartsWith(queryString, StringComparison.OrdinalIgnoreCase)) continue;
 
                     // Skip types (only available in static context)
                     if (member is Type && !isStatic) continue;
@@ -862,7 +862,7 @@ namespace AggroBird.Reflection
                         Type nestedType = nestedTypes[i];
 
                         // Skip any members that dont start with the query
-                        if (queryString.Length > 0 && !nestedType.Name.StartsWith(queryString, true, null)) continue;
+                        if (queryString.Length > 0 && !nestedType.Name.StartsWith(queryString, StringComparison.OrdinalIgnoreCase)) continue;
 
                         result.Add(new TypeSuggestion(nestedType, queryLength, usingNamespaces));
                     }
@@ -903,7 +903,7 @@ namespace AggroBird.Reflection
                 bool hasQuery = queryLength > 0;
                 foreach (var child in identifier.Children)
                 {
-                    if (!hasQuery || child.Name.StartsWith(queryString, true, null))
+                    if (!hasQuery || child.Name.StartsWith(queryString, StringComparison.OrdinalIgnoreCase))
                     {
                         if (child.IsNamespace)
                         {
@@ -920,7 +920,7 @@ namespace AggroBird.Reflection
                 }
                 for (int i = 0; i < variables.Length; i++)
                 {
-                    if (!hasQuery || variables[i].name.StartsWith(queryString, true, null))
+                    if (!hasQuery || variables[i].name.StartsWith(queryString, StringComparison.OrdinalIgnoreCase))
                     {
                         suggestions[variables[i].name] = new VariableSuggestion(variables[i].type, variables[i].name, queryLength, usingNamespaces);
                     }
@@ -929,7 +929,7 @@ namespace AggroBird.Reflection
                 {
                     foreach (string keyword in TokenUtility.Keywords)
                     {
-                        if (!hasQuery || keyword.StartsWith(queryString, true, null))
+                        if (!hasQuery || keyword.StartsWith(queryString, StringComparison.OrdinalIgnoreCase))
                         {
                             suggestions[keyword] = new KeywordSuggestion(keyword, queryLength, usingNamespaces);
                         }

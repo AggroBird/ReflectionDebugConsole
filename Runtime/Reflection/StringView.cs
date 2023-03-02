@@ -111,7 +111,7 @@ namespace AggroBird.Reflection
             }
             else
             {
-                return CultureInfo.CurrentCulture.CompareInfo.Compare(str, off, len, other.str, other.off, other.len, CompareOptions.None);
+                return CultureInfo.CurrentCulture.CompareInfo.Compare(str, off, len, other.str, other.off, other.len, CompareOptions.Ordinal);
             }
         }
 
