@@ -125,14 +125,14 @@ namespace AggroBird.ReflectionDebugConsole
             return LoadPrefs<ListObject<string>>(HistoryKey);
         }
 
-        private static Dictionary<KeyCode, List<Macro>> macroTableInstance = null;
-        internal static Dictionary<KeyCode, List<Macro>> MacroTable
+        private static Dictionary<MacroKeyBind, List<Macro>> macroTableInstance = null;
+        internal static Dictionary<MacroKeyBind, List<Macro>> MacroTable
         {
             get
             {
                 if (macroTableInstance == null)
                 {
-                    macroTableInstance = new Dictionary<KeyCode, List<Macro>>();
+                    macroTableInstance = new Dictionary<MacroKeyBind, List<Macro>>();
                     AppendMacroTable(Settings.sharedMacros);
                     AppendMacroTable(Macros.localMacros);
                 }
@@ -146,16 +146,13 @@ namespace AggroBird.ReflectionDebugConsole
                 var macroTable = MacroTable;
                 foreach (var macro in macros)
                 {
-                    if (macroTable.TryGetValue(macro.bind.code, out List<Macro> list))
-                    {
-                        list.Add(macro);
-                    }
-                    else
+                    MacroKeyBind keyBind = new MacroKeyBind(macro.bind, macro.state);
+                    if (!macroTable.TryGetValue(keyBind, out List<Macro> list))
                     {
                         list = new List<Macro>();
-                        list.Add(macro);
-                        macroTable.Add(macro.bind.code, list);
+                        macroTable.Add(keyBind, list);
                     }
+                    list.Add(macro);
                 }
             }
         }

@@ -35,14 +35,20 @@ namespace AggroBird.ReflectionDebugConsole
         Ctrl = 1,
         Alt = 2,
         Shift = 4,
+        CtrlAlt = Ctrl | Alt,
         CtrlShift = Ctrl | Shift,
         AltShift = Alt | Shift,
         CtrlAltShift = Ctrl | Alt | Shift,
     }
 
     [Serializable]
-    public struct KeyBind
+    public struct KeyBind : IEquatable<KeyBind>
     {
+        internal KeyBind(Event evt)
+        {
+            mod = MakeKeyMod(evt);
+            code = evt.keyCode;
+        }
         public KeyBind(KeyMod mod, KeyCode code)
         {
             this.mod = mod;
@@ -68,9 +74,84 @@ namespace AggroBird.ReflectionDebugConsole
             return true;
         }
 
+        internal static KeyMod MakeKeyMod(Event evt)
+        {
+            KeyMod keymod = KeyMod.None;
+            if (evt.control && evt.keyCode != KeyCode.LeftControl && evt.keyCode != KeyCode.RightControl) keymod |= KeyMod.Ctrl;
+            if (evt.alt && evt.keyCode != KeyCode.LeftAlt && evt.keyCode != KeyCode.RightAlt) keymod |= KeyMod.Alt;
+            if (evt.shift && evt.keyCode != KeyCode.LeftShift && evt.keyCode != KeyCode.RightShift) keymod |= KeyMod.Shift;
+            return keymod;
+        }
+
+        public bool Equals(KeyBind other)
+        {
+            return mod == other.mod && code == other.code;
+        }
+        public override bool Equals(object obj)
+        {
+            return obj is KeyBind other && Equals(other);
+        }
+        public override int GetHashCode()
+        {
+            return (mod.GetHashCode() << 2) ^ code.GetHashCode();
+        }
+
+        public static bool operator ==(KeyBind left, KeyBind right)
+        {
+            return left.Equals(right);
+        }
+        public static bool operator !=(KeyBind left, KeyBind right)
+        {
+            return !left.Equals(right);
+        }
+
         public override string ToString()
         {
             return $"{mod}+{code}";
+        }
+    }
+
+    internal struct MacroKeyBind : IEquatable<MacroKeyBind>
+    {
+        public MacroKeyBind(KeyMod mod, KeyCode code, KeyState state)
+        {
+            bind = new KeyBind(mod, code);
+            this.state = state;
+        }
+        public MacroKeyBind(KeyBind bind, KeyState state)
+        {
+            this.bind = bind;
+            this.state = state;
+        }
+
+        public KeyBind bind;
+        public KeyState state;
+
+        public bool Equals(MacroKeyBind other)
+        {
+            return bind == other.bind && state == other.state;
+        }
+        public override bool Equals(object obj)
+        {
+            return obj is MacroKeyBind other && Equals(other);
+        }
+        public override int GetHashCode()
+        {
+            return (bind.GetHashCode() << 2) ^ state.GetHashCode();
+        }
+
+        public static bool operator ==(MacroKeyBind left, MacroKeyBind right)
+        {
+            return left.Equals(right);
+        }
+        public static bool operator !=(MacroKeyBind left, MacroKeyBind right)
+        {
+            return !left.Equals(right);
+        }
+
+        public override string ToString()
+        {
+            return $"{bind}+{state}";
         }
     }
 
@@ -87,11 +168,6 @@ namespace AggroBird.ReflectionDebugConsole
         public KeyBind bind;
         public KeyState state;
         public string command;
-
-        internal bool IsPressed(Event evt)
-        {
-            return bind.IsPressed(evt, state);
-        }
 
         public override string ToString()
         {

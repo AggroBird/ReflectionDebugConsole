@@ -96,7 +96,18 @@ namespace AggroBird.ReflectionDebugConsole
         private static readonly Color32 foregroundColor = new Color32(255, 255, 255, 255);
         private static readonly Color32 backgroundColor = new Color32(30, 30, 30, 255);
 
-        private HashSet<KeyCode> currentKeyPresses = new HashSet<KeyCode>();
+        private readonly HashSet<KeyCode>[] currentKeyPresses =
+        {
+            new HashSet<KeyCode>(),
+            new HashSet<KeyCode>(),
+            new HashSet<KeyCode>(),
+            new HashSet<KeyCode>(),
+            new HashSet<KeyCode>(),
+            new HashSet<KeyCode>(),
+            new HashSet<KeyCode>(),
+            new HashSet<KeyCode>(),
+        };
+
 
 
         private void ResetState(bool clearInput = true)
@@ -429,33 +440,92 @@ namespace AggroBird.ReflectionDebugConsole
                 {
                     case EventType.KeyDown:
                     {
-                        if (HasFocus) return;
-                        if (current.keyCode == KeyCode.None) return;
-                        if (currentKeyPresses.Contains(current.keyCode)) return;
-                        currentKeyPresses.Add(current.keyCode);
+                        if (current.keyCode != KeyCode.None && !HasFocus)
+                        {
+                            KeyMod mod = KeyBind.MakeKeyMod(current);
+
+                            var lookup = currentKeyPresses[(int)mod];
+                            if (!lookup.Contains(current.keyCode))
+                            {
+                                lookup.Add(current.keyCode);
+
+                                if (identifierTableReady)
+                                {
+                                    OnKeybind(mod, current.keyCode, KeyState.KeyDown);
+                                }
+                            }
+                        }
                     }
                     break;
 
                     case EventType.KeyUp:
                     {
-                        if (!currentKeyPresses.Contains(current.keyCode)) return;
-                        currentKeyPresses.Remove(current.keyCode);
-                    }
-                    break;
-
-                    default:
-                        return;
-                }
-
-                if (identifierTableReady && DebugConsole.MacroTable.TryGetValue(current.keyCode, out List<Macro> list))
-                {
-                    foreach (var macro in list)
-                    {
-                        if (macro.IsPressed(current))
+                        if (current.keyCode != KeyCode.None)
                         {
-                            DebugConsole.Execute(macro.command);
+                            KeyMod currentMod = KeyMod.None;
+                            switch (current.keyCode)
+                            {
+                                case KeyCode.LeftControl:
+                                case KeyCode.RightControl:
+                                    currentMod = KeyMod.Ctrl;
+                                    break;
+                                case KeyCode.LeftAlt:
+                                case KeyCode.RightAlt:
+                                    currentMod = KeyMod.Alt;
+                                    break;
+                                case KeyCode.LeftShift:
+                                case KeyCode.RightShift:
+                                    currentMod = KeyMod.Shift;
+                                    break;
+                            }
+
+                            // Key up on all current macros using this particular key
+                            for (int i = 0; i < 8; i++)
+                            {
+                                var lookup = currentKeyPresses[i];
+                                if (lookup.Contains(current.keyCode))
+                                {
+                                    lookup.Remove(current.keyCode);
+
+                                    if (identifierTableReady)
+                                    {
+                                        OnKeybind((KeyMod)i, current.keyCode, KeyState.KeyUp);
+                                    }
+                                }
+                            }
+
+                            if (currentMod != KeyMod.None)
+                            {
+                                // Key up on all current macros using this particular mod
+                                for (int i = 1; i < 8; i++)
+                                {
+                                    if (((KeyMod)i & currentMod) != KeyMod.None)
+                                    {
+                                        var lookup = currentKeyPresses[i];
+                                        if (identifierTableReady)
+                                        {
+                                            foreach (KeyCode key in lookup)
+                                            {
+                                                OnKeybind((KeyMod)i, key, KeyState.KeyUp);
+                                            }
+                                        }
+                                        lookup.Clear();
+                                    }
+                                }
+                            }
                         }
                     }
+                    break;
+                }
+            }
+        }
+        private void OnKeybind(KeyMod mod, KeyCode code, KeyState state)
+        {
+            if (DebugConsole.MacroTable.TryGetValue(new MacroKeyBind(mod, code, state), out List<Macro> list))
+            {
+                foreach (Macro macro in list)
+                {
+                    DebugConsole.Execute(macro.command);
                 }
             }
         }
