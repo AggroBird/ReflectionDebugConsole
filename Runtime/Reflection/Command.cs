@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Reflection;
 using System.Text;
 
@@ -1256,14 +1257,14 @@ namespace AggroBird.Reflection
 
                     if (literalType == LiteralType.Decimal)
                     {
-                        if (decimal.TryParse(sub, out decimal result))
+                        if (decimal.TryParse(sub, NumberStyles.Number, CultureInfo.InvariantCulture, out decimal result))
                         {
                             return new BoxedObject(result);
                         }
                     }
                     else if (isFloat)
                     {
-                        if (double.TryParse(sub, out double result))
+                        if (double.TryParse(sub, NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out double result))
                         {
                             switch (literalType)
                             {
@@ -1281,7 +1282,7 @@ namespace AggroBird.Reflection
                             case 16:
                             {
                                 // Base 16
-                                if (!ulong.TryParse(sub, System.Globalization.NumberStyles.HexNumber, null, out result))
+                                if (!ulong.TryParse(sub, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out result))
                                 {
                                     goto InvalidLiteral;
                                 }
@@ -1302,7 +1303,7 @@ namespace AggroBird.Reflection
                             default:
                             {
                                 // Any other format
-                                if (!ulong.TryParse(sub, out result))
+                                if (!ulong.TryParse(sub, NumberStyles.Integer, CultureInfo.InvariantCulture, out result))
                                 {
                                     goto InvalidLiteral;
                                 }
@@ -1491,7 +1492,7 @@ namespace AggroBird.Reflection
                 case 'u':
                 {
                     int remaining = str.Length - idx;
-                    if (remaining >= 5 && uint.TryParse(str.SubView(idx + 1, 4).ToString(), System.Globalization.NumberStyles.AllowHexSpecifier, null, out uint charCode))
+                    if (remaining >= 5 && uint.TryParse(str.SubView(idx + 1, 4).ToString(), NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out uint charCode))
                     {
                         idx += 4;
                         return (char)charCode;

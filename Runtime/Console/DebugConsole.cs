@@ -13,6 +13,7 @@ using UnityObject = UnityEngine.Object;
 using System;
 using System.Runtime.CompilerServices;
 using UnityEngine;
+using System.Globalization;
 
 [assembly: InternalsVisibleTo("AggroBird.ReflectionDebugConsole.Editor")]
 
@@ -808,7 +809,7 @@ namespace AggroBird.ReflectionDebugConsole
                     }
                     else
                     {
-                        if (portIdx == 0 || !int.TryParse(cmd.Substring(portIdx + 1), out int port))
+                        if (portIdx == 0 || !int.TryParse(cmd.Substring(portIdx + 1), NumberStyles.Integer, CultureInfo.InvariantCulture, out int port))
                         {
                             LogError($"Invalid ip address format: '{address}'");
                             return false;
@@ -845,7 +846,7 @@ namespace AggroBird.ReflectionDebugConsole
                 {
                     ValidateConsoleCommandArgCount(args, 2);
 
-                    if (!float.TryParse(args[1], out float setScale))
+                    if (!float.TryParse(args[1], NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out float setScale))
                     {
                         LogError($"Failed to parse scale argument: '{args[1]}'");
                     }
