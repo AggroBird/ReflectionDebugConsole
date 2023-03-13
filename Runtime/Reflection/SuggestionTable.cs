@@ -470,7 +470,7 @@ namespace AggroBird.Reflection
 
         protected void FormatPropertyGetSet(StyledStringBuilder output, PropertyInfo property)
         {
-            output.Append("{ ");
+            output.Append(" { ");
             if (property.CanRead)
             {
                 output.Append("get", Style.Keyword);
