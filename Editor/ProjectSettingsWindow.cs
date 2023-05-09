@@ -158,14 +158,6 @@ namespace AggroBird.ReflectionDebugConsole.Editor
         public override void OnActivate(string searchContext, VisualElement rootElement)
         {
             base.OnActivate(searchContext, rootElement);
-
-            if (!settings)
-            {
-                settings = ScriptableObject.CreateInstance<LocalMacroSettings>();
-                settings.localMacros = DebugConsole.LoadPrefs<ListObject<Macro>>(DebugConsole.MacrosKey);
-            }
-
-            settingsObject = new SerializedObject(settings);
         }
         public override void OnDeactivate()
         {
@@ -186,6 +178,8 @@ namespace AggroBird.ReflectionDebugConsole.Editor
 
         public override void OnGUI(string searchContext)
         {
+            ValidateSettings();
+
             if (DrawEditorWindow(settingsObject))
             {
                 ApplyChanges();
@@ -208,6 +202,16 @@ namespace AggroBird.ReflectionDebugConsole.Editor
                 DebugConsole.ReloadMacroTable();
             }
 #endif
+        }
+
+        private void ValidateSettings()
+        {
+            if (!settings)
+            {
+                settings = ScriptableObject.CreateInstance<LocalMacroSettings>();
+                settings.localMacros = DebugConsole.LoadPrefs<ListObject<Macro>>(DebugConsole.MacrosKey);
+                settingsObject = new SerializedObject(settings);
+            }
         }
     }
 
@@ -341,10 +345,6 @@ namespace AggroBird.ReflectionDebugConsole.Editor
                 {
                     return false;
                 }
-            }
-
-            if (settingsObject == null)
-            {
                 settingsObject = new SerializedObject(settings);
             }
 
