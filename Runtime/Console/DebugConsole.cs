@@ -7,7 +7,7 @@ using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using UnityObject = UnityEngine.Object;
+using Object = UnityEngine.Object;
 #endif
 
 using System;
@@ -708,7 +708,7 @@ namespace AggroBird.ReflectionDebugConsole
 
             if (!instance)
             {
-                instance = UnityObject.FindObjectOfType<Instance>();
+                instance = Object.FindObjectOfType<Instance>();
                 if (!instance)
                 {
                     // Create a new instance if we lost our previous
@@ -716,7 +716,7 @@ namespace AggroBird.ReflectionDebugConsole
                     if (!gameObject) gameObject = new GameObject(GameObjectName);
                     instance = gameObject.AddComponent<Instance>();
                     gameObject.hideFlags |= HideFlags.NotEditable | HideFlags.HideInHierarchy | HideFlags.HideInInspector;
-                    UnityObject.DontDestroyOnLoad(gameObject);
+                    Object.DontDestroyOnLoad(gameObject);
                 }
                 else
                 {
