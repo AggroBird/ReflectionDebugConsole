@@ -660,13 +660,13 @@ namespace AggroBird.Reflection
             {
                 methodName = methodInfo.Name;
                 parameters = methodInfo.GetParameters();
-                genericArguments = methodInfo.GetGenericArguments();
+                genericArguments = methodInfo.IsGenericMethodDefinition ? methodInfo.GetGenericArguments() : Array.Empty<Type>();
             }
             public MethodKey(ConstructorInfo methodInfo)
             {
                 methodName = methodInfo.Name;
                 parameters = methodInfo.GetParameters();
-                genericArguments = methodInfo.GetGenericArguments();
+                genericArguments = methodInfo.IsGenericMethodDefinition ? methodInfo.GetGenericArguments() : Array.Empty<Type>();
             }
 
             private readonly string methodName;
