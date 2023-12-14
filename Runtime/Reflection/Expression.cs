@@ -660,25 +660,35 @@ namespace AggroBird.Reflection
             {
                 methodName = methodInfo.Name;
                 parameters = methodInfo.GetParameters();
+                genericArguments = methodInfo.GetGenericArguments();
             }
             public MethodKey(ConstructorInfo methodInfo)
             {
                 methodName = methodInfo.Name;
                 parameters = methodInfo.GetParameters();
+                genericArguments = methodInfo.GetGenericArguments();
             }
 
             private readonly string methodName;
             private readonly ParameterInfo[] parameters;
+            private readonly Type[] genericArguments;
 
             public override bool Equals(object obj)
             {
                 if (obj is MethodKey other && methodName.Equals(other.methodName))
                 {
-                    if (parameters.Length == other.parameters.Length)
+                    if (parameters.Length == other.parameters.Length && genericArguments.Length == other.genericArguments.Length)
                     {
                         for (int i = 0; i < parameters.Length; i++)
                         {
                             if (!parameters[i].ParameterType.Equals(other.parameters[i].ParameterType))
+                            {
+                                return false;
+                            }
+                        }
+                        for (int i = 0; i < genericArguments.Length; i++)
+                        {
+                            if (!genericArguments[i].Equals(other.genericArguments[i]))
                             {
                                 return false;
                             }
@@ -694,6 +704,10 @@ namespace AggroBird.Reflection
                 for (int i = 0; i < parameters.Length; i++)
                 {
                     result ^= parameters[i].ParameterType.GetHashCode();
+                }
+                for (int i = 0; i < genericArguments.Length; i++)
+                {
+                    result ^= genericArguments[i].GetHashCode();
                 }
                 return result;
             }
