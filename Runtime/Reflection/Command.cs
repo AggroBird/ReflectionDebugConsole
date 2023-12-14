@@ -814,6 +814,10 @@ namespace AggroBird.Reflection
                 Expression rhs = ParseNext(GetGrammar(token.type).AssociativePrecedence);
                 if (rhs is Typename typename)
                 {
+                    if (typename.type.IsValueType)
+                    {
+                        throw new DebugConsoleException("The as operator must be used with a reference type");
+                    }
                     return new AsCast(lhs, typename.type);
                 }
                 throw new DebugConsoleException("Type expected");
