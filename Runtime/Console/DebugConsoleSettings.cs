@@ -90,6 +90,8 @@ namespace AggroBird.ReflectionDebugConsole
         public int maxIterationCount = 100000;
         [Tooltip("Prevent access to private members in safe mode")]
         public bool safeMode = true;
+        [Tooltip("Allow the console to show up in release builds (!Debug.isDebugBuild)")]
+        public bool allowConsoleInRelease = false;
 
         [Header("Game View")]
         [Tooltip("Constant pixel size of the console font")]

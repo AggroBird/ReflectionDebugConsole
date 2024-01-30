@@ -68,7 +68,7 @@ namespace AggroBird.ReflectionDebugConsole
         }
 
         private static Instance instance;
-        private static DebugConsoleGUI gui = new DebugConsoleGUI(false);
+        private static DebugConsoleGUI gui;
         private static DebugConsoleSettings settings = null;
         internal static DebugConsoleSettings Settings
         {
@@ -91,6 +91,11 @@ namespace AggroBird.ReflectionDebugConsole
         {
             Initialize();
 
+            if (gui == null)
+            {
+                gui = new DebugConsoleGUI(false);
+            }
+
             return gui;
         }
 
@@ -105,6 +110,8 @@ namespace AggroBird.ReflectionDebugConsole
 
             return settings;
         }
+
+        private static bool AllowConsoleGUI => Debug.isDebugBuild || Settings.allowConsoleInRelease;
 
         private static Assembly[] assemblies = null;
         private static Assembly[] GetEnabledAssemblies()
@@ -344,17 +351,7 @@ namespace AggroBird.ReflectionDebugConsole
             return true;
         }
         private static Identifier identifierTable;
-        internal static Identifier IdentifierTable
-        {
-            get
-            {
-                if (identifierTable == null)
-                {
-                    return Identifier.Empty;
-                }
-                return identifierTable;
-            }
-        }
+        internal static Identifier IdentifierTable => identifierTable == null ? Identifier.Empty : identifierTable;
 
 
         internal class Instance : MonoBehaviour
@@ -389,6 +386,8 @@ namespace AggroBird.ReflectionDebugConsole
             private void Start()
             {
                 BuildIdentifierTable();
+
+                GetGUI();
             }
 
             private void Update()
@@ -495,7 +494,7 @@ namespace AggroBird.ReflectionDebugConsole
             }
             private void OnGUI()
             {
-                if (instance == this)
+                if (instance == this && gui != null)
                 {
                     // Update UI
                     float gameViewScale = Settings.invertScale ? gameViewReference.GetGameViewScale() : 1;
@@ -513,8 +512,12 @@ namespace AggroBird.ReflectionDebugConsole
 
             private void OnDestroy()
             {
-                gui?.Close();
-                gui?.Dispose();
+                if (gui != null)
+                {
+                    gui.Close();
+                    gui.Dispose();
+                    gui = null;
+                }
 
 #if INCLUDE_DEBUG_SERVER
                 StopDebugServer();
@@ -706,7 +709,7 @@ namespace AggroBird.ReflectionDebugConsole
             }
 #endif
 
-            if (!instance)
+            if (!instance && AllowConsoleGUI)
             {
                 instance = Object.FindObjectOfType<Instance>();
                 if (!instance)
@@ -955,8 +958,8 @@ namespace AggroBird.ReflectionDebugConsole
         }
 
 
-        public static void Open() => GetGUI()?.Open();
-        public static void Close() => GetGUI()?.Close();
+        public static void Open() { if (AllowConsoleGUI) { Initialize(); GetGUI().Open(); } }
+        public static void Close() { gui?.Close(); }
 
         public static bool Execute(string cmd)
         {
@@ -979,8 +982,8 @@ namespace AggroBird.ReflectionDebugConsole
             return ExecuteCommand(cmd, out result, out exception);
         }
 
-        public static bool IsOpen => Application.isPlaying && GetGUI().IsOpen;
-        public static bool HasFocus => Application.isPlaying && GetGUI().HasFocus;
+        public static bool IsOpen => Application.isPlaying && gui != null && gui.IsOpen;
+        public static bool HasFocus => Application.isPlaying && gui != null && gui.HasFocus;
 
         public static void Reload()
         {
