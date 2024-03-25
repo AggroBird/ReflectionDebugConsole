@@ -87,6 +87,9 @@ namespace AggroBird.ReflectionDebugConsole
             DebugConsole.settings = settings;
         }
 
+        internal static bool overrideSafeMode = false;
+        internal static bool SafeMode => Settings.safeMode && !overrideSafeMode;
+
         private static DebugConsoleGUI GetGUI()
         {
             Initialize();
@@ -281,7 +284,7 @@ namespace AggroBird.ReflectionDebugConsole
 
                 identifierTableTokenSource = new CancellationTokenSource();
                 CancellationToken cancellationToken = identifierTableTokenSource.Token;
-                IdentifierTableBuilder builder = new IdentifierTableBuilder(GetEnabledAssemblies(), UsingNamespacesSplit, Settings.safeMode);
+                IdentifierTableBuilder builder = new IdentifierTableBuilder(GetEnabledAssemblies(), UsingNamespacesSplit, SafeMode);
                 if (PlatformSupportsThreading())
                 {
                     identifierTableTask = Task.Run(() => builder.Build(cancellationToken));
@@ -419,6 +422,7 @@ namespace AggroBird.ReflectionDebugConsole
                         switch (messages[i].flags)
                         {
                             case MessageFlags.None:
+                            {
                                 currentExecutingClient = messages[i].sender;
                                 if (ExecuteCommand(messages[i].message, out object result, out Exception exception, isRemoteCommand: true))
                                 {
@@ -434,7 +438,8 @@ namespace AggroBird.ReflectionDebugConsole
                                     currentExecutingClient.Send(exception.ToString(), MessageFlags.Error);
                                 }
                                 currentExecutingClient = null;
-                                break;
+                            }
+                            break;
 
                             case MessageFlags.BuildSuggestions:
                             {
@@ -485,6 +490,23 @@ namespace AggroBird.ReflectionDebugConsole
                                         }
                                     }
                                 });
+                            }
+                            break;
+
+                            case MessageFlags.OverrideSafeMode:
+                            {
+                                if (!overrideSafeMode)
+                                {
+                                    currentExecutingClient.Send("Safe mode has been disabled on remote target", MessageFlags.Log);
+
+                                    overrideSafeMode = true;
+
+                                    Reload();
+                                }
+                                else
+                                {
+                                    currentExecutingClient.Send("Safe mode has already been disabled on remote target", MessageFlags.Warning);
+                                }
                             }
                             break;
                         }
@@ -611,6 +633,11 @@ namespace AggroBird.ReflectionDebugConsole
                 highlightIndex = highlightIndex,
                 direction = direction,
             }), MessageFlags.UpdateSuggestions);
+        }
+
+        internal static void SendOverrideSafemode()
+        {
+            client.Send("unsafe", MessageFlags.OverrideSafeMode);
         }
 
         private static readonly Dictionary<int, SuggestionProvider> awaitingRequests = new Dictionary<int, SuggestionProvider>();
@@ -858,6 +885,40 @@ namespace AggroBird.ReflectionDebugConsole
                 }
                 break;
 
+                case "/unsafe":
+                {
+                    ValidateConsoleCommandArgCount(args, 1);
+
+#if UNITY_EDITOR
+                    if (client != null)
+                    {
+                        if (client.State == DebugClient.ConnectionState.Connected)
+                        {
+                            SendOverrideSafemode();
+                        }
+                        else
+                        {
+                            LogError("Unable to disable safe mode on remote target: connection has not been established yet");
+                        }
+                        break;
+                    }
+#endif
+
+                    if (!overrideSafeMode)
+                    {
+                        overrideSafeMode = true;
+
+                        Log("Safe mode has been disabled locally");
+
+                        Reload();
+                    }
+                    else
+                    {
+                        LogWarning("Safe mode has already been disabled locally");
+                    }
+                }
+                break;
+
                 default:
                     LogError($"Unknown console command: '{args[0]}'");
                     break;
@@ -923,7 +984,7 @@ namespace AggroBird.ReflectionDebugConsole
 #endif
 
                     Token[] tokens = new Lexer(cmd).ToArray();
-                    CommandParser commandParser = new CommandParser(tokens, IdentifierTable, Settings.safeMode, Settings.maxIterationCount);
+                    CommandParser commandParser = new CommandParser(tokens, IdentifierTable, SafeMode, Settings.maxIterationCount);
                     Command command = commandParser.Parse();
                     result = command.Execute();
                     return true;

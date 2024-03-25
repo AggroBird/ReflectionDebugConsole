@@ -51,6 +51,7 @@ namespace AggroBird.ReflectionDebugConsole
         UpdateSuggestions,
         SuggestionResult,
         SuggestionFailed,
+        OverrideSafeMode,
     }
 
     internal class DebugClient

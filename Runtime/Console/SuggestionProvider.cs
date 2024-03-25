@@ -93,7 +93,7 @@ namespace AggroBird.ReflectionDebugConsole
             }
 #endif
 
-            SuggestionTableBuilder builder = new SuggestionTableBuilder(input, cursorPosition, DebugConsole.IdentifierTable, DebugConsole.UsingNamespaces, DebugConsole.Settings.safeMode);
+            SuggestionTableBuilder builder = new SuggestionTableBuilder(input, cursorPosition, DebugConsole.IdentifierTable, DebugConsole.UsingNamespaces, DebugConsole.SafeMode);
 
             this.maxSuggestionCount = maxSuggestionCount;
 
