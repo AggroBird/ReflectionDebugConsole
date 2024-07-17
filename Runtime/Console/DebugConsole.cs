@@ -30,6 +30,7 @@ namespace AggroBird.ReflectionDebugConsole
         internal static readonly string SettingsFileName = $"{UniqueKey}.{SettingsKey}";
         internal static readonly string GameObjectName = $"{UniqueKey}.{InstanceKey}";
         internal static readonly string LastAddressName = $"{UniqueKey}.lastAddress";
+        internal static readonly string UnsafePrefKey = $"{UniqueKey}.localUnsafePref";
         internal const string LogPrefix = "[DebugConsole]";
 
         public delegate void OnConsoleFocusChange(bool isFocused);
@@ -87,8 +88,32 @@ namespace AggroBird.ReflectionDebugConsole
             DebugConsole.settings = settings;
         }
 
-        internal static bool overrideSafeMode = false;
-        internal static bool SafeMode => Settings.safeMode && !overrideSafeMode;
+#if !UNITY_EDITOR
+        internal static bool overrideLocalDisableSafeModeValue = false;
+#endif
+        internal static bool OverrideLocalDisableSafeMode
+        {
+#if UNITY_EDITOR
+            get
+            {
+                return UnityEditor.EditorPrefs.GetInt(UnsafePrefKey, 0) != 0;
+            }
+            set
+            {
+                UnityEditor.EditorPrefs.SetInt(UnsafePrefKey, value ? 1 : 0);
+            }
+#else
+            get
+            {
+                return overrideLocalDisableSafeModeValue;
+            }
+            set
+            {
+                overrideLocalDisableSafeModeValue = value;
+            }
+#endif
+        }
+        internal static bool SafeMode => Settings.safeMode && !OverrideLocalDisableSafeMode;
 
         private static DebugConsoleGUI GetGUI()
         {
@@ -495,11 +520,20 @@ namespace AggroBird.ReflectionDebugConsole
 
                             case MessageFlags.OverrideSafeMode:
                             {
-                                if (!overrideSafeMode)
+                                if (Settings.safeMode)
                                 {
-                                    currentExecutingClient.Send("Safe mode has been disabled on remote target", MessageFlags.Log);
+                                    if (!OverrideLocalDisableSafeMode)
+                                    {
+                                        OverrideLocalDisableSafeMode = true;
 
-                                    overrideSafeMode = true;
+                                        currentExecutingClient.Send("Safe mode has been disabled on remote target", MessageFlags.Log);
+                                    }
+                                    else
+                                    {
+                                        OverrideLocalDisableSafeMode = false;
+
+                                        currentExecutingClient.Send("Safe mode has been re-enabled on remote target", MessageFlags.Log);
+                                    }
 
                                     Reload();
                                 }
@@ -904,11 +938,20 @@ namespace AggroBird.ReflectionDebugConsole
                     }
 #endif
 
-                    if (!overrideSafeMode)
+                    if (Settings.safeMode)
                     {
-                        overrideSafeMode = true;
+                        if (!OverrideLocalDisableSafeMode)
+                        {
+                            OverrideLocalDisableSafeMode = true;
 
-                        Log("Safe mode has been disabled locally");
+                            Log("Safe mode has been disabled locally");
+                        }
+                        else
+                        {
+                            OverrideLocalDisableSafeMode = false;
+
+                            Log("Safe mode has been re-enabled locally");
+                        }
 
                         Reload();
                     }
