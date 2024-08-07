@@ -42,7 +42,7 @@ By default, the command’s return value is displayed in the console (if not voi
 
 Getting and setting fields and properties:
 ```csharp
-UnityEngine.Time.timeScale = 2.0;
+UnityEngine.Time.timeScale = 2.0f;
 ```
 
 Getting elements of an array:
