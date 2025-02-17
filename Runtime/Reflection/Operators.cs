@@ -1150,6 +1150,16 @@ namespace AggroBird.Reflection
         {
             if (!string.IsNullOrEmpty(info.unaryOperatorName))
             {
+                if (info.type == TokenType.LogicalNot && !arg.Equals(typeof(bool)))
+                {
+                    // Convert non-bool types to bool when applying logical not
+                    if (Expression.IsImplicitConvertable(arg, typeof(bool), out Expression cast))
+                    {
+                        expr = MakeOperatorExpression(cast, UnaryFunc.MakeOperator((c, a) => !ToBool(a.Execute(c))));
+                        return true;
+                    }
+                }
+
                 List<MethodInfo> overloads = new List<MethodInfo>();
 
                 Expression[] args = new Expression[1] { arg };
