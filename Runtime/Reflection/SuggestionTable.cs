@@ -948,7 +948,7 @@ namespace AggroBird.Reflection
 
     internal sealed class MethodOverloadList : SuggestionInfo
     {
-        public MethodOverloadList(IReadOnlyList<MethodBase> overloads, IReadOnlyList<Expression> args, Type delegateType = null) : base(StringView.Empty, 0, 0)
+        public MethodOverloadList(IReadOnlyList<MethodBase> overloads, IReadOnlyList<Argument> args, Type delegateType = null) : base(StringView.Empty, 0, 0)
         {
             this.overloads = overloads;
             this.args = args;
@@ -956,7 +956,7 @@ namespace AggroBird.Reflection
         }
 
         private readonly IReadOnlyList<MethodBase> overloads;
-        private readonly IReadOnlyList<Expression> args;
+        private readonly IReadOnlyList<Argument> args;
         private readonly Type delegateType;
 
 
@@ -1026,7 +1026,7 @@ namespace AggroBird.Reflection
 
     internal sealed class PropertyOverloadList : SuggestionInfo
     {
-        public PropertyOverloadList(IReadOnlyList<PropertyInfo> properties, IReadOnlyList<Expression> args, Type declaringType) : base(StringView.Empty, 0, 0)
+        public PropertyOverloadList(IReadOnlyList<PropertyInfo> properties, IReadOnlyList<Argument> args, Type declaringType) : base(StringView.Empty, 0, 0)
         {
             this.properties = properties;
             this.args = args;
@@ -1034,7 +1034,7 @@ namespace AggroBird.Reflection
         }
 
         private readonly IReadOnlyList<PropertyInfo> properties;
-        private readonly IReadOnlyList<Expression> args;
+        private readonly IReadOnlyList<Argument> args;
         private readonly Type declaringType;
         public int CurrentArgumentIndex => args.Count;
 

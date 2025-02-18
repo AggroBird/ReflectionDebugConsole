@@ -89,11 +89,10 @@ The environment supports type casting operators is and as:
 5 is int ? "Integer" : "Not an integer";
 ```
 
-The environment has limited support for reference parameters:
+The environment supports in, out and ref parameters:
 ```csharp
-int x; int.TryParse("125", x); x;
+int.TryParse("125", out int x); x;
 ```
-All reference types (in/out/ref) are treated as reference by the environment. As such, declaring the reference type is not necessary and variables/fields passed into a reference parameter will automatically be converted.
 
 ## Macros and Keybinds
 

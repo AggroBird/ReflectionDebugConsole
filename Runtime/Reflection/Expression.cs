@@ -3,6 +3,7 @@
 #if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -210,6 +211,56 @@ namespace AggroBird.Reflection
         public override Type[] GetGenericArguments() => genericArguments;
     }
 
+    internal struct Argument
+    {
+        public Argument(Decorator decorator, Expression argument)
+        {
+            this.decorator = decorator;
+            this.argument = argument;
+        }
+
+        public Decorator decorator;
+        public Expression argument;
+
+        public static implicit operator Argument(Expression expr) => new(Decorator.None, expr);
+    }
+
+    internal struct ArgumentList : IReadOnlyList<Argument>
+    {
+        public static readonly ArgumentList Empty = new ArgumentList { arguments = Array.Empty<Argument>() };
+
+        public Argument[] arguments;
+
+        public Argument this[int index] => arguments[index];
+        public int Count => arguments.Length;
+        public IEnumerator<Argument> GetEnumerator() => arguments.GetEnumerator() as IEnumerator<Argument>;
+        IEnumerator IEnumerable.GetEnumerator() => arguments.GetEnumerator();
+
+        public static implicit operator Expression[](ArgumentList argList)
+        {
+            Expression[] result = new Expression[argList.arguments.Length];
+            for (int i = 0; i < result.Length; i++)
+            {
+                result[i] = argList.arguments[i].argument;
+            }
+            return result;
+        }
+        public static implicit operator ArgumentList(Expression[] arr)
+        {
+            ArgumentList result = new();
+            result.arguments = new Argument[arr.Length];
+            for (int i = 0; i < arr.Length; i++)
+            {
+                result.arguments[i] = new Argument(Decorator.None, arr[i]);
+            }
+            return result;
+        }
+        public static implicit operator ArgumentList(Argument[] arr)
+        {
+            return new() { arguments = arr };
+        }
+    }
+
     internal abstract class Expression
     {
         public abstract object Execute(ExecutionContext context);
@@ -314,7 +365,7 @@ namespace AggroBird.Reflection
         private static readonly PropertyInfo[] StringSubscriptProperties = new PropertyInfo[] { typeof(string).GetProperty("Chars") };
         public static PropertyInfo[] GetStringSubscriptProperties() => StringSubscriptProperties;
 
-        public static T[] GetOptimalOverloads<T>(IReadOnlyList<T> overloads, params Expression[] args) where T : MethodBase
+        public static T[] GetOptimalOverloads<T>(IReadOnlyList<T> overloads, IReadOnlyList<Argument> args) where T : MethodBase
         {
             if (overloads != null && overloads.Count > 0)
             {
@@ -351,7 +402,7 @@ namespace AggroBird.Reflection
 
             return Array.Empty<T>();
         }
-        public static PropertyInfo[] GetOptimalOverloads(IReadOnlyList<PropertyInfo> overloads, params Expression[] args)
+        public static PropertyInfo[] GetOptimalOverloads(IReadOnlyList<PropertyInfo> overloads, IReadOnlyList<Argument> args)
         {
             if (overloads != null && overloads.Count > 0)
             {
@@ -389,7 +440,7 @@ namespace AggroBird.Reflection
             return Array.Empty<PropertyInfo>();
         }
 
-        private static int CompareMethodOverloads(ParameterInfo[] lhs, ParameterInfo[] rhs, Expression[] args)
+        private static int CompareMethodOverloads(ParameterInfo[] lhs, ParameterInfo[] rhs, IReadOnlyList<Argument> args)
         {
             int score = 0;
 
@@ -405,9 +456,9 @@ namespace AggroBird.Reflection
                 else if (lhs.Length == rhs.Length)
                 {
                     // Compare parameters
-                    for (int i = 0; i < args.Length; i++)
+                    for (int i = 0; i < args.Count; i++)
                     {
-                        PickSmallest(ref score, GetInheritanceWeight(lhs[i].ParameterType, args[i].ResultType), GetInheritanceWeight(rhs[i].ParameterType, args[i].ResultType));
+                        PickSmallest(ref score, GetInheritanceWeight(lhs[i].ParameterType, args[i].argument.ResultType), GetInheritanceWeight(rhs[i].ParameterType, args[i].argument.ResultType));
                     }
                 }
                 else
@@ -838,12 +889,6 @@ namespace AggroBird.Reflection
                 return true;
             }
 
-            // Ref
-            if (dstType.IsByRef && expr.IsReferenceable && dstType.GetElementType().Equals(expr.ResultType))
-            {
-                return true;
-            }
-
             // Null
             if (expr is Null && !dstType.IsValueType)
             {
@@ -945,7 +990,7 @@ namespace AggroBird.Reflection
             return true;
         }
 
-        public static bool IsCompatibleOverload(ParameterInfo[] parameters, IReadOnlyList<Expression> args, bool matchParameterCount = true)
+        public static bool IsCompatibleOverload(ParameterInfo[] parameters, IReadOnlyList<Argument> args, bool matchParameterCount = true)
         {
             int actualParamCount = parameters.Length;
             int actualArgCount = args.Count;
@@ -957,26 +1002,28 @@ namespace AggroBird.Reflection
                 {
                     Type arrayType = lastParam.ParameterType;
                     // Ensure we are not denying an actual array as a params arguments
-                    if (actualArgCount == actualParamCount && IsImplicitConvertable(args[lastParamIndex], arrayType, out _))
+                    var lastArg = args[lastParamIndex];
+                    if (actualArgCount == actualParamCount && IsImplicitConvertable(lastArg.argument, arrayType, out _) && lastArg.decorator == Decorator.None)
                     {
                         actualArgCount--;
                     }
-                    else
+                    else if (actualArgCount >= actualParamCount)
                     {
-                        if (actualArgCount >= actualParamCount)
+                        Type paramType = arrayType.GetElementType();
+                        int optionalArgCount = args.Count - lastParamIndex;
+                        for (int i = 0; i < optionalArgCount; i++)
                         {
-                            Type paramType = arrayType.GetElementType();
-                            int optionalArgCount = args.Count - lastParamIndex;
-                            for (int i = 0; i < optionalArgCount; i++)
+                            var expr = args[lastParamIndex + i];
+                            if (expr.decorator != Decorator.None)
                             {
-                                var expr = args[lastParamIndex + i];
-                                if (!IsImplicitConvertable(expr, paramType, out _))
-                                {
-                                    return false;
-                                }
+                                return false;
                             }
-                            actualArgCount -= optionalArgCount;
+                            if (!IsImplicitConvertable(expr.argument, paramType, out _))
+                            {
+                                return false;
+                            }
                         }
+                        actualArgCount -= optionalArgCount;
                     }
                     actualParamCount--;
                 }
@@ -985,15 +1032,70 @@ namespace AggroBird.Reflection
             {
                 for (int i = 0; i < actualArgCount; i++)
                 {
-                    if (!IsImplicitConvertable(args[i], parameters[i].ParameterType, out _))
+                    var param = parameters[i];
+                    var arg = args[i];
+                    if (param.ParameterType.IsByRef)
+                    {
+                        var elemType = param.ParameterType.GetElementType();
+                        if (param.IsOut)
+                        {
+                            if (arg.decorator == Decorator.Out)
+                            {
+                                // Check if valid out declaration or out ref of equal type
+                                if (arg.argument is OutVariableDeclaration outVarDec && elemType.Equals(outVarDec.type))
+                                {
+                                    continue;
+                                }
+                                else if (arg.argument.IsReferenceable && elemType.Equals(arg.argument.ResultType))
+                                {
+                                    continue;
+                                }
+                            }
+                        }
+                        else if (param.IsIn)
+                        {
+                            if (arg.decorator == Decorator.In)
+                            {
+                                // Explicit in must be of equal type
+                                if (arg.argument.IsReferenceable && elemType.Equals(arg.argument.ResultType))
+                                {
+                                    continue;
+                                }
+                            }
+                            else if (arg.decorator == Decorator.None)
+                            {
+                                // Free implicit for in params
+                                if (IsImplicitConvertable(arg.argument, elemType, out _))
+                                {
+                                    continue;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            if (arg.decorator == Decorator.Ref)
+                            {
+                                // Ensure ref is of equal type
+                                if (arg.argument.IsReferenceable && elemType.Equals(arg.argument.ResultType))
+                                {
+                                    continue;
+                                }
+                            }
+                        }
+
                         return false;
+                    }
+                    else if (!IsImplicitConvertable(arg.argument, param.ParameterType, out _))
+                    {
+                        return false;
+                    }
                 }
                 return !matchParameterCount || actualArgCount == actualParamCount || parameters[actualArgCount].HasDefaultValue;
             }
             return false;
         }
 
-        public static Expression[] ConvertArguments(ParameterInfo[] parameters, IReadOnlyList<Expression> args)
+        public static Expression[] ConvertArguments(ParameterInfo[] parameters, ArgumentList args)
         {
             if (parameters.Length == 0)
             {
@@ -1011,7 +1113,7 @@ namespace AggroBird.Reflection
                 if (lastParam.HasCustomAttribute<ParamArrayAttribute>(true))
                 {
                     Type arrayType = lastParam.ParameterType;
-                    if (actualArgCount == actualParamCount && IsImplicitConvertable(args[lastParamIndex], arrayType, out Expression arrayCast))
+                    if (actualArgCount == actualParamCount && IsImplicitConvertable(args[lastParamIndex].argument, arrayType, out Expression arrayCast))
                     {
                         converted[lastParamIndex] = arrayCast;
                         actualArgCount--;
@@ -1024,7 +1126,7 @@ namespace AggroBird.Reflection
                         Expression[] optionalArray = new Expression[optionalArgCount];
                         for (int i = 0; i < optionalArgCount; i++)
                         {
-                            IsImplicitConvertable(args[lastParamIndex + i], paramType, out optionalArray[i]);
+                            IsImplicitConvertable(args[lastParamIndex + i].argument, paramType, out optionalArray[i]);
                         }
                         actualArgCount -= optionalArgCount;
                         converted[lastParamIndex] = new ExpressionParameterPack(optionalArray, arrayType);
@@ -1034,7 +1136,7 @@ namespace AggroBird.Reflection
 
                 for (int i = 0; i < actualArgCount; i++)
                 {
-                    IsImplicitConvertable(args[i], parameters[i].ParameterType, out converted[i]);
+                    IsImplicitConvertable(args[i].argument, parameters[i].ParameterType, out converted[i]);
                 }
                 for (int i = actualArgCount; i < actualParamCount; i++)
                 {
@@ -2294,6 +2396,25 @@ namespace AggroBird.Reflection
         public override Type ResultType => typeof(void);
     }
 
+    internal class OutVariableDeclaration : VariableDeclaration
+    {
+        public OutVariableDeclaration(Type type, string name) : base(type, name)
+        {
+
+        }
+
+        public override object Execute(ExecutionContext context)
+        {
+            Value.UpdateValue(type.IsValueType ? Activator.CreateInstance(type) : null);
+            context.variables.Add(Value);
+            return Value.Value;
+        }
+        public override object Assign(ExecutionContext context, object val, bool returnInitialValue = false)
+        {
+            return Value.Assign(context, val, returnInitialValue);
+        }
+    }
+
     internal class VariableAssignment : VariableDeclaration
     {
         public VariableAssignment(Type type, string name, Expression rhs) : base(type, name)
@@ -2323,7 +2444,7 @@ namespace AggroBird.Reflection
         }
 
         public readonly string name;
-        private readonly Type type;
+        public readonly Type type;
         public object Value { get; private set; }
 
         public void UpdateValue(object value)

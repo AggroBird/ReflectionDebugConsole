@@ -935,7 +935,7 @@ namespace AggroBird.Reflection
         {
             if (lhs is MethodOverload methodOverload)
             {
-                Expression[] args = ParseMethodArguments(token, methodOverload.methods);
+                ArgumentList args = ParseMethodArguments(token, methodOverload.methods);
 
                 MethodInfo[] optimal = Expression.GetOptimalOverloads(methodOverload.methods, args);
 
@@ -950,9 +950,9 @@ namespace AggroBird.Reflection
             {
                 ConstructorInfo[] constructors = Expression.FilterMembers(typename.type.GetConstructors(MakeInstanceBindingFlags()), true);
 
-                Expression[] args = ParseMethodArguments(token, constructors);
+                ArgumentList args = ParseMethodArguments(token, constructors);
 
-                if (typename.type.IsValueType && args.Length == 0)
+                if (typename.type.IsValueType && args.Count == 0)
                 {
                     return new DefaultConstructor(typename.type);
                 }
@@ -970,7 +970,7 @@ namespace AggroBird.Reflection
             {
                 MethodInfo[] overloads = new MethodInfo[] { lhs.ResultType.GetMethod("Invoke") };
 
-                Expression[] args = ParseMethodArguments(token, overloads, lhs.ResultType);
+                ArgumentList args = ParseMethodArguments(token, overloads, lhs.ResultType);
 
                 MethodInfo[] optimal = Expression.GetOptimalOverloads(overloads, args);
 
@@ -1073,7 +1073,7 @@ namespace AggroBird.Reflection
                     properties = Expression.GetSubscriptProperties(lhs.ResultType, safeMode);
                 }
 
-                Expression[] args = ParseSubscriptArguments(token, properties, lhs.ResultType);
+                ArgumentList args = ParseSubscriptArguments(token, properties, lhs.ResultType);
 
                 PropertyInfo[] optimal = Expression.GetOptimalOverloads(properties, args);
 
@@ -1508,20 +1508,80 @@ namespace AggroBird.Reflection
         }
 
 
-        private Expression[] ParseMethodArguments(Token token, IReadOnlyList<MethodBase> overloads, Type delegateType = null)
+        private static Decorator GetDecoratorFromToken(TokenType token)
+        {
+            switch (token)
+            {
+                case TokenType.In:
+                    return Decorator.In;
+                case TokenType.Out:
+                    return Decorator.Out;
+                case TokenType.Ref:
+                    return Decorator.Ref;
+            }
+            return Decorator.None;
+        }
+        private Argument ParseArgument()
+        {
+            var token = Peek();
+            switch (token)
+            {
+                case TokenType.In:
+                case TokenType.Out:
+                case TokenType.Ref:
+                {
+                    Advance();
+                    Expression expr = ParseNext();
+                    if (expr is Typename typename)
+                    {
+                        if (token == TokenType.Out)
+                        {
+                            // Inline out var declaration
+                            Token name = Consume(TokenType.Identifier);
+                            AddStyledToken(name.str, Style.Variable);
+                            var outVarDecl = new OutVariableDeclaration(typename.type, name.ToString());
+                            PushVariable(outVarDecl);
+                            return new Argument(Decorator.Out, outVarDecl);
+                        }
+                        throw new UnexpectedTokenException(token);
+                    }
+
+                    if (!expr.IsReferenceable)
+                    {
+                        throw new DebugConsoleException("Expression cannot be passed by reference");
+                    }
+
+                    if (expr is VariableReference varRef)
+                    {
+                        // Reference to a variable
+                        return new Argument(GetDecoratorFromToken(token), varRef);
+                    }
+                    else if (expr is FieldMember fieldMember)
+                    {
+                        // Reference to a field member
+                        return new Argument(GetDecoratorFromToken(token), fieldMember);
+                    }
+                }
+                throw new UnexpectedTokenException(token);
+
+                default:
+                    return ParseNext();
+            }
+        }
+        private ArgumentList ParseMethodArguments(Token token, IReadOnlyList<MethodBase> overloads, Type delegateType = null)
         {
             if (GenerateSuggestionInfoAtToken(token))
             {
-                SuggestionInfo = new MethodOverloadList(overloads, Array.Empty<Expression>(), delegateType);
+                SuggestionInfo = new MethodOverloadList(overloads, ArgumentList.Empty, delegateType);
             }
 
             TokenType closingToken = TokenType.RParen;
             if (!Match(closingToken))
             {
-                List<Expression> args = new List<Expression>();
+                List<Argument> args = new List<Argument>();
                 while (true)
                 {
-                    args.Add(ParseNext());
+                    args.Add(ParseArgument());
                     Token next = Consume();
                     if (next.type == closingToken)
                         break;
@@ -1535,22 +1595,22 @@ namespace AggroBird.Reflection
                 }
                 return args.ToArray();
             }
-            return Array.Empty<Expression>();
+            return ArgumentList.Empty;
         }
-        private Expression[] ParseSubscriptArguments(Token token, IReadOnlyList<PropertyInfo> properties, Type declaringType)
+        private ArgumentList ParseSubscriptArguments(Token token, IReadOnlyList<PropertyInfo> properties, Type declaringType)
         {
             if (GenerateSuggestionInfoAtToken(token))
             {
-                SuggestionInfo = new PropertyOverloadList(properties, Array.Empty<Expression>(), declaringType);
+                SuggestionInfo = new PropertyOverloadList(properties, ArgumentList.Empty, declaringType);
             }
 
             TokenType closingToken = TokenType.RBracket;
             if (!Match(closingToken))
             {
-                List<Expression> args = new List<Expression>();
+                List<Argument> args = new List<Argument>();
                 while (true)
                 {
-                    args.Add(ParseNext());
+                    args.Add(ParseArgument());
                     Token next = Consume();
                     if (next.type == closingToken)
                         break;
@@ -1564,7 +1624,7 @@ namespace AggroBird.Reflection
                 }
                 return args.ToArray();
             }
-            return Array.Empty<Expression>();
+            return ArgumentList.Empty;
         }
         private Expression[] ParseArguments(TokenType closingToken)
         {

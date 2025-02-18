@@ -226,6 +226,10 @@ namespace AggroBird.Reflection
         Foreach,
         [TokenInfo("in", TokenFamily.Keyword)]
         In,
+        [TokenInfo("out", TokenFamily.Keyword)]
+        Out,
+        [TokenInfo("ref", TokenFamily.Keyword)]
+        Ref,
 
         [TokenInfo("not", TokenFamily.Keyword)]
         Not,
@@ -243,6 +247,14 @@ namespace AggroBird.Reflection
         CharLiteral,
 
         Invalid,
+    }
+
+    internal enum Decorator
+    {
+        None,
+        In,
+        Out,
+        Ref,
     }
 
     internal class DebugConsoleException : Exception

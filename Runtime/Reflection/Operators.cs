@@ -1162,7 +1162,7 @@ namespace AggroBird.Reflection
 
                 List<MethodInfo> overloads = new List<MethodInfo>();
 
-                Expression[] args = new Expression[1] { arg };
+                ArgumentList args = new Expression[1] { arg };
 
                 foreach (MemberInfo member in arg.ResultType.GetMember(info.unaryOperatorName, MemberTypes.Method, BindingFlags.Public | BindingFlags.Static))
                 {
@@ -1194,7 +1194,7 @@ namespace AggroBird.Reflection
             {
                 List<MethodInfo> overloads = new List<MethodInfo>();
 
-                Expression[] args = new Expression[2] { lhs, rhs };
+                ArgumentList args = new Expression[2] { lhs, rhs };
 
                 foreach (MemberInfo member in lhs.ResultType.GetMember(info.infixOperatorName, MemberTypes.Method, BindingFlags.Public | BindingFlags.Static))
                 {
