@@ -26,7 +26,8 @@ namespace AggroBird.Reflection
         Product, // * / %
         Prefix, // ++a
         Postfix, // a++
-        Call, // a() a[] . -> etc.
+        Primary, // .
+        Call, // a() a[]
     }
 
     internal enum TokenFamily
@@ -230,6 +231,8 @@ namespace AggroBird.Reflection
         Out,
         [TokenInfo("ref", TokenFamily.Keyword)]
         Ref,
+        [TokenInfo("new", TokenFamily.Keyword)]
+        New,
 
         [TokenInfo("not", TokenFamily.Keyword)]
         Not,

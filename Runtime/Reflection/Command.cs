@@ -948,6 +948,8 @@ namespace AggroBird.Reflection
             }
             else if (lhs is Typename typename)
             {
+                if (typename.type.IsStatic()) throw new DebugConsoleException($"Cannot create an instance of the static class '{typename.type}'");
+
                 ConstructorInfo[] constructors = Expression.FilterMembers(typename.type.GetConstructors(MakeInstanceBindingFlags()), true);
 
                 ArgumentList args = ParseMethodArguments(token, constructors);
@@ -964,7 +966,7 @@ namespace AggroBird.Reflection
 
                 args = Expression.ConvertArguments(optimal[0].GetParameters(), args);
 
-                return new Constructor(typename.type, optimal[0], args);
+                return new ConstructorOverload(typename.type, optimal[0], args);
             }
             else if (lhs.ResultType.IsSubclassOf(typeof(Delegate)))
             {
@@ -1366,8 +1368,8 @@ namespace AggroBird.Reflection
                         else
                             throw new DebugConsoleException("typeof expects a type as argument");
                     }
-                    throw new UnexpectedTokenException(token);
                 }
+                goto default;
 
                 case TokenType.Bool: return new Typename(typeof(bool));
                 case TokenType.Char: return new Typename(typeof(char));
@@ -1385,6 +1387,21 @@ namespace AggroBird.Reflection
                 case TokenType.Decimal: return new Typename(typeof(decimal));
                 case TokenType.String: return new Typename(typeof(string));
                 case TokenType.Object: return new Typename(typeof(object));
+
+                case TokenType.New:
+                {
+                    TokenType next = Peek();
+                    TokenInfo info = TokenUtility.GetTokenInfo(next);
+                    if (info.family == TokenFamily.Identifier || info.family == TokenFamily.Keyword)
+                    {
+                        Expression expr = ParseNext(Precedence.Primary);
+                        if (expr is Constructor constructor)
+                        {
+                            return new NewInvocation(constructor);
+                        }
+                    }
+                    throw new UnexpectedTokenException(next);
+                }
 
                 default: throw new UnexpectedTokenException(token);
             }
@@ -1523,7 +1540,7 @@ namespace AggroBird.Reflection
         }
         private Argument ParseArgument()
         {
-            var token = Peek();
+            TokenType token = Peek();
             switch (token)
             {
                 case TokenType.In:
@@ -1539,7 +1556,7 @@ namespace AggroBird.Reflection
                             // Inline out var declaration
                             Token name = Consume(TokenType.Identifier);
                             AddStyledToken(name.str, Style.Variable);
-                            var outVarDecl = new OutVariableDeclaration(typename.type, name.ToString());
+                            OutVariableDeclaration outVarDecl = new OutVariableDeclaration(typename.type, name.ToString());
                             PushVariable(outVarDecl);
                             return new Argument(Decorator.Out, outVarDecl);
                         }

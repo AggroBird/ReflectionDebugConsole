@@ -50,9 +50,9 @@ Getting elements of an array:
 UnityEngine.Object.FindObjectsOfType(typeof(Camera))[0].ToString();
 ```
 
-Constructing new objects (new keyword is not necessary):
+Constructing new objects:
 ```csharp
-Game.player.transform.position = UnityEngine.Vector3(1, 2, 3);
+Game.player.transform.position = new UnityEngine.Vector3(1, 2, 3);
 ```
 
 Multiple commands can be chained together within one execution by separating them with a semicolon. For singular commands, the semicolon is optional:

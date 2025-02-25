@@ -126,7 +126,7 @@ namespace AggroBird.Reflection
                 new GrammarRule(TokenType.Semicolon),
 
                 // Operators
-                new InfixRule(TokenType.Period, InvokeInfixCallback, Precedence.Call, Associativity.Left),
+                new InfixRule(TokenType.Period, InvokeInfixCallback, Precedence.Primary, Associativity.Left),
 
                 new MixedRule(TokenType.Increment, InvokePrefixCallback, InvokePostfixCallback, Precedence.Postfix, Associativity.Right),
                 new MixedRule(TokenType.Decrement, InvokePrefixCallback, InvokePostfixCallback, Precedence.Postfix, Associativity.Right),
@@ -210,6 +210,7 @@ namespace AggroBird.Reflection
                 new PrefixRule(TokenType.In, InvokeKeywordCallback),
                 new PrefixRule(TokenType.Out, InvokeKeywordCallback),
                 new PrefixRule(TokenType.Ref, InvokeKeywordCallback),
+                new PrefixRule(TokenType.New, InvokeKeywordCallback),
 
                 new PrefixRule(TokenType.Not, InvokeKeywordCallback),
                 

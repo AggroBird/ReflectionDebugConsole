@@ -1671,7 +1671,26 @@ namespace AggroBird.Reflection
     }
 
     // Constructors
-    internal class DefaultConstructor : Expression
+    internal abstract class Constructor : Expression
+    {
+        public abstract object Construct(ExecutionContext context);
+        public abstract Type ConstructingType { get; }
+    }
+
+    internal class NewInvocation : Expression
+    {
+        public NewInvocation(Constructor constructor)
+        {
+            this.constructor = constructor;
+        }
+
+        private readonly Constructor constructor;
+
+        public override object Execute(ExecutionContext context) => constructor.Construct(context);
+        public override Type ResultType => constructor.ConstructingType;
+    }
+
+    internal class DefaultConstructor : Constructor
     {
         public DefaultConstructor(Type type)
         {
@@ -1681,16 +1700,19 @@ namespace AggroBird.Reflection
         public readonly Type type;
 
 
-        public override object Execute(ExecutionContext context)
+        public override object Construct(ExecutionContext context)
         {
             return Activator.CreateInstance(type);
         }
-        public override Type ResultType => type;
+        public override Type ConstructingType => type;
+
+        public override object Execute(ExecutionContext context) => throw new DebugConsoleException($"Non-invocable member '{type.Name}' cannot be used like a method");
+        public override Type ResultType => throw new DebugConsoleException($"Non-invocable member '{type.Name}' cannot be used like a method");
     }
 
-    internal class Constructor : Expression
+    internal class ConstructorOverload : Constructor
     {
-        public Constructor(Type type, ConstructorInfo constructor, Expression[] args)
+        public ConstructorOverload(Type type, ConstructorInfo constructor, Expression[] args)
         {
             this.type = type;
             this.constructor = constructor;
@@ -1702,11 +1724,14 @@ namespace AggroBird.Reflection
         public readonly Expression[] args;
 
 
-        public override object Execute(ExecutionContext context)
+        public override object Construct(ExecutionContext context)
         {
             return InvokeMethod(context, constructor, args);
         }
-        public override Type ResultType => type;
+        public override Type ConstructingType => type;
+
+        public override object Execute(ExecutionContext context) => throw new DebugConsoleException($"Non-invocable member '{type.Name}' cannot be used like a method");
+        public override Type ResultType => throw new DebugConsoleException($"Non-invocable member '{type.Name}' cannot be used like a method");
     }
 
     internal class ArrayInitializer : Expression
@@ -1811,7 +1836,7 @@ namespace AggroBird.Reflection
         public override object Execute(ExecutionContext context) => throw new NotImplementedException();
     }
 
-    internal class DynamicSizeArrayConstructor : Expression
+    internal class DynamicSizeArrayConstructor : Constructor
     {
         public DynamicSizeArrayConstructor(Type elementType, Expression[] lengths, ArrayInitializer initializer = null)
         {
@@ -1827,20 +1852,23 @@ namespace AggroBird.Reflection
         public readonly ArrayInitializer initializer;
 
 
-        public override object Execute(ExecutionContext context)
+        public override object Construct(ExecutionContext context)
         {
-            int[] lengths = ExpressionUtility.Forward<int>(context, this.lengths);
-            Array array = Array.CreateInstance(elementType, lengths);
+            int[] len = ExpressionUtility.Forward<int>(context, lengths);
+            Array array = Array.CreateInstance(elementType, len);
             if (initializer != null)
             {
                 initializer.InitializeArray(context, array);
             }
             return array;
         }
-        public override Type ResultType => arrayType;
+        public override Type ConstructingType => arrayType;
+
+        public override object Execute(ExecutionContext context) => throw new DebugConsoleException("Array size cannot be specified in a variable declaration (try initializing with a 'new' expression)");
+        public override Type ResultType => throw new DebugConsoleException("Array size cannot be specified in a variable declaration (try initializing with a 'new' expression)");
     }
 
-    internal class ConstantSizeArrayConstructor : Expression
+    internal class ConstantSizeArrayConstructor : Constructor
     {
         public ConstantSizeArrayConstructor(Type elementType, int[] lengths, ArrayInitializer initializer = null)
         {
@@ -1856,7 +1884,7 @@ namespace AggroBird.Reflection
         public readonly ArrayInitializer initializer;
 
 
-        public override object Execute(ExecutionContext context)
+        public override object Construct(ExecutionContext context)
         {
             Array array = Array.CreateInstance(elementType, lengths);
             if (initializer != null)
@@ -1865,7 +1893,10 @@ namespace AggroBird.Reflection
             }
             return array;
         }
-        public override Type ResultType => arrayType;
+        public override Type ConstructingType => arrayType;
+
+        public override object Execute(ExecutionContext context) => throw new DebugConsoleException("Array size cannot be specified in a variable declaration (try initializing with a 'new' expression)");
+        public override Type ResultType => throw new DebugConsoleException("Array size cannot be specified in a variable declaration (try initializing with a 'new' expression)");
     }
 
     // Operators

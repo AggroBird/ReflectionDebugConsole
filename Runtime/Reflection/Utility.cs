@@ -1,7 +1,7 @@
 // Copyright, AggrobirdGK
 
 #if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
-
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -42,6 +42,11 @@ namespace AggroBird.Reflection
         {
             stringBuilder.Append(c);
             stringBuilder.Append(EscapeCharacter);
+        }
+
+        public static bool IsStatic(this Type type)
+        {
+            return type.IsAbstract && type.IsSealed;
         }
     }
 }
