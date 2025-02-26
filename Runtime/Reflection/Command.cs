@@ -112,17 +112,18 @@ namespace AggroBird.Reflection
 
                 case TokenType.For:
                 {
+                    loopStack++;
                     Advance();
                     Consume(TokenType.LParen);
                     PushScope();
-                    Expression init = Match(TokenType.Semicolon) ? null : ParseRootExpression(true);
+                    Expression init = Match(TokenType.Semicolon) ? null : ParseRootExpression(true, false);
                     Expression condition = Match(TokenType.Semicolon) ? null : ParseNext();
                     if (condition != null)
                     {
                         Expression.CheckConvertibleBool(condition, out condition);
                         Consume(TokenType.Semicolon);
                     }
-                    Expression step = Match(TokenType.RParen) ? null : ParseRootExpression(false);
+                    Expression step = Match(TokenType.RParen) ? null : ParseRootExpression(false, false);
                     if (step != null)
                     {
                         Consume(TokenType.RParen);
@@ -132,11 +133,13 @@ namespace AggroBird.Reflection
                     PushBlock(forBlock);
                     ParseOptionalBlock(forBlock);
                     Pop();
+                    loopStack--;
                 }
                 break;
 
                 case TokenType.While:
                 {
+                    loopStack++;
                     Advance();
                     Consume(TokenType.LParen);
                     PushScope();
@@ -148,11 +151,13 @@ namespace AggroBird.Reflection
                     PushBlock(whileBlock);
                     ParseOptionalBlock(whileBlock);
                     Pop();
+                    loopStack--;
                 }
                 break;
 
                 case TokenType.Foreach:
                 {
+                    loopStack++;
                     Advance();
                     Consume(TokenType.LParen);
                     PushScope();
@@ -200,12 +205,13 @@ namespace AggroBird.Reflection
                     PushBlock(foreachBlock);
                     ParseOptionalBlock(foreachBlock);
                     Pop();
+                    loopStack--;
                 }
                 break;
 
                 default:
                 {
-                    stack.Last().expressions.Add(ParseRootExpression(true));
+                    stack.Last().expressions.Add(ParseRootExpression(true, true));
                 }
                 break;
             }
@@ -222,11 +228,27 @@ namespace AggroBird.Reflection
             }
             else
             {
-                parent.expressions.Add(ParseRootExpression(true));
+                parent.expressions.Add(ParseRootExpression(true, true));
             }
         }
-        private Expression ParseRootExpression(bool requireSemicolon)
+        private Expression ParseRootExpression(bool requireSemicolon, bool allowControlFlow)
         {
+            if (allowControlFlow)
+            {
+                if (Match(TokenType.Break))
+                {
+                    Consume(TokenType.Semicolon);
+                    if (loopStack == 0) throw new DebugConsoleException("No enclosing loop out of which to break or continue");
+                    return new Break();
+                }
+                if (Match(TokenType.Continue))
+                {
+                    Consume(TokenType.Semicolon);
+                    if (loopStack == 0) throw new DebugConsoleException("No enclosing loop out of which to break or continue");
+                    return new Continue();
+                }
+            }
+
             Expression result;
             if (Match(TokenType.Var))
             {
@@ -311,6 +333,7 @@ namespace AggroBird.Reflection
         private List<Block> stack = new List<Block>();
         private List<List<VariableDeclaration>> variables = new List<List<VariableDeclaration>>();
         private int variableCount = 0;
+        private int loopStack = 0;
         private void PushVariable(VariableDeclaration variable)
         {
             var scope = variables.Last();

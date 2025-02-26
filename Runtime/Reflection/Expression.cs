@@ -12,10 +12,18 @@ using System.Runtime.CompilerServices;
 
 namespace AggroBird.Reflection
 {
+    internal enum ControlFlowState
+    {
+        None,
+        Break,
+        Continue,
+    }
+
     internal class ExecutionContext
     {
         private readonly List<Block> stack = new List<Block>();
         public readonly List<VariableReference> variables = new List<VariableReference>();
+        public ControlFlowState controlFlowState = ControlFlowState.None;
 
         public Block CurrentScope => stack.Last();
 
@@ -2215,6 +2223,11 @@ namespace AggroBird.Reflection
             object result = VoidResult.Empty;
             for (int i = 0; i < expressions.Count; i++)
             {
+                if (context.controlFlowState != ControlFlowState.None)
+                {
+                    break;
+                }
+
                 result = expressions[i].Execute(context);
             }
             return result;
@@ -2284,7 +2297,17 @@ namespace AggroBird.Reflection
 
     }
 
-    internal class ForBlock : Block
+    internal abstract class Loop : Block
+    {
+        protected bool Break(ExecutionContext context)
+        {
+            bool breakLoop = context.controlFlowState == ControlFlowState.Break;
+            context.controlFlowState = ControlFlowState.None;
+            return breakLoop;
+        }
+    }
+
+    internal class ForBlock : Loop
     {
         public ForBlock(Expression init, Expression condition, Expression step, int maxIterations)
         {
@@ -2313,12 +2336,19 @@ namespace AggroBird.Reflection
 
                 for (int i = 0; i < expressions.Count; i++)
                 {
+                    if (context.controlFlowState != ControlFlowState.None)
+                    {
+                        break;
+                    }
+
                     result = expressions[i].Execute(context);
                 }
 
                 if (++iterCount >= maxIterations) throw new DebugConsoleException($"Maximum loop iteration reached ({maxIterations})");
 
                 context.variables.RemoveRange(innerStackOffset, context.variables.Count - innerStackOffset);
+
+                if (Break(context)) break;
             }
             context.Pop();
             context.variables.RemoveRange(outerStackOffset, context.variables.Count - outerStackOffset);
@@ -2326,7 +2356,7 @@ namespace AggroBird.Reflection
         }
     }
 
-    internal class WhileBlock : Block
+    internal class WhileBlock : Loop
     {
         public WhileBlock(Expression condition, int maxIterations)
         {
@@ -2350,12 +2380,14 @@ namespace AggroBird.Reflection
                 if (++iterCount >= maxIterations) throw new DebugConsoleException($"Maximum loop iteration reached ({maxIterations})");
 
                 context.variables.RemoveRange(outerStackOffset, context.variables.Count - outerStackOffset);
+
+                if (Break(context)) break;
             }
             return result;
         }
     }
 
-    internal class ForeachBlock : Block
+    internal class ForeachBlock : Loop
     {
         public ForeachBlock(Expression collection, EnumeratorInfo enumeratorInfo, VariableDeclaration iterVar, int maxIterations)
         {
@@ -2388,17 +2420,44 @@ namespace AggroBird.Reflection
 
                 for (int i = 0; i < expressions.Count; i++)
                 {
+                    if (context.controlFlowState != ControlFlowState.None)
+                    {
+                        break;
+                    }
+
                     result = expressions[i].Execute(context);
                 }
 
                 if (++iterCount >= maxIterations) throw new DebugConsoleException($"Maximum loop iteration reached ({maxIterations})");
 
                 context.variables.RemoveRange(innerStackOffset, context.variables.Count - innerStackOffset);
+
+                if (Break(context)) break;
             }
             context.Pop();
             context.variables.RemoveRange(outerStackOffset, context.variables.Count - outerStackOffset);
             return result;
         }
+    }
+
+    internal class Break : Expression
+    {
+        public override object Execute(ExecutionContext context)
+        {
+            context.controlFlowState = ControlFlowState.Break;
+            return VoidResult.Empty;
+        }
+        public override Type ResultType => typeof(void);
+    }
+
+    internal class Continue : Expression
+    {
+        public override object Execute(ExecutionContext context)
+        {
+            context.controlFlowState = ControlFlowState.Continue;
+            return VoidResult.Empty;
+        }
+        public override Type ResultType => typeof(void);
     }
 
     // Variables
