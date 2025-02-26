@@ -124,14 +124,14 @@ namespace AggroBird.ReflectionDebugConsole.Editor
                     position.y += verticalStep;
 
                     // Get current selection
-                    HashSet<string> currentSelection = new HashSet<string>();
+                    HashSet<string> currentSelection = new();
                     for (int i = 0; i < assemblies.arraySize; i++)
                     {
                         currentSelection.Add(assemblies.GetArrayElementAtIndex(i).stringValue);
                     }
 
                     // Get all currently loaded assemblies
-                    SortedDictionary<string, ListItem> uniqueAssemblies = new SortedDictionary<string, ListItem>();
+                    SortedDictionary<string, ListItem> uniqueAssemblies = new();
                     foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
                     {
                         string assemblyName = assembly.GetName().Name;
@@ -165,7 +165,7 @@ namespace AggroBird.ReflectionDebugConsole.Editor
                     position.y += verticalStep;
 
                     // Apply filter
-                    List<ListItem> filteredSelection = new List<ListItem>();
+                    List<ListItem> filteredSelection = new();
                     int selectedCount = 0;
                     foreach (var pair in uniqueAssemblies)
                     {

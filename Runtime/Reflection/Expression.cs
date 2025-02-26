@@ -21,8 +21,8 @@ namespace AggroBird.Reflection
 
     internal class ExecutionContext
     {
-        private readonly List<Block> stack = new List<Block>();
-        public readonly List<VariableReference> variables = new List<VariableReference>();
+        private readonly List<Block> stack = new();
+        public readonly List<VariableReference> variables = new();
         public ControlFlowState controlFlowState = ControlFlowState.None;
 
         public Block CurrentScope => stack.Last();
@@ -69,9 +69,7 @@ namespace AggroBird.Reflection
         public static object SafeExecute(this Expression expr, ExecutionContext context)
         {
             if (expr == null) return null;
-            object obj = expr.Execute(context);
-            if (obj == null) throw new NullResultException();
-            return obj;
+            return expr.Execute(context) ?? throw new NullResultException();
         }
 
         public static bool IsAssignable(this FieldInfo fieldInfo)
@@ -235,14 +233,14 @@ namespace AggroBird.Reflection
 
     internal struct ArgumentList : IReadOnlyList<Argument>
     {
-        public static readonly ArgumentList Empty = new ArgumentList { arguments = Array.Empty<Argument>() };
+        public static readonly ArgumentList Empty = new() { arguments = Array.Empty<Argument>() };
 
         public Argument[] arguments;
 
-        public Argument this[int index] => arguments[index];
-        public int Count => arguments.Length;
-        public IEnumerator<Argument> GetEnumerator() => arguments.GetEnumerator() as IEnumerator<Argument>;
-        IEnumerator IEnumerable.GetEnumerator() => arguments.GetEnumerator();
+        public readonly Argument this[int index] => arguments[index];
+        public readonly int Count => arguments.Length;
+        public readonly IEnumerator<Argument> GetEnumerator() => arguments.GetEnumerator() as IEnumerator<Argument>;
+        readonly IEnumerator IEnumerable.GetEnumerator() => arguments.GetEnumerator();
 
         public static implicit operator Expression[](ArgumentList argList)
         {
@@ -255,8 +253,10 @@ namespace AggroBird.Reflection
         }
         public static implicit operator ArgumentList(Expression[] arr)
         {
-            ArgumentList result = new();
-            result.arguments = new Argument[arr.Length];
+            ArgumentList result = new()
+            {
+                arguments = new Argument[arr.Length]
+            };
             for (int i = 0; i < arr.Length; i++)
             {
                 result.arguments[i] = new Argument(Decorator.None, arr[i]);
@@ -377,8 +377,8 @@ namespace AggroBird.Reflection
         {
             if (overloads != null && overloads.Count > 0)
             {
-                List<T> optimal = new List<T>();
-                List<T> compatible = new List<T>();
+                List<T> optimal = new();
+                List<T> compatible = new();
                 for (int i = 0; i < overloads.Count; i++)
                 {
                     if (IsCompatibleOverload(overloads[i].GetParameters(), args))
@@ -414,8 +414,8 @@ namespace AggroBird.Reflection
         {
             if (overloads != null && overloads.Count > 0)
             {
-                List<PropertyInfo> optimal = new List<PropertyInfo>();
-                List<PropertyInfo> compatible = new List<PropertyInfo>();
+                List<PropertyInfo> optimal = new();
+                List<PropertyInfo> compatible = new();
                 for (int i = 0; i < overloads.Count; i++)
                 {
                     if (IsCompatibleOverload(overloads[i].GetIndexParameters(), args))
@@ -774,7 +774,7 @@ namespace AggroBird.Reflection
 
         public static Type[] FilterMembers(Type[] types)
         {
-            List<Type> result = new List<Type>();
+            List<Type> result = new();
             for (int i = 0; i < types.Length; i++)
             {
                 if (IncludeMember(types[i]))
@@ -795,7 +795,7 @@ namespace AggroBird.Reflection
         public static T[] FilterMembers<T>(T[] members, bool includeSpecial = false) where T : MemberInfo
         {
             // Filter hidden members
-            Dictionary<MemberKey, T> result = new Dictionary<MemberKey, T>();
+            Dictionary<MemberKey, T> result = new();
             for (int i = 0; i < members.Length; i++)
             {
                 T member = members[i];
@@ -1337,7 +1337,7 @@ namespace AggroBird.Reflection
         private readonly ExecutionContext context;
         private object val;
 
-        public void Dispose()
+        public readonly void Dispose()
         {
             if (expr is FieldMember fieldMember)
             {
@@ -1378,7 +1378,7 @@ namespace AggroBird.Reflection
         }
 
         public readonly Expression lhs;
-        private readonly List<FieldInfo> fields = new List<FieldInfo>();
+        private readonly List<FieldInfo> fields = new();
         public FieldInfo TargetField => fields.Last();
 
         private bool isAssignable;
@@ -1413,14 +1413,14 @@ namespace AggroBird.Reflection
         public override bool IsAssignable => isAssignable;
         public override object Assign(ExecutionContext context, object val, bool returnInitialValue = false)
         {
-            using (ModifyScope scope = new ModifyScope(lhs, context))
+            using (ModifyScope scope = new(lhs, context))
             {
                 object root = scope.SafeExecute();
                 if (IsFieldOfValueType)
                 {
                     // If this is a field of a valuetype, we must write back the values
                     object current = root;
-                    List<object> objects = new List<object>();
+                    List<object> objects = new();
                     for (int i = 0; i < fields.Count - 1; i++)
                     {
                         FieldInfo field = fields[i];
@@ -1482,7 +1482,7 @@ namespace AggroBird.Reflection
 
         public override object Execute(ExecutionContext context)
         {
-            using (ModifyScope scope = new ModifyScope(lhs, context))
+            using (ModifyScope scope = new(lhs, context))
             {
                 if (!propertyInfo.CanRead) throw new DebugConsoleException($"Property '{propertyInfo}' is not readable");
                 return propertyInfo.GetValue(scope.SafeExecute());
@@ -1493,7 +1493,7 @@ namespace AggroBird.Reflection
         public override bool IsAssignable => propertyInfo.CanWrite;
         public override object Assign(ExecutionContext context, object val, bool returnInitialValue = false)
         {
-            using (ModifyScope scope = new ModifyScope(lhs, context))
+            using (ModifyScope scope = new(lhs, context))
             {
                 object obj = scope.SafeExecute();
                 if (returnInitialValue)
@@ -1538,14 +1538,14 @@ namespace AggroBird.Reflection
 
         public void AddEventHandler(ExecutionContext context, Delegate handler)
         {
-            using (ModifyScope scope = new ModifyScope(lhs, context))
+            using (ModifyScope scope = new(lhs, context))
             {
                 eventInfo.AddEventHandler(scope.SafeExecute(), handler);
             }
         }
         public void RemoveEventHandler(ExecutionContext context, Delegate handler)
         {
-            using (ModifyScope scope = new ModifyScope(lhs, context))
+            using (ModifyScope scope = new(lhs, context))
             {
                 eventInfo.RemoveEventHandler(scope.SafeExecute(), handler);
             }
@@ -1603,7 +1603,7 @@ namespace AggroBird.Reflection
 
         public override object Execute(ExecutionContext context)
         {
-            using (ModifyScope scope = new ModifyScope(lhs, context))
+            using (ModifyScope scope = new(lhs, context))
             {
                 return InvokeMethod(context, method, lhs, args);
             }
@@ -1649,7 +1649,7 @@ namespace AggroBird.Reflection
 
         public override object Execute(ExecutionContext context)
         {
-            using (ModifyScope scope = new ModifyScope(lhs, context))
+            using (ModifyScope scope = new(lhs, context))
             {
                 return property.GetValue(scope.SafeExecute(), ExpressionUtility.Forward<object>(context, args));
             }
@@ -1659,7 +1659,7 @@ namespace AggroBird.Reflection
         public override bool IsAssignable => property.CanWrite;
         public override object Assign(ExecutionContext context, object val, bool returnInitialValue = false)
         {
-            using (ModifyScope scope = new ModifyScope(lhs, context))
+            using (ModifyScope scope = new(lhs, context))
             {
                 object obj = scope.SafeExecute();
                 object[] indices = ExpressionUtility.Forward<object>(context, args);
@@ -1744,7 +1744,7 @@ namespace AggroBird.Reflection
 
     internal class ArrayInitializer : Expression
     {
-        public readonly List<Expression> values = new List<Expression>();
+        public readonly List<Expression> values = new();
 
         public void ValidateInitializerLength(int[] lengths)
         {
@@ -1864,10 +1864,7 @@ namespace AggroBird.Reflection
         {
             int[] len = ExpressionUtility.Forward<int>(context, lengths);
             Array array = Array.CreateInstance(elementType, len);
-            if (initializer != null)
-            {
-                initializer.InitializeArray(context, array);
-            }
+            initializer?.InitializeArray(context, array);
             return array;
         }
         public override Type ConstructingType => arrayType;
@@ -1895,10 +1892,7 @@ namespace AggroBird.Reflection
         public override object Construct(ExecutionContext context)
         {
             Array array = Array.CreateInstance(elementType, lengths);
-            if (initializer != null)
-            {
-                initializer.InitializeArray(context, array);
-            }
+            initializer?.InitializeArray(context, array);
             return array;
         }
         public override Type ConstructingType => arrayType;
@@ -2216,7 +2210,7 @@ namespace AggroBird.Reflection
             expressions.Add(singleExpression);
         }
 
-        public readonly List<Expression> expressions = new List<Expression>();
+        public readonly List<Expression> expressions = new();
 
         public object ExecuteExpressions(ExecutionContext context)
         {

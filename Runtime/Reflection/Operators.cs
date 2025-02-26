@@ -32,7 +32,7 @@ namespace AggroBird.Reflection
                     }
                     return result;
                 }
-                public override Type ResultType => EnumType == null ? typeof(RetType) : EnumType;
+                public override Type ResultType => EnumType ?? typeof(RetType);
             }
             public static UnaryFunc MakeOperator<RetType>(Func<ExecutionContext, Expression, RetType> func)
             {
@@ -94,7 +94,7 @@ namespace AggroBird.Reflection
                     }
                     return result;
                 }
-                public override Type ResultType => EnumType == null ? typeof(RetType) : EnumType;
+                public override Type ResultType => EnumType ?? typeof(RetType);
             }
             public static InfixFunc MakeOperator<RetType>(Func<ExecutionContext, Expression, Expression, RetType> func)
             {
@@ -1160,7 +1160,7 @@ namespace AggroBird.Reflection
                     }
                 }
 
-                List<MethodInfo> overloads = new List<MethodInfo>();
+                List<MethodInfo> overloads = new();
 
                 ArgumentList args = new Expression[1] { arg };
 
@@ -1192,7 +1192,7 @@ namespace AggroBird.Reflection
         {
             if (!string.IsNullOrEmpty(info.infixOperatorName))
             {
-                List<MethodInfo> overloads = new List<MethodInfo>();
+                List<MethodInfo> overloads = new();
 
                 ArgumentList args = new Expression[2] { lhs, rhs };
 

@@ -352,7 +352,7 @@ namespace AggroBird.Reflection
 
     internal readonly struct Token
     {
-        public static readonly Token Empty = new Token(TokenType.Identifier, StringView.Empty);
+        public static readonly Token Empty = new(TokenType.Identifier, StringView.Empty);
 
         public Token(StringView identifier, uint line = 0)
         {
@@ -541,8 +541,7 @@ namespace AggroBird.Reflection
             keywords = new List<string>();
             for (int i = 0; i < tokenInfo.Length; i++)
             {
-                FieldInfo field = enumType.GetField(names[i]);
-                if (field == null) throw new NullReferenceException(names[i]);
+                FieldInfo field = enumType.GetField(names[i]) ?? throw new NullReferenceException(names[i]);
                 object[] attributes = field.GetCustomAttributes(typeof(TokenInfoAttribute), false);
                 if (attributes.Length != 1) throw new NullReferenceException(names[i]);
                 TokenInfoAttribute attribute = (TokenInfoAttribute)attributes[0];
@@ -554,7 +553,7 @@ namespace AggroBird.Reflection
             }
             keywordLookupTable = new LookupTable(tokenInfo);
 
-            baseTypeNames = new Dictionary<Type, string>();
+            baseTypeNames = new();
             baseTypeNames.Add(typeof(bool), GetTokenInfo(TokenType.Bool).str);
             baseTypeNames.Add(typeof(char), GetTokenInfo(TokenType.Char).str);
             baseTypeNames.Add(typeof(void), GetTokenInfo(TokenType.Void).str);
@@ -598,7 +597,7 @@ namespace AggroBird.Reflection
 
             public LookupTable(IReadOnlyList<TokenInfo> tokenInfo)
             {
-                SortedDictionary<string, TokenType> sorted = new SortedDictionary<string, TokenType>();
+                SortedDictionary<string, TokenType> sorted = new();
                 foreach (var info in tokenInfo)
                 {
                     if (info.family == TokenFamily.Keyword)
@@ -608,7 +607,7 @@ namespace AggroBird.Reflection
                 }
 
                 lookup = new Range[('z' - 'a') + 1];
-                List<Keyword> list = new List<Keyword>();
+                List<Keyword> list = new();
                 int index = 0;
                 int count = 0;
                 char current = 'a';
@@ -655,7 +654,7 @@ namespace AggroBird.Reflection
             private readonly Keyword[] values;
         }
         private static readonly LookupTable keywordLookupTable;
-        private static List<string> keywords;
+        private static readonly List<string> keywords;
         public static IReadOnlyList<string> Keywords => keywords;
 
         public static bool TryGetKeyword(StringView str, out Keyword keyword)

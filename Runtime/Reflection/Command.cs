@@ -10,7 +10,7 @@ using System.Text;
 
 namespace AggroBird.Reflection
 {
-    internal struct VoidResult
+    internal readonly struct VoidResult
     {
         public static readonly VoidResult Empty = new VoidResult();
     }
@@ -52,7 +52,7 @@ namespace AggroBird.Reflection
                 case TokenType.LBrace:
                 {
                     Advance();
-                    Block block = new Block();
+                    Block block = new();
                     stack.Last().expressions.Add(block);
                     if (!Match(TokenType.RBrace))
                     {
@@ -75,7 +75,7 @@ namespace AggroBird.Reflection
                     Expression condition = ParseNext();
                     Consume(TokenType.RParen);
                     Expression.CheckConvertibleBool(condition, out condition);
-                    IfBlock ifBlock = new IfBlock(condition);
+                    IfBlock ifBlock = new(condition);
                     stack.Last().expressions.Add(ifBlock);
                     Push(ifBlock);
                     ParseAppendingExpressions();
@@ -90,7 +90,7 @@ namespace AggroBird.Reflection
                             condition = ParseNext();
                             Consume(TokenType.RParen);
                             Expression.CheckConvertibleBool(condition, out condition);
-                            ElseIfBlock elseIfBlock = new ElseIfBlock(condition);
+                            ElseIfBlock elseIfBlock = new(condition);
                             Push(elseIfBlock);
                             ParseAppendingExpressions();
                             Pop();
@@ -100,7 +100,7 @@ namespace AggroBird.Reflection
                         }
                         else
                         {
-                            ElseBlock elseBlock = new ElseBlock();
+                            ElseBlock elseBlock = new();
                             Push(elseBlock);
                             ParseAppendingExpressions();
                             Pop();
@@ -128,7 +128,7 @@ namespace AggroBird.Reflection
                     {
                         Consume(TokenType.RParen);
                     }
-                    ForBlock forBlock = new ForBlock(init, condition, step, maxIterationCount);
+                    ForBlock forBlock = new(init, condition, step, maxIterationCount);
                     stack.Last().expressions.Add(forBlock);
                     PushBlock(forBlock);
                     ParseAppendingExpressions();
@@ -146,7 +146,7 @@ namespace AggroBird.Reflection
                     Expression condition = ParseNext();
                     Consume(TokenType.RParen);
                     Expression.CheckConvertibleBool(condition, out condition);
-                    WhileBlock whileBlock = new WhileBlock(condition, maxIterationCount);
+                    WhileBlock whileBlock = new(condition, maxIterationCount);
                     stack.Last().expressions.Add(whileBlock);
                     PushBlock(whileBlock);
                     ParseAppendingExpressions();
@@ -160,7 +160,7 @@ namespace AggroBird.Reflection
                     loopStack++;
                     Advance();
                     PushScope();
-                    DoWhileBlock doWhileBlock = new DoWhileBlock(maxIterationCount);
+                    DoWhileBlock doWhileBlock = new(maxIterationCount);
                     stack.Last().expressions.Add(doWhileBlock);
                     PushBlock(doWhileBlock);
                     ParseAppendingExpressions();
@@ -218,10 +218,10 @@ namespace AggroBird.Reflection
                     }
 
                     // Create iter variable
-                    VariableDeclaration declaration = new VariableDeclaration(iterType, name.ToString());
+                    VariableDeclaration declaration = new(iterType, name.ToString());
                     PushVariable(declaration);
 
-                    ForeachBlock foreachBlock = new ForeachBlock(collection, enumeratorInfo, declaration, maxIterationCount);
+                    ForeachBlock foreachBlock = new(collection, enumeratorInfo, declaration, maxIterationCount);
                     stack.Last().expressions.Add(foreachBlock);
                     PushBlock(foreachBlock);
                     ParseAppendingExpressions();
@@ -365,9 +365,9 @@ namespace AggroBird.Reflection
         }
 
 
-        private Block root = new Block();
-        private List<Block> stack = new List<Block>();
-        private List<List<VariableDeclaration>> variables = new List<List<VariableDeclaration>>();
+        private readonly Block root = new();
+        private readonly List<Block> stack = new();
+        private readonly List<List<VariableDeclaration>> variables = new();
         private int variableCount = 0;
         private int loopStack = 0;
         private void PushVariable(VariableDeclaration variable)
@@ -387,7 +387,7 @@ namespace AggroBird.Reflection
         {
             if (variableCount == 0) return Array.Empty<VariableDeclaration>();
 
-            List<VariableDeclaration> result = new List<VariableDeclaration>();
+            List<VariableDeclaration> result = new();
             for (int i = 0; i < variables.Count; i++)
             {
                 if (variables[i].Count > 0)
@@ -478,7 +478,7 @@ namespace AggroBird.Reflection
         {
             AddStyledToken(token.str, types[0]);
 
-            List<Type> compatible = new List<Type>();
+            List<Type> compatible = new();
             if (Match(TokenType.Lt, out Token genericToken))
             {
                 TokenType next = Peek();
@@ -571,13 +571,13 @@ namespace AggroBird.Reflection
 
         private List<MethodInfo> MakeMethodOverloadList(MemberInfo[] members, StringView methodName)
         {
-            List<MethodInfo> result = new List<MethodInfo>();
+            List<MethodInfo> result = new();
             if (Match(TokenType.Lt, out Token genericToken))
             {
-                List<GenericMethod> generics = new List<GenericMethod>();
+                List<GenericMethod> generics = new();
                 for (int i = 0; i < members.Length; i++)
                 {
-                    if (!(members[i] is MethodInfo method))
+                    if (members[i] is not MethodInfo method)
                     {
                         throw new DebugConsoleException($"Ambigious member '{methodName}' for type '{members[i].DeclaringType}'");
                     }
@@ -607,7 +607,7 @@ namespace AggroBird.Reflection
             {
                 for (int i = 0; i < members.Length; i++)
                 {
-                    if (!(members[i] is MethodInfo method))
+                    if (members[i] is not MethodInfo method)
                     {
                         throw new DebugConsoleException($"Ambigious member '{methodName}' for type '{members[i].DeclaringType}'");
                     }
@@ -765,7 +765,7 @@ namespace AggroBird.Reflection
                         if (members == null || members.Length == 0)
                         {
                             // Check nested types
-                            List<Type> nestedTypes = new List<Type>();
+                            List<Type> nestedTypes = new();
                             foreach (Type nestedType in Expression.FilterMembers(typename.type.GetNestedTypes(MakeStaticBindingFlags())))
                             {
                                 if (nestedType.Name.StartsWith(query, StringComparison.Ordinal) && (nestedType.Name.Length == query.Length || nestedType.Name[query.Length] == '`'))
@@ -1052,7 +1052,7 @@ namespace AggroBird.Reflection
                     // One-dimensional array
                     if (Match(TokenType.LBrace))
                     {
-                        ArrayInitializer initializer = new ArrayInitializer();
+                        ArrayInitializer initializer = new();
                         ParseArrayInitializer(initializer, typename.type);
 
                         int[] lengths = new int[1] { -1 };
@@ -1072,7 +1072,7 @@ namespace AggroBird.Reflection
                     int rank = CountRank(TokenType.RBracket);
                     if (Match(TokenType.LBrace))
                     {
-                        ArrayInitializer initializer = new ArrayInitializer();
+                        ArrayInitializer initializer = new();
                         ParseArrayInitializer(initializer, typename.type);
 
                         int[] lengths = new int[rank];
@@ -1102,7 +1102,7 @@ namespace AggroBird.Reflection
                             if (length < 0) throw new DebugConsoleException("Cannot create an array with a negative size");
                         }
 
-                        ArrayInitializer initializer = new ArrayInitializer();
+                        ArrayInitializer initializer = new();
                         ParseArrayInitializer(initializer, typename.type);
 
                         initializer.ValidateInitializerLength(lengths);
@@ -1509,7 +1509,7 @@ namespace AggroBird.Reflection
             }
         }
 
-        private readonly StringBuilder stringBuilder = new StringBuilder();
+        private readonly StringBuilder stringBuilder = new();
         private string FormatStringLiteral(StringView str)
         {
             if (str[str.Length - 1] != '"') throw new UnexpectedEndOfExpressionException();
@@ -1615,7 +1615,7 @@ namespace AggroBird.Reflection
                             // Inline out var declaration
                             Token name = Consume(TokenType.Identifier);
                             AddStyledToken(name.str, Style.Variable);
-                            OutVariableDeclaration outVarDecl = new OutVariableDeclaration(typename.type, name.ToString());
+                            OutVariableDeclaration outVarDecl = new(typename.type, name.ToString());
                             PushVariable(outVarDecl);
                             return new Argument(Decorator.Out, outVarDecl);
                         }
@@ -1683,7 +1683,7 @@ namespace AggroBird.Reflection
             TokenType closingToken = TokenType.RBracket;
             if (!Match(closingToken))
             {
-                List<Argument> args = new List<Argument>();
+                List<Argument> args = new();
                 while (true)
                 {
                     args.Add(ParseArgument());
@@ -1706,7 +1706,7 @@ namespace AggroBird.Reflection
         {
             if (!Match(closingToken))
             {
-                List<Expression> args = new List<Expression>();
+                List<Expression> args = new();
                 while (true)
                 {
                     args.Add(ParseNext());
@@ -1748,12 +1748,12 @@ namespace AggroBird.Reflection
                 SuggestionInfo = new GenericsOverloadList(generics, Array.Empty<Type>());
             }
 
-            List<Type> result = new List<Type>();
+            List<Type> result = new();
             genericDepth++;
             while (true)
             {
                 Expression arg = ParseNext();
-                if (!(arg is Typename typename))
+                if (arg is not Typename typename)
                 {
                     throw new DebugConsoleException("Type expected for generic parameter");
                 }
@@ -1792,7 +1792,7 @@ namespace AggroBird.Reflection
                 {
                     if (Match(TokenType.LBrace))
                     {
-                        ArrayInitializer nested = new ArrayInitializer();
+                        ArrayInitializer nested = new();
                         ParseArrayInitializer(nested, elementType);
                         initializer.values.Add(nested);
                     }
@@ -1888,9 +1888,7 @@ namespace AggroBird.Reflection
 
         public object Execute()
         {
-            ExecutionContext context = new ExecutionContext();
-
-            return root.Execute(context);
+            return root.Execute(new ExecutionContext());
         }
     }
 }

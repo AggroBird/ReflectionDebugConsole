@@ -259,8 +259,7 @@ namespace AggroBird.Reflection
             Token token = Consume();
             if (token.type >= TokenType.Invalid) throw new InvalidTokenException(token);
             GrammarRule rule = GetRule(token.type);
-            PrefixFunc prefix = rule.prefix;
-            if (prefix == null) throw new UnexpectedTokenException(token);
+            PrefixFunc prefix = rule.prefix ?? throw new UnexpectedTokenException(token);
             Expression lhs = prefix(this, token);
 
             return ParseNext(lhs, precedence);
@@ -272,8 +271,7 @@ namespace AggroBird.Reflection
                 Token token = Consume();
                 if (token.type >= TokenType.Invalid) throw new InvalidTokenException(token);
                 GrammarRule rule = GetRule(token.type);
-                InfixFunc infix = rule.infix;
-                if (infix == null) throw new UnexpectedTokenException(token);
+                InfixFunc infix = rule.infix ?? throw new UnexpectedTokenException(token);
                 lhs = infix(this, lhs, token);
             }
             return lhs;

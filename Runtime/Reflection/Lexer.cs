@@ -376,7 +376,7 @@ namespace AggroBird.Reflection
         private readonly char* beg;
         private readonly char* end;
         private uint lineNumber = 1;
-        private StringBuilder stringBuilder = new StringBuilder();
+        private readonly StringBuilder stringBuilder = new();
     }
 }
 #endif

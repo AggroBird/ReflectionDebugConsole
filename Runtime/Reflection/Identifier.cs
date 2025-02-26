@@ -11,7 +11,7 @@ namespace AggroBird.Reflection
 {
     internal sealed class Identifier
     {
-        public static readonly Identifier Empty = new Identifier();
+        public static readonly Identifier Empty = new();
 
         private Identifier()
         {
@@ -19,7 +19,7 @@ namespace AggroBird.Reflection
         }
         public Identifier(Assembly[] assemblies, IReadOnlyList<string>[] usingNamespaces, bool safeMode, CancellationToken cancellationToken)
         {
-            List<StringView> buffer = new List<StringView>();
+            List<StringView> buffer = new();
             foreach (var assembly in assemblies)
             {
                 foreach (var type in assembly.GetTypes())
@@ -111,13 +111,13 @@ namespace AggroBird.Reflection
                 current = next;
             }
 
-            if (current.types == null) current.types = new List<Type>();
+            current.types ??= new();
             current.types.Add(type);
         }
 
         private void AddChild(Identifier child)
         {
-            if (children == null) children = new Dictionary<StringView, Identifier>();
+            children ??= new Dictionary<StringView, Identifier>();
             children.Add(child.Name, child);
         }
 
@@ -129,7 +129,7 @@ namespace AggroBird.Reflection
         public bool IsNamespace => types == null || types.Count == 0;
 
         public IReadOnlyCollection<Identifier> Children => children == null ? (IReadOnlyCollection<Identifier>)Array.Empty<Identifier>() : (IReadOnlyCollection<Identifier>)children.Values;
-        public IReadOnlyList<Type> Types => types == null ? (IReadOnlyList<Type>)Array.Empty<Type>() : (IReadOnlyList<Type>)types;
+        public IReadOnlyList<Type> Types => types == null ? Array.Empty<Type>() : types;
 
         public string Name { get; private set; }
         public override string ToString() => Name;

@@ -29,7 +29,7 @@ namespace AggroBird.ReflectionDebugConsole.Editor
             }
         }
 
-        private readonly DebugConsoleGUI gui = new DebugConsoleGUI(true);
+        private readonly DebugConsoleGUI gui = new(true);
 
         private void Awake()
         {

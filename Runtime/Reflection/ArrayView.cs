@@ -34,7 +34,7 @@ namespace AggroBird.Reflection
     }
 
     [DebuggerTypeProxy(typeof(ArrayViewProxy<>))]
-    internal struct ArrayView<T>
+    internal readonly struct ArrayView<T>
     {
         public static ArrayView<T> Empty => default;
 

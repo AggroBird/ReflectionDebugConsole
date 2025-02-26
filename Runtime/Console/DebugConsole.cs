@@ -33,8 +33,8 @@ namespace AggroBird.ReflectionDebugConsole
         internal static readonly string UnsafePrefKey = $"{UniqueKey}.localUnsafePref";
         internal const string LogPrefix = "[DebugConsole]";
 
-        public delegate void OnConsoleFocusChange(bool isFocused);
-        public static event OnConsoleFocusChange onConsoleFocusChange = default;
+        public delegate void OnConsoleFocusChangeDelegate(bool isFocused);
+        public static event OnConsoleFocusChangeDelegate OnConsoleFocusChange = default;
 
 #if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
         public static void Log(object msg)
@@ -119,24 +119,19 @@ namespace AggroBird.ReflectionDebugConsole
         {
             Initialize();
 
-            if (gui == null)
-            {
-                gui = new DebugConsoleGUI(false);
-            }
+            gui ??= new DebugConsoleGUI(false);
 
             return gui;
         }
 
         private static DebugConsoleSettings LoadSettings()
         {
-            DebugConsoleSettings settings = Resources.Load<DebugConsoleSettings>(SettingsFileName);
-
-            if (settings == null)
+            var asset = Resources.Load<DebugConsoleSettings>(SettingsFileName);
+            if (asset)
             {
-                settings = ScriptableObject.CreateInstance<DebugConsoleSettings>();
+                return asset;
             }
-
-            return settings;
+            return ScriptableObject.CreateInstance<DebugConsoleSettings>();
         }
 
         private static bool AllowConsoleGUI => Debug.isDebugBuild || Settings.allowConsoleInRelease;
@@ -144,10 +139,7 @@ namespace AggroBird.ReflectionDebugConsole
         private static Assembly[] assemblies = null;
         private static Assembly[] GetEnabledAssemblies()
         {
-            if (assemblies == null)
-            {
-                assemblies = Settings.assemblies.GetEnabledAssemblies();
-            }
+            assemblies ??= Settings.assemblies.GetEnabledAssemblies();
             return assemblies;
         }
 
@@ -182,7 +174,7 @@ namespace AggroBird.ReflectionDebugConsole
                 var macroTable = MacroTable;
                 foreach (var macro in macros)
                 {
-                    MacroKeyBind keyBind = new MacroKeyBind(macro.bind, macro.state);
+                    MacroKeyBind keyBind = new(macro.bind, macro.state);
                     if (!macroTable.TryGetValue(keyBind, out List<Macro> list))
                     {
                         list = new List<Macro>();
@@ -199,9 +191,9 @@ namespace AggroBird.ReflectionDebugConsole
         {
             if (validNamespacesSplit == null)
             {
-                List<IReadOnlyList<string>> result = new List<IReadOnlyList<string>>();
-                HashSet<string> uniqueNamespaces = new HashSet<string>();
-                StringBuilder stringBuilder = new StringBuilder();
+                List<IReadOnlyList<string>> result = new();
+                HashSet<string> uniqueNamespaces = new();
+                StringBuilder stringBuilder = new();
                 foreach (string ns in Settings.namespaces)
                 {
                     stringBuilder.Clear();
@@ -226,7 +218,7 @@ namespace AggroBird.ReflectionDebugConsole
                 validNamespacesSplit = result.ToArray();
 
                 // Build namespace strings
-                StringBuilder builder = new StringBuilder();
+                StringBuilder builder = new();
                 validNamespaces = new string[validNamespacesSplit.Length];
                 for (int i = 0; i < validNamespacesSplit.Length; i++)
                 {
@@ -309,7 +301,7 @@ namespace AggroBird.ReflectionDebugConsole
 
                 identifierTableTokenSource = new CancellationTokenSource();
                 CancellationToken cancellationToken = identifierTableTokenSource.Token;
-                IdentifierTableBuilder builder = new IdentifierTableBuilder(GetEnabledAssemblies(), UsingNamespacesSplit, SafeMode);
+                IdentifierTableBuilder builder = new(GetEnabledAssemblies(), UsingNamespacesSplit, SafeMode);
                 if (PlatformSupportsThreading())
                 {
                     identifierTableTask = Task.Run(() => builder.Build(cancellationToken));
@@ -379,12 +371,12 @@ namespace AggroBird.ReflectionDebugConsole
             return true;
         }
         private static Identifier identifierTable;
-        internal static Identifier IdentifierTable => identifierTable == null ? Identifier.Empty : identifierTable;
+        internal static Identifier IdentifierTable => identifierTable ?? Identifier.Empty;
 
 
         internal class Instance : MonoBehaviour
         {
-            private GameViewReference gameViewReference = new GameViewReference();
+            private readonly GameViewReference gameViewReference = new();
             private bool hasFocus = false;
 
 #if INCLUDE_DEBUG_SERVER
@@ -561,7 +553,7 @@ namespace AggroBird.ReflectionDebugConsole
                     if (focus != hasFocus)
                     {
                         hasFocus = focus;
-                        onConsoleFocusChange?.Invoke(hasFocus);
+                        OnConsoleFocusChange?.Invoke(hasFocus);
                     }
                 }
             }
@@ -674,7 +666,7 @@ namespace AggroBird.ReflectionDebugConsole
             client.Send("unsafe", MessageFlags.OverrideSafeMode);
         }
 
-        private static readonly Dictionary<int, SuggestionProvider> awaitingRequests = new Dictionary<int, SuggestionProvider>();
+        private static readonly Dictionary<int, SuggestionProvider> awaitingRequests = new();
 
         private static void OpenConnection(string address, int port)
         {
@@ -1027,7 +1019,7 @@ namespace AggroBird.ReflectionDebugConsole
 #endif
 
                     Token[] tokens = new Lexer(cmd).ToArray();
-                    CommandParser commandParser = new CommandParser(tokens, IdentifierTable, SafeMode, Settings.maxIterationCount);
+                    CommandParser commandParser = new(tokens, IdentifierTable, SafeMode, Settings.maxIterationCount);
                     Command command = commandParser.Parse();
                     result = command.Execute();
                     return true;

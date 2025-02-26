@@ -67,8 +67,8 @@ namespace AggroBird.ReflectionDebugConsole
             return 1;
         }
 
-        private Type gameViewType;
-        private PropertyInfo positionInfo;
+        private readonly Type gameViewType;
+        private readonly PropertyInfo positionInfo;
         private ScriptableObject gameViewWindow;
     }
 }

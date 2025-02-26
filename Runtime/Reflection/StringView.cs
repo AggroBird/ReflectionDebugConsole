@@ -24,7 +24,7 @@ namespace AggroBird.Reflection
         }
     }
 
-    internal struct StringView : IComparable<StringView>, IEquatable<StringView>
+    internal readonly struct StringView : IComparable<StringView>, IEquatable<StringView>
     {
         public static StringView Empty => default;
 

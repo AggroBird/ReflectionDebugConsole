@@ -88,14 +88,14 @@ namespace AggroBird.ReflectionDebugConsole
 
         public ConnectionState State { get; private set; }
         private Socket socket = null;
-        private EndPoint endpoint;
+        private readonly EndPoint endpoint;
         public string Endpoint => endpoint.ToString();
         private readonly string authKey;
-        private readonly Mutex mutex = new Mutex();
+        private readonly Mutex mutex = new();
 
         private const int BufferSize = 4096;
         private readonly byte[] receiveBuffer = new byte[BufferSize];
-        private readonly List<byte> receivedData = new List<byte>();
+        private readonly List<byte> receivedData = new();
 
         public const int MaxPackageSize = 0xFFFFFF;
         private const int HeaderSize = 4;
@@ -288,12 +288,12 @@ namespace AggroBird.ReflectionDebugConsole
         }
 
         private Socket socket = null;
-        private readonly Mutex mutex = new Mutex();
-        private readonly List<DebugClient> connections = new List<DebugClient>();
-        private readonly List<Message> messageQueue = new List<Message>();
+        private readonly Mutex mutex = new();
+        private readonly List<DebugClient> connections = new();
+        private readonly List<Message> messageQueue = new();
         private readonly string authKey;
 
-        public struct Message
+        public readonly struct Message
         {
             public Message(DebugClient sender, string message, MessageFlags flags)
             {

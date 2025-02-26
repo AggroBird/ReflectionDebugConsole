@@ -9,7 +9,7 @@ namespace AggroBird.Reflection
 {
     internal static class Delegates
     {
-        private static int MaxDelegateParameterCount = 16;
+        private const int MaxDelegateParameterCount = 16;
 
         private static readonly Type[] ActionTypes =
         {

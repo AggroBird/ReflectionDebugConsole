@@ -67,7 +67,7 @@ namespace AggroBird.ReflectionDebugConsole
         private TouchScreenKeyboard touchScreenKeyboard = null;
         private bool IsTSKOpen => touchScreenKeyboard != null && touchScreenKeyboard.status == TouchScreenKeyboard.Status.Visible;
         private string consoleOutputText = string.Empty;
-        private struct OutputLine
+        private readonly struct OutputLine
         {
             public OutputLine(string text, bool isError)
             {
@@ -77,12 +77,12 @@ namespace AggroBird.ReflectionDebugConsole
             public readonly string text;
             public readonly bool isError;
         }
-        private readonly List<OutputLine> consoleOutputLines = new List<OutputLine>();
+        private readonly List<OutputLine> consoleOutputLines = new();
 
         // Suggestions
         private SuggestionResult suggestionResult = SuggestionResult.Empty;
-        private readonly SuggestionProvider suggestionProvider = new SuggestionProvider();
-        private readonly StringBuilder stringBuilder = new StringBuilder(1024);
+        private readonly SuggestionProvider suggestionProvider = new();
+        private readonly StringBuilder stringBuilder = new(1024);
         private int maxSuggestionCount = 0;
 
         // GUI style
@@ -93,19 +93,19 @@ namespace AggroBird.ReflectionDebugConsole
 
         private const int CaptureFrameCount = 2;
 
-        private static readonly Color32 foregroundColor = new Color32(255, 255, 255, 255);
-        private static readonly Color32 backgroundColor = new Color32(30, 30, 30, 255);
+        private static readonly Color32 foregroundColor = new(255, 255, 255, 255);
+        private static readonly Color32 backgroundColor = new(30, 30, 30, 255);
 
         private readonly HashSet<KeyCode>[] currentKeyPresses =
         {
-            new HashSet<KeyCode>(),
-            new HashSet<KeyCode>(),
-            new HashSet<KeyCode>(),
-            new HashSet<KeyCode>(),
-            new HashSet<KeyCode>(),
-            new HashSet<KeyCode>(),
-            new HashSet<KeyCode>(),
-            new HashSet<KeyCode>(),
+            new(),
+            new(),
+            new(),
+            new(),
+            new(),
+            new(),
+            new(),
+            new(),
         };
 
 
@@ -191,7 +191,7 @@ namespace AggroBird.ReflectionDebugConsole
                 GUI.enabled = isReady;
                 TextEditor editor = null;
                 {
-                    Rect inputArea = new Rect(0, y, width + scaleFactor, boxHeight);
+                    Rect inputArea = new(0, y, width + scaleFactor, boxHeight);
 
                     boxStyle.normal.textColor = backgroundColor;
                     boxStyle.richText = false;
@@ -765,15 +765,19 @@ namespace AggroBird.ReflectionDebugConsole
             whiteTexture = MakeTexture(8, 8, foregroundColor);
             blackTexture = MakeTexture(8, 8, backgroundColor);
 
-            buttonStyle = new GUIStyle(boxStyle);
-            buttonStyle.alignment = TextAnchor.MiddleCenter;
+            buttonStyle = new(boxStyle)
+            {
+                alignment = TextAnchor.MiddleCenter
+            };
         }
         private Texture2D MakeTexture(int width, int height, Color32 color)
         {
             Color32[] pixels = new Color32[width * height];
-            Texture2D texture = new Texture2D(width, height);
-            texture.wrapMode = TextureWrapMode.Clamp;
-            texture.filterMode = FilterMode.Point;
+            Texture2D texture = new(width, height)
+            {
+                wrapMode = TextureWrapMode.Clamp,
+                filterMode = FilterMode.Point
+            };
             for (int y = 0, idx = 0; y < height; y++)
             {
                 for (int x = 0; x < width; x++)

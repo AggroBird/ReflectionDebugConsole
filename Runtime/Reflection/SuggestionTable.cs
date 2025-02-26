@@ -837,7 +837,7 @@ namespace AggroBird.Reflection
             {
                 string queryString = query.ToString();
                 int queryLength = queryString.Length;
-                List<SuggestionObject> result = new List<SuggestionObject>();
+                List<SuggestionObject> result = new();
 
                 BindingFlags bindingFlags = Expression.MakeBindingFlags(isStatic, safeMode);
                 MemberInfo[] members = Expression.FilterMembers(type.GetMembers(bindingFlags));
@@ -897,7 +897,7 @@ namespace AggroBird.Reflection
         {
             if (query.Length == 0 || query.End == cursorPosition)
             {
-                Dictionary<string, SuggestionObject> suggestions = new Dictionary<string, SuggestionObject>();
+                Dictionary<string, SuggestionObject> suggestions = new();
                 string queryString = query.ToString();
                 int queryLength = queryString.Length;
                 bool hasQuery = queryLength > 0;
@@ -937,7 +937,7 @@ namespace AggroBird.Reflection
                 }
                 if (suggestions.Count > 0)
                 {
-                    List<SuggestionObject> result = new List<SuggestionObject>(suggestions.Values);
+                    List<SuggestionObject> result = new(suggestions.Values);
                     result.Sort();
                     return result.ToArray();
                 }
@@ -962,7 +962,7 @@ namespace AggroBird.Reflection
 
         public override SuggestionObject[] GetSuggestions(int cursorPosition, IReadOnlyList<string> usingNamespaces, bool safeMode)
         {
-            List<SuggestionObject> result = new List<SuggestionObject>();
+            List<SuggestionObject> result = new();
 
             int currentArgumentIndex = args.Count;
             for (int i = 0; i < overloads.Count; i++)
@@ -1001,7 +1001,7 @@ namespace AggroBird.Reflection
 
         public override SuggestionObject[] GetSuggestions(int cursorPosition, IReadOnlyList<string> usingNamespaces, bool safeMode)
         {
-            List<SuggestionObject> result = new List<SuggestionObject>();
+            List<SuggestionObject> result = new();
 
             int currentArgumentIndex = args.Count;
             for (int i = 0; i < generics.Count; i++)
@@ -1041,7 +1041,7 @@ namespace AggroBird.Reflection
 
         public override SuggestionObject[] GetSuggestions(int cursorPosition, IReadOnlyList<string> usingNamespaces, bool safeMode)
         {
-            List<SuggestionObject> result = new List<SuggestionObject>();
+            List<SuggestionObject> result = new();
 
             int currentArgumentIndex = CurrentArgumentIndex;
             for (int i = 0; i < properties.Count; i++)
@@ -1140,7 +1140,7 @@ namespace AggroBird.Reflection
                 }
 
                 StyledToken[] commandTokens = commandParser.GetStyledTokens();
-                List<StyledToken> styledTokens = new List<StyledToken>();
+                List<StyledToken> styledTokens = new();
                 for (int i = 0, j = 0; i < tokens.Length; i++)
                 {
                     if (j < commandTokens.Length && commandTokens[j].offset == tokens[i].str.Offset)
@@ -1177,7 +1177,7 @@ namespace AggroBird.Reflection
 
         public readonly SuggestionObject[] suggestions;
         public readonly bool isOverloadList;
-        public int SuggestionCount => suggestions == null ? 0 : suggestions.Length;
+        public readonly int SuggestionCount => suggestions == null ? 0 : suggestions.Length;
 
         // The string used to build the suggestion table
         public readonly string commandText;
@@ -1346,7 +1346,7 @@ namespace AggroBird.Reflection
             output.Clear();
             visibleLineCount = 0;
 
-            StyledStringBuilder styledOutput = new StyledStringBuilder(output);
+            StyledStringBuilder styledOutput = new(output);
 
             // Underflow
             if (highlightOffset > 0)
@@ -1381,7 +1381,7 @@ namespace AggroBird.Reflection
     [Serializable]
     internal struct SuggestionResult
     {
-        public static readonly SuggestionResult Empty = new SuggestionResult
+        public static readonly SuggestionResult Empty = new()
         {
             commandText = string.Empty,
             commandStyle = Array.Empty<StyledToken>(),

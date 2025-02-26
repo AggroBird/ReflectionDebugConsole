@@ -34,7 +34,7 @@ namespace AggroBird.ReflectionDebugConsole.Editor
 
         }
 
-        private static readonly List<string> keywordBuilder = new List<string>();
+        private static readonly List<string> keywordBuilder = new();
         protected static string[] GetKeywordsFromTypeFields<T>()
         {
             keywordBuilder.Clear();
@@ -83,7 +83,7 @@ namespace AggroBird.ReflectionDebugConsole.Editor
                 if (editorWindow)
                 {
                     EditorRectUtility.isEditorWindow = true;
-                    Rect newPosition = new Rect(scrollPos, editorWindow.position.size);
+                    Rect newPosition = new(scrollPos, editorWindow.position.size);
                     if (newPosition != EditorRectUtility.editorWindowPosition)
                     {
                         EditorRectUtility.editorWindowPosition = newPosition;
@@ -146,8 +146,10 @@ namespace AggroBird.ReflectionDebugConsole.Editor
         [SettingsProvider]
         public static SettingsProvider CreateSettingsProvider()
         {
-            var provider = new UserPrefSettingsWindow(Path, SettingsScope.User);
-            provider.keywords = GetKeywordsFromTypeFields<LocalMacroSettings>();
+            UserPrefSettingsWindow provider = new(Path, SettingsScope.User)
+            {
+                keywords = GetKeywordsFromTypeFields<LocalMacroSettings>()
+            };
             return provider;
         }
 
@@ -233,8 +235,10 @@ namespace AggroBird.ReflectionDebugConsole.Editor
         [SettingsProvider]
         public static SettingsProvider CreateSettingsProvider()
         {
-            var provider = new ProjectSettingsWindow(Path, SettingsScope.Project);
-            provider.keywords = GetKeywordsFromTypeFields<DebugConsoleSettings>();
+            ProjectSettingsWindow provider = new(Path, SettingsScope.Project)
+            {
+                keywords = GetKeywordsFromTypeFields<DebugConsoleSettings>()
+            };
             return provider;
         }
 
@@ -308,7 +312,7 @@ namespace AggroBird.ReflectionDebugConsole.Editor
         }
         private static string CreateAuthenticationKey(int length)
         {
-            System.Text.StringBuilder result = new System.Text.StringBuilder();
+            System.Text.StringBuilder result = new();
             byte[] bytes = new byte[length];
             using (RandomNumberGenerator random = RandomNumberGenerator.Create())
             {

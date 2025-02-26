@@ -15,9 +15,9 @@ namespace AggroBird.ReflectionDebugConsole
 
         public Assembly[] GetEnabledAssemblies()
         {
-            List<Assembly> result = new List<Assembly>();
+            List<Assembly> result = new();
 
-            HashSet<string> filter = new HashSet<string>();
+            HashSet<string> filter = new();
             foreach (var loadAssembly in assemblies)
             {
                 filter.Add(loadAssembly);
@@ -58,30 +58,30 @@ namespace AggroBird.ReflectionDebugConsole
         [Tooltip("Keybinds for opening the console")]
         public KeyBind[] openConsoleKeys = new KeyBind[]
         {
-            new KeyBind(KeyMod.None, KeyCode.BackQuote),
-            new KeyBind(KeyMod.None, KeyCode.Tilde),
+            new(KeyMod.None, KeyCode.BackQuote),
+            new(KeyMod.None, KeyCode.Tilde),
         };
         [Tooltip("Keybinds for submitting the input")]
         public KeyBind[] submitInputKeys = new KeyBind[]
         {
-            new KeyBind(KeyMod.None, KeyCode.Return),
-            new KeyBind(KeyMod.None, KeyCode.KeypadEnter),
+            new(KeyMod.None, KeyCode.Return),
+            new(KeyMod.None, KeyCode.KeypadEnter),
         };
 
         [Tooltip("Keybind for closing the console")]
-        public KeyBind closeConsoleKey = new KeyBind(KeyMod.None, KeyCode.Escape);
+        public KeyBind closeConsoleKey = new(KeyMod.None, KeyCode.Escape);
         [Tooltip("Keybind for autocompleting the most relevant suggestion")]
-        public KeyBind autoCompleteKey = new KeyBind(KeyMod.None, KeyCode.Tab);
+        public KeyBind autoCompleteKey = new(KeyMod.None, KeyCode.Tab);
 
         [Tooltip("Keybind for previous command in history")]
-        public KeyBind prevHistoryKey = new KeyBind(KeyMod.None, KeyCode.PageUp);
+        public KeyBind prevHistoryKey = new(KeyMod.None, KeyCode.PageUp);
         [Tooltip("Keybind for next command in history")]
-        public KeyBind nextHistoryKey = new KeyBind(KeyMod.None, KeyCode.PageDown);
+        public KeyBind nextHistoryKey = new(KeyMod.None, KeyCode.PageDown);
 
         [Tooltip("Keybind for previous suggestion in suggestion list")]
-        public KeyBind prevSuggestionKey = new KeyBind(KeyMod.None, KeyCode.UpArrow);
+        public KeyBind prevSuggestionKey = new(KeyMod.None, KeyCode.UpArrow);
         [Tooltip("Keybind for next suggestion in suggestion list")]
-        public KeyBind nextSuggestionKey = new KeyBind(KeyMod.None, KeyCode.DownArrow);
+        public KeyBind nextSuggestionKey = new(KeyMod.None, KeyCode.DownArrow);
 
         [Header("Console Settings")]
         [Tooltip("Max entry count in command history"), Min(0)]
@@ -109,14 +109,14 @@ namespace AggroBird.ReflectionDebugConsole
 
         [Header("Macros")]
         [Tooltip("Shared macros (saved to settings)")]
-        public List<Macro> sharedMacros = new List<Macro>();
+        public List<Macro> sharedMacros = new();
 
         [Header("Using Namespaces")]
         [Tooltip("Autocomplete namespaces")]
-        public List<string> namespaces = new List<string>();
+        public List<string> namespaces = new();
 
         [Header("Assemblies")]
         [Tooltip("Assemblies to include/exclude from the scan")]
-        public AssemblyTable assemblies = new AssemblyTable();
+        public AssemblyTable assemblies = new();
     }
 }

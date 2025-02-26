@@ -30,14 +30,14 @@ namespace AggroBird.ReflectionDebugConsole
             private readonly IReadOnlyList<string> usingNamespaces;
             private readonly bool safeMode;
 
-            public SuggestionTable Build() => new SuggestionTable(input, cursorPosition, identifierTable, usingNamespaces, safeMode);
+            public SuggestionTable Build() => new(input, cursorPosition, identifierTable, usingNamespaces, safeMode);
         }
 
         internal static int lastId = 0;
         internal readonly int id = lastId++;
         public int ID => id;
 
-        private readonly StringBuilder stringBuilder = new StringBuilder();
+        private readonly StringBuilder stringBuilder = new();
         private SuggestionTable suggestionTable = default;
         private Task<SuggestionTable> updateSuggestionsTask = null;
         public bool OperationInProgress { get; private set; }
@@ -93,7 +93,7 @@ namespace AggroBird.ReflectionDebugConsole
             }
 #endif
 
-            SuggestionTableBuilder builder = new SuggestionTableBuilder(input, cursorPosition, DebugConsole.IdentifierTable, DebugConsole.UsingNamespaces, DebugConsole.SafeMode);
+            SuggestionTableBuilder builder = new(input, cursorPosition, DebugConsole.IdentifierTable, DebugConsole.UsingNamespaces, DebugConsole.SafeMode);
 
             this.maxSuggestionCount = maxSuggestionCount;
 
