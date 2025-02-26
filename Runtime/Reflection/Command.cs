@@ -73,8 +73,8 @@ namespace AggroBird.Reflection
                     Advance();
                     Consume(TokenType.LParen);
                     Expression condition = ParseNext();
-                    Expression.CheckConvertibleBool(condition, out condition);
                     Consume(TokenType.RParen);
+                    Expression.CheckConvertibleBool(condition, out condition);
                     IfBlock ifBlock = new IfBlock(condition);
                     stack.Last().expressions.Add(ifBlock);
                     Push(ifBlock);
@@ -88,8 +88,8 @@ namespace AggroBird.Reflection
                         {
                             Consume(TokenType.LParen);
                             condition = ParseNext();
-                            Expression.CheckConvertibleBool(condition, out condition);
                             Consume(TokenType.RParen);
+                            Expression.CheckConvertibleBool(condition, out condition);
                             ElseIfBlock elseIfBlock = new ElseIfBlock(condition);
                             Push(elseIfBlock);
                             ParseOptionalBlock(elseIfBlock);
@@ -120,8 +120,8 @@ namespace AggroBird.Reflection
                     Expression condition = Match(TokenType.Semicolon) ? null : ParseNext();
                     if (condition != null)
                     {
-                        Expression.CheckConvertibleBool(condition, out condition);
                         Consume(TokenType.Semicolon);
+                        Expression.CheckConvertibleBool(condition, out condition);
                     }
                     Expression step = Match(TokenType.RParen) ? null : ParseRootExpression(false, false);
                     if (step != null)
@@ -144,13 +144,34 @@ namespace AggroBird.Reflection
                     Consume(TokenType.LParen);
                     PushScope();
                     Expression condition = ParseNext();
-                    Expression.CheckConvertibleBool(condition, out condition);
                     Consume(TokenType.RParen);
+                    Expression.CheckConvertibleBool(condition, out condition);
                     WhileBlock whileBlock = new WhileBlock(condition, maxIterationCount);
                     stack.Last().expressions.Add(whileBlock);
                     PushBlock(whileBlock);
                     ParseOptionalBlock(whileBlock);
                     Pop();
+                    loopStack--;
+                }
+                break;
+
+                case TokenType.Do:
+                {
+                    loopStack++;
+                    Advance();
+                    PushScope();
+                    DoWhileBlock doWhileBlock = new DoWhileBlock(maxIterationCount);
+                    stack.Last().expressions.Add(doWhileBlock);
+                    PushBlock(doWhileBlock);
+                    ParseOptionalBlock(doWhileBlock);
+                    Pop();
+                    Consume(TokenType.While);
+                    Consume(TokenType.LParen);
+                    Expression condition = ParseNext();
+                    Consume(TokenType.RParen);
+                    Expression.CheckConvertibleBool(condition, out condition);
+                    Consume(TokenType.Semicolon);
+                    doWhileBlock.SetCondition(condition);
                     loopStack--;
                 }
                 break;

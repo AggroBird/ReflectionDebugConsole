@@ -2317,10 +2317,10 @@ namespace AggroBird.Reflection
             this.maxIterations = maxIterations;
         }
 
-        public readonly Expression init;
-        public readonly Expression condition;
-        public readonly Expression step;
-        public readonly int maxIterations;
+        private readonly Expression init;
+        private readonly Expression condition;
+        private readonly Expression step;
+        private readonly int maxIterations;
 
 
         public override object Execute(ExecutionContext context)
@@ -2364,8 +2364,8 @@ namespace AggroBird.Reflection
             this.maxIterations = maxIterations;
         }
 
-        public readonly Expression condition;
-        public readonly int maxIterations;
+        private readonly Expression condition;
+        private readonly int maxIterations;
 
 
         public override object Execute(ExecutionContext context)
@@ -2387,6 +2387,42 @@ namespace AggroBird.Reflection
         }
     }
 
+    internal class DoWhileBlock : Loop
+    {
+        public DoWhileBlock(int maxIterations)
+        {
+            this.maxIterations = maxIterations;
+        }
+
+        private Expression condition;
+        private readonly int maxIterations;
+
+
+        public void SetCondition(Expression condition)
+        {
+            this.condition = condition;
+        }
+
+        public override object Execute(ExecutionContext context)
+        {
+            int outerStackOffset = context.variables.Count;
+            object result;
+            int iterCount = 0;
+            do
+            {
+                result = base.Execute(context);
+
+                if (++iterCount >= maxIterations) throw new DebugConsoleException($"Maximum loop iteration reached ({maxIterations})");
+
+                context.variables.RemoveRange(outerStackOffset, context.variables.Count - outerStackOffset);
+
+                if (Break(context)) break;
+            }
+            while (condition.Forward<bool>(context));
+            return result;
+        }
+    }
+
     internal class ForeachBlock : Loop
     {
         public ForeachBlock(Expression collection, EnumeratorInfo enumeratorInfo, VariableDeclaration iterVar, int maxIterations)
@@ -2397,10 +2433,10 @@ namespace AggroBird.Reflection
             this.maxIterations = maxIterations;
         }
 
-        public readonly Expression collection;
-        public readonly EnumeratorInfo enumeratorInfo;
-        public readonly VariableDeclaration iterVar;
-        public readonly int maxIterations;
+        private readonly Expression collection;
+        private readonly EnumeratorInfo enumeratorInfo;
+        private readonly VariableDeclaration iterVar;
+        private readonly int maxIterations;
 
 
         public override object Execute(ExecutionContext context)

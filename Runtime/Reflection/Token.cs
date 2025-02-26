@@ -223,6 +223,8 @@ namespace AggroBird.Reflection
         For,
         [TokenInfo("while", TokenFamily.Keyword)]
         While,
+        [TokenInfo("do", TokenFamily.Keyword)]
+        Do,
         [TokenInfo("foreach", TokenFamily.Keyword)]
         Foreach,
         [TokenInfo("break", TokenFamily.Keyword)]
