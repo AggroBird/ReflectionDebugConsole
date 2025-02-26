@@ -78,7 +78,7 @@ namespace AggroBird.Reflection
                     IfBlock ifBlock = new IfBlock(condition);
                     stack.Last().expressions.Add(ifBlock);
                     Push(ifBlock);
-                    ParseOptionalBlock(ifBlock);
+                    ParseAppendingExpressions();
                     Pop();
 
                 ParseNextIf:
@@ -92,7 +92,7 @@ namespace AggroBird.Reflection
                             Expression.CheckConvertibleBool(condition, out condition);
                             ElseIfBlock elseIfBlock = new ElseIfBlock(condition);
                             Push(elseIfBlock);
-                            ParseOptionalBlock(elseIfBlock);
+                            ParseAppendingExpressions();
                             Pop();
                             ifBlock.AddSubBlock(elseIfBlock);
 
@@ -102,7 +102,7 @@ namespace AggroBird.Reflection
                         {
                             ElseBlock elseBlock = new ElseBlock();
                             Push(elseBlock);
-                            ParseOptionalBlock(elseBlock);
+                            ParseAppendingExpressions();
                             Pop();
                             ifBlock.AddSubBlock(elseBlock);
                         }
@@ -131,7 +131,7 @@ namespace AggroBird.Reflection
                     ForBlock forBlock = new ForBlock(init, condition, step, maxIterationCount);
                     stack.Last().expressions.Add(forBlock);
                     PushBlock(forBlock);
-                    ParseOptionalBlock(forBlock);
+                    ParseAppendingExpressions();
                     Pop();
                     loopStack--;
                 }
@@ -149,7 +149,7 @@ namespace AggroBird.Reflection
                     WhileBlock whileBlock = new WhileBlock(condition, maxIterationCount);
                     stack.Last().expressions.Add(whileBlock);
                     PushBlock(whileBlock);
-                    ParseOptionalBlock(whileBlock);
+                    ParseAppendingExpressions();
                     Pop();
                     loopStack--;
                 }
@@ -163,7 +163,7 @@ namespace AggroBird.Reflection
                     DoWhileBlock doWhileBlock = new DoWhileBlock(maxIterationCount);
                     stack.Last().expressions.Add(doWhileBlock);
                     PushBlock(doWhileBlock);
-                    ParseOptionalBlock(doWhileBlock);
+                    ParseAppendingExpressions();
                     Pop();
                     Consume(TokenType.While);
                     Consume(TokenType.LParen);
@@ -224,7 +224,7 @@ namespace AggroBird.Reflection
                     ForeachBlock foreachBlock = new ForeachBlock(collection, enumeratorInfo, declaration, maxIterationCount);
                     stack.Last().expressions.Add(foreachBlock);
                     PushBlock(foreachBlock);
-                    ParseOptionalBlock(foreachBlock);
+                    ParseAppendingExpressions();
                     Pop();
                     loopStack--;
                 }
@@ -238,10 +238,11 @@ namespace AggroBird.Reflection
             }
         }
 
-        private void ParseOptionalBlock(Block parent)
+        private void ParseAppendingExpressions()
         {
             if (Match(TokenType.LBrace))
             {
+                // Append to existing block
                 while (!Match(TokenType.RBrace))
                 {
                     ParseBlock();
@@ -249,9 +250,23 @@ namespace AggroBird.Reflection
             }
             else
             {
-                parent.expressions.Add(ParseRootExpression(true, true));
+                TokenType next = Peek();
+                switch (next)
+                {
+                    // Allow nesting of blocks
+                    case TokenType.If:
+                    case TokenType.While:
+                    case TokenType.Do:
+                    case TokenType.Foreach:
+                        ParseBlock();
+                        break;
+                    default:
+                        stack.Last().expressions.Add(ParseRootExpression(true, true));
+                        break;
+                }
             }
         }
+
         private Expression ParseRootExpression(bool requireSemicolon, bool allowControlFlow)
         {
             if (allowControlFlow)
