@@ -1453,7 +1453,7 @@ namespace AggroBird.Reflection
                     TokenInfo info = TokenUtility.GetTokenInfo(next);
                     if (info.family == TokenFamily.Identifier || info.family == TokenFamily.Keyword)
                     {
-                        Expression expr = ParseNext(Precedence.Primary);
+                        Expression expr = ParseNext(Precedence.Prefix);
                         if (expr is Constructor constructor)
                         {
                             return new NewInvocation(constructor);
@@ -1835,6 +1835,11 @@ namespace AggroBird.Reflection
                     // This token is part of generic syntax
                     return Precedence.Root;
                 }
+            }
+
+            if (lhs is Constructor)
+            {
+                return Precedence.Root;
             }
 
             return base.PeekNextPrecedence(lhs);
