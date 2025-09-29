@@ -100,7 +100,7 @@ namespace AggroBird.ReflectionDebugConsole.Editor
             position.height = verticalStep;
             if (EditorGUI.PropertyField(position, property, label, false))
             {
-                using (new EditorGUI.DisabledGroupScope(EditorApplication.isCompiling || EditorApplication.isUpdating))
+                using (new EditorGUI.DisabledScope(EditorApplication.isCompiling || EditorApplication.isUpdating))
                 {
                     EditorGUI.indentLevel++;
                     position = EditorGUI.IndentedRect(position);
