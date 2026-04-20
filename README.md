@@ -60,7 +60,7 @@ Multiple commands can be chained together within one execution by separating the
 EditorApplication.isPlaying = true; EditorApplication.isPaused = true;
 ```
 
-The debug console try to pick the best matching overload when multiple are available, but not as strict as the C# compiler, so make sure to avoid ambiguity in debug commands.
+The debug console will try to pick the best matching overload when multiple are available, but not as strict as the C# compiler, so make sure to avoid ambiguity in debug commands.
 
 The environment supports all C# basetypes and build-in operators between them:
 ```csharp
