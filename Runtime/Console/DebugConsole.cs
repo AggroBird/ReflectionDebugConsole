@@ -764,7 +764,7 @@ namespace AggroBird.ReflectionDebugConsole
 
             if (!instance)
             {
-                instance = Object.FindObjectOfType<Instance>();
+                instance = Object.FindFirstObjectByType<Instance>();
                 if (!instance)
                 {
                     // Create a new instance if we lost our previous
