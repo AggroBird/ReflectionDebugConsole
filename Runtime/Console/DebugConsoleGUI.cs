@@ -1,6 +1,6 @@
 // Copyright, AggrobirdGK
 
-#if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD || INCLUDE_DEBUG_CONSOLE) && !EXCLUDE_DEBUG_CONSOLE
 using AggroBird.Reflection;
 using System.Collections.Generic;
 using System.Text;
@@ -13,7 +13,7 @@ namespace AggroBird.ReflectionDebugConsole
 {
     public sealed class DebugConsoleGUI : IDisposable
     {
-#if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD || INCLUDE_DEBUG_CONSOLE) && !EXCLUDE_DEBUG_CONSOLE
         public DebugConsoleGUI(bool isDocked = true)
         {
             this.isDocked = isDocked;

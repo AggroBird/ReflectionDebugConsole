@@ -1,6 +1,6 @@
 // Copyright, AggrobirdGK
 
-#if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD || INCLUDE_DEBUG_CONSOLE) && !EXCLUDE_DEBUG_CONSOLE
 using AggroBird.Reflection;
 using System.Collections.Generic;
 using System.Reflection;
@@ -36,7 +36,7 @@ namespace AggroBird.ReflectionDebugConsole
         public delegate void OnConsoleFocusChangeDelegate(bool isFocused);
         public static event OnConsoleFocusChangeDelegate OnConsoleFocusChange = default;
 
-#if (INCLUDE_DEBUG_CONSOLE || UNITY_EDITOR) && !EXCLUDE_DEBUG_CONSOLE
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD || INCLUDE_DEBUG_CONSOLE) && !EXCLUDE_DEBUG_CONSOLE
         public static void Log(object msg)
         {
 #if INCLUDE_DEBUG_SERVER
