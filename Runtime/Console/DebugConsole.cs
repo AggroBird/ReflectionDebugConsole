@@ -14,8 +14,10 @@ using System;
 using System.Runtime.CompilerServices;
 using UnityEngine;
 using System.Globalization;
+using UnityEngine.Scripting;
 
 [assembly: InternalsVisibleTo("AggroBird.ReflectionDebugConsole.Editor")]
+[assembly: AlwaysLinkAssembly]
 
 namespace AggroBird.ReflectionDebugConsole
 {
@@ -133,8 +135,6 @@ namespace AggroBird.ReflectionDebugConsole
             }
             return ScriptableObject.CreateInstance<DebugConsoleSettings>();
         }
-
-        private static bool AllowConsoleGUI => Debug.isDebugBuild || Settings.allowConsoleInRelease;
 
         private static Assembly[] assemblies = null;
         private static Assembly[] GetEnabledAssemblies()
@@ -762,7 +762,7 @@ namespace AggroBird.ReflectionDebugConsole
             }
 #endif
 
-            if (!instance && AllowConsoleGUI)
+            if (!instance)
             {
                 instance = Object.FindObjectOfType<Instance>();
                 if (!instance)
@@ -1053,8 +1053,7 @@ namespace AggroBird.ReflectionDebugConsole
             }
         }
 
-
-        public static void Open() { if (AllowConsoleGUI) { Initialize(); GetGUI().Open(); } }
+        public static void Open() { Initialize(); GetGUI().Open(); }
         public static void Close() { gui?.Close(); }
 
         public static bool Execute(string cmd)
